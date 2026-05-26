@@ -43,8 +43,10 @@ class PageController extends Controller {
 		\OCP\Util::addStyle($this->appName, 'dashboard');
 		// Analytics page needs Chart.js. Loaded BEFORE the page script so
 		// `new Chart(...)` is available when analytics.js runs.
+		// NOTE: ownCloud's JSResourceLocator auto-appends ".js"; pass the
+		// path WITHOUT the suffix or it becomes "...js.js" → 404.
 		if ($template === 'analytics') {
-			\OCP\Util::addScript($this->appName, 'vendor/chart.umd.min.js');
+			\OCP\Util::addScript($this->appName, 'vendor/chart.umd.min');
 		}
 		$scriptMap = [
 			'main'      => 'dashboard',

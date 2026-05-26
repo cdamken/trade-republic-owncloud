@@ -1,0 +1,309 @@
+/*
+ * Trade Republic Portfolio — dashboard styles.
+ * Ported from Trade-Republic-Dashboard/app/{index,analytics}.html, scoped
+ * under #tr-app so it can't clash with ownCloud's chrome.
+ */
+
+/*
+ * ownCloud wraps our template in #content / #app-content (white bg). Extend
+ * the dark bg through those wrappers when our root is present so the dark
+ * dashboard reaches the page edges. Only fires when #tr-app exists.
+ */
+body:has(#tr-app),
+#content:has(#tr-app),
+#app-content:has(#tr-app),
+#content-wrapper:has(#tr-app),
+body.tr-app-active,
+body.tr-app-active #content,
+body.tr-app-active #app-content,
+body.tr-app-active #content-wrapper {
+	background: #0f1419 !important;
+}
+
+#tr-app {
+	--bg: #0f1419;
+	--card: #1a1f2e;
+	--border: #2a3142;
+	--text: #e8eef5;
+	--muted: #7a8599;
+	--green: #4ade80;
+	--red: #f87171;
+	--amber: #fbbf24;
+	--blue: #60a5fa;
+	--purple: #c084fc;
+
+	background: var(--bg);
+	color: var(--text);
+	padding: 24px;
+	line-height: 1.5;
+	min-height: 100vh;
+	box-sizing: border-box;
+	font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+}
+#tr-app *, #tr-app *::before, #tr-app *::after { box-sizing: border-box; }
+
+#tr-app h1 {
+	font-size: 28px; margin-bottom: 8px;
+	display: flex; align-items: center; gap: 12px; font-weight: 700;
+}
+#tr-app .logo-box {
+	background: linear-gradient(135deg, #166534, #4ade80);
+	width: 44px; height: 44px; border-radius: 8px;
+	display: flex; align-items: center; justify-content: center;
+	font-size: 14px; font-weight: 800; color: #0a1a0e;
+}
+
+#tr-app .subtitle { color: var(--muted); margin-bottom: 24px; font-size: 13px; }
+#tr-app .subtitle .update-btn {
+	margin-left: 12px;
+	background: var(--card); border: 1px solid var(--border);
+	color: var(--green); padding: 4px 12px; border-radius: 6px;
+	cursor: pointer; font-size: 12px;
+}
+#tr-app .subtitle .update-btn:hover { background: rgba(74, 222, 128, 0.1); }
+#tr-app .subtitle .update-btn:disabled { opacity: 0.5; cursor: wait; }
+#tr-app .subtitle .settings-btn {
+	margin-left: 6px;
+	background: var(--card); border: 1px solid var(--border);
+	color: var(--muted); padding: 4px 10px; border-radius: 6px;
+	cursor: pointer; font-size: 12px;
+}
+#tr-app .subtitle .settings-btn:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+
+#tr-app .nav { display: flex; gap: 8px; margin-bottom: 24px; }
+#tr-app .nav a {
+	color: var(--muted); text-decoration: none; font-size: 14px;
+	padding: 8px 18px; border-radius: 8px; font-weight: 500;
+	border: 1px solid var(--border); transition: all 0.15s;
+}
+#tr-app .nav a:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+#tr-app .nav a.active {
+	background: var(--green); color: var(--bg); border-color: var(--green); font-weight: 600;
+}
+
+#tr-app .cards {
+	display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+	gap: 16px; margin-bottom: 32px;
+}
+#tr-app .card {
+	background: var(--card); border: 1px solid var(--border);
+	border-radius: 12px; padding: 20px;
+}
+#tr-app .card .label {
+	color: var(--muted); font-size: 11px; text-transform: uppercase;
+	letter-spacing: 0.8px; margin-bottom: 8px;
+}
+#tr-app .card .value { font-size: 26px; font-weight: 700; }
+#tr-app .card .delta { font-size: 13px; margin-top: 6px; }
+
+#tr-app .green { color: var(--green); }
+#tr-app .red { color: var(--red); }
+#tr-app .amber { color: var(--amber); }
+#tr-app .blue { color: var(--blue); }
+#tr-app .purple { color: var(--purple); }
+#tr-app .muted { color: var(--muted); }
+#tr-app .pos { color: var(--green); }
+#tr-app .neg { color: var(--red); }
+
+#tr-app .section {
+	margin: 40px 0 16px; font-size: 18px; font-weight: 700;
+	display: flex; align-items: center; gap: 10px;
+}
+#tr-app .badge {
+	background: var(--border); color: var(--muted); font-size: 12px;
+	padding: 3px 10px; border-radius: 12px; font-weight: 500;
+}
+
+#tr-app .controls {
+	display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap;
+}
+/*
+ * ownCloud's core.css forces input/select to height: 32px with mismatched
+ * padding. Our padding + their height crops the text. Override locally,
+ * scoped to #tr-app so we don't leak into the rest of the page.
+ */
+#tr-app .controls input,
+#tr-app .controls select {
+	background: var(--card) !important;
+	border: 1px solid var(--border) !important;
+	color: var(--text) !important;
+	padding: 10px 14px !important;
+	margin: 0 !important;
+	border-radius: 8px !important;
+	font-size: 14px !important;
+	line-height: 1.4 !important;
+	height: auto !important;
+	min-height: 0;
+	box-sizing: border-box;
+	font-family: inherit;
+	-webkit-appearance: none;
+	   -moz-appearance: none;
+	        appearance: none;
+}
+#tr-app .controls select {
+	background-image:
+		linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+		linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+	background-position:
+		calc(100% - 17px) 50%,
+		calc(100% - 12px) 50%;
+	background-size: 5px 5px, 5px 5px;
+	background-repeat: no-repeat;
+	padding-right: 30px !important;
+}
+#tr-app .controls input { min-width: 250px; }
+#tr-app .controls input::placeholder { color: var(--muted); opacity: 1; }
+
+#tr-app table {
+	width: 100%; border-collapse: collapse; background: var(--card);
+	border-radius: 12px; overflow: hidden; margin-bottom: 12px; table-layout: auto;
+}
+#tr-app th, #tr-app td {
+	text-align: left; padding: 12px 14px; font-size: 13px;
+	border-bottom: 1px solid var(--border);
+}
+#tr-app th {
+	background: rgba(255,255,255,0.03); color: var(--muted);
+	font-weight: 600; cursor: pointer; user-select: none; white-space: nowrap;
+}
+#tr-app th:hover { color: var(--text); }
+#tr-app tr:hover { background: rgba(255,255,255,0.02); }
+#tr-app .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+#tr-app .ticker { font-weight: 600; }
+#tr-app .sob-id { font-family: monospace; color: var(--muted); font-size: 11px; }
+#tr-app .empty { text-align: center; padding: 24px; color: var(--muted); font-size: 13px; }
+
+#tr-app .warning {
+	background: rgba(251, 191, 36, 0.1); border-left: 4px solid var(--amber);
+	padding: 14px 18px; border-radius: 8px; margin: 16px 0; font-size: 13px;
+	color: var(--text);
+}
+#tr-app .error {
+	background: rgba(248, 113, 113, 0.1); border-left: 4px solid var(--red);
+	padding: 16px 20px; border-radius: 8px; margin: 20px 0; font-size: 14px;
+}
+
+#tr-app .disclaimer {
+	margin-top: 60px; padding-top: 20px; border-top: 1px solid var(--border);
+	color: var(--muted); font-size: 11px; line-height: 1.6;
+}
+#tr-app .disclaimer a { color: var(--green); text-decoration: none; }
+#tr-app .disclaimer a:hover { text-decoration: underline; }
+
+/* ----- progress overlay (shown during /update fetches) ----- */
+#tr-app .progress-overlay {
+	position: fixed; inset: 0; background: rgba(15, 20, 25, 0.92);
+	display: none; align-items: center; justify-content: center;
+	z-index: 200; backdrop-filter: blur(8px);
+}
+#tr-app .progress-overlay.show { display: flex; }
+#tr-app .progress-box {
+	background: var(--card); border: 1px solid var(--border);
+	border-radius: 12px; padding: 32px; max-width: 540px; width: 92%;
+	box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+	text-align: center;
+}
+#tr-app .progress-box h2 { font-size: 22px; margin-bottom: 12px; }
+#tr-app .progress-box .progress-stage {
+	color: var(--text); font-size: 15px; margin-bottom: 8px; min-height: 22px;
+	transition: opacity 0.2s;
+}
+#tr-app .progress-box .progress-hint {
+	color: var(--muted); font-size: 12px; line-height: 1.5;
+}
+#tr-app .progress-box .progress-elapsed {
+	color: var(--muted); font-size: 11px; margin-top: 14px;
+	font-variant-numeric: tabular-nums;
+}
+#tr-app .spinner {
+	width: 56px; height: 56px; margin: 8px auto 24px;
+	border: 4px solid var(--border); border-top-color: var(--green);
+	border-radius: 50%; animation: tr-spin 0.9s linear infinite;
+}
+@keyframes tr-spin { to { transform: rotate(360deg); } }
+
+/* ----- modals ----- */
+#tr-app .modal-backdrop {
+	position: fixed; inset: 0; background: rgba(0,0,0,0.65);
+	display: none; align-items: center; justify-content: center;
+	z-index: 100; backdrop-filter: blur(4px);
+}
+#tr-app .modal-backdrop.show { display: flex; }
+#tr-app .modal {
+	background: var(--card); border: 1px solid var(--border);
+	border-radius: 12px; padding: 28px; max-width: 460px; width: 90%;
+	box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+#tr-app .modal h2 { font-size: 18px; margin-bottom: 8px; }
+#tr-app .modal p { color: var(--muted); font-size: 13px; margin-bottom: 20px; line-height: 1.5; }
+#tr-app .modal input.totp {
+	width: 100% !important;
+	background: var(--bg) !important;
+	border: 2px solid var(--border) !important;
+	color: var(--text) !important;
+	padding: 14px !important;
+	margin: 0 0 16px 0 !important;
+	border-radius: 8px !important;
+	font-size: 28px !important;
+	font-family: monospace !important;
+	text-align: center;
+	letter-spacing: 16px;
+	height: auto !important;
+	line-height: 1.2 !important;
+	box-sizing: border-box;
+}
+#tr-app .modal input.totp:focus { outline: none; border-color: var(--green) !important; }
+#tr-app .modal label {
+	display: block; font-size: 12px; text-transform: uppercase;
+	letter-spacing: 0.7px; color: var(--muted); margin-bottom: 6px;
+	margin-top: 14px; font-weight: 600;
+}
+#tr-app .modal label:first-of-type { margin-top: 0; }
+#tr-app .modal input.field {
+	width: 100% !important;
+	background: var(--bg) !important;
+	border: 1px solid var(--border) !important;
+	color: var(--text) !important;
+	padding: 12px 14px !important;
+	margin: 0 !important;
+	border-radius: 8px !important;
+	font-size: 14px !important;
+	font-family: -apple-system, sans-serif !important;
+	height: auto !important;
+	line-height: 1.4 !important;
+	box-sizing: border-box;
+}
+#tr-app .modal input.field:focus { outline: none; border-color: var(--green) !important; }
+#tr-app .modal input.field::placeholder { color: var(--muted); opacity: 1; }
+#tr-app .modal input.pin-field {
+	font-family: monospace !important; text-align: center; letter-spacing: 8px;
+	font-size: 22px !important;
+}
+#tr-app .modal .modal-btns { display: flex; gap: 12px; justify-content: flex-end; align-items: center; }
+#tr-app .modal button {
+	padding: 10px 20px; border-radius: 8px; border: none;
+	font-size: 14px; cursor: pointer; font-weight: 600;
+}
+#tr-app .modal button.primary { background: var(--green); color: var(--bg); }
+#tr-app .modal button.primary:hover:not(:disabled) { background: #6ee596; }
+#tr-app .modal button.primary:disabled { opacity: 0.5; cursor: wait; }
+#tr-app .modal button.secondary {
+	background: transparent; color: var(--muted); border: 1px solid var(--border);
+}
+#tr-app .modal button.secondary:hover { color: var(--text); }
+#tr-app .modal button.danger {
+	background: transparent; color: var(--red); border: 1px solid rgba(248, 113, 113, 0.4);
+}
+#tr-app .modal button.danger:hover:not(:disabled) {
+	background: rgba(248, 113, 113, 0.1); color: var(--red);
+}
+#tr-app .modal button.danger:disabled { opacity: 0.4; cursor: not-allowed; }
+#tr-app .modal .modal-error {
+	background: rgba(248, 113, 113, 0.1); border-left: 3px solid var(--red);
+	padding: 10px 14px; border-radius: 6px; font-size: 13px;
+	margin-bottom: 16px; color: var(--red);
+}
+#tr-app .modal .modal-error.hidden { display: none; }
+#tr-app .modal .modal-hint {
+	font-size: 11px; color: var(--muted); margin-top: 12px; text-align: center;
+}

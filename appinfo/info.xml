@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<info>
+	<id>trade_republic</id>
+	<name>Trade Republic Portfolio</name>
+	<description>
+		Dashboard privado para tu portafolio de Trade Republic. Cada usuario de
+		ownCloud ve solo sus propios datos: el teléfono + PIN y las cookies de
+		sesión viven aisladas en el directorio del usuario, y la app descarga
+		portafolio, transacciones y analytics vía tr-api. No oficial.
+	</description>
+	<licence>BUSL-1.1</licence>
+	<author>Carlos Damken</author>
+	<version>0.1.0</version>
+	<website>https://github.com/cdamken/trade-republic-owncloud</website>
+	<bugs>https://github.com/cdamken/trade-republic-owncloud/issues</bugs>
+	<repository type="git">https://github.com/cdamken/trade-republic-owncloud.git</repository>
+	<category>tools</category>
+	<summary>Dashboard Trade Republic por usuario sobre ownCloud</summary>
+	<namespace>TradeRepublic</namespace>
+	<dependencies>
+		<owncloud min-version="10" max-version="10"/>
+	</dependencies>
+</info>

@@ -1,0 +1,19 @@
+# Python bytecode
+__pycache__/
+*.pyc
+*.pyo
+
+# Editor / OS noise
+.DS_Store
+.vscode/
+.idea/
+
+# Per-user runtime data NEVER goes here — it lives in
+# {datadirectory}/<uid>/tr/ on the server. But just in case anyone
+# accidentally drops it in the repo:
+DATA/
+*.log
+fetch.log
+session.json
+cookies.json
+*.pending_login.json

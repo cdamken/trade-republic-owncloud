@@ -17,3 +17,4 @@ fetch.log
 session.json
 cookies.json
 *.pending_login.json
+.scrapped/

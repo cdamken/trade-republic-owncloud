@@ -58,9 +58,12 @@ class ApiController extends Controller {
 	 */
 	public function getConfig(): JSONResponse {
 		$configured = $this->tr->isConfigured();
+		// Both keys carry the same boolean. Upstream's /setup_status JS reads
+		// `setup_complete`; we keep `configured` as well so older clients work.
 		return new JSONResponse([
-			'configured' => $configured,
-			'phone'      => $configured ? $this->tr->getPhone() : null,
+			'configured'     => $configured,
+			'setup_complete' => $configured,
+			'phone'          => $configured ? $this->tr->getPhone() : null,
 		]);
 	}
 

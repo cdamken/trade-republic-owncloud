@@ -41,6 +41,11 @@ class PageController extends Controller {
 
 	private function renderTemplate(string $template): TemplateResponse {
 		\OCP\Util::addStyle($this->appName, 'dashboard');
+		// Analytics page needs Chart.js. Loaded BEFORE the page script so
+		// `new Chart(...)` is available when analytics.js runs.
+		if ($template === 'analytics') {
+			\OCP\Util::addScript($this->appName, 'vendor/chart.umd.min.js');
+		}
 		$scriptMap = [
 			'main'      => 'dashboard',
 			'analytics' => 'analytics',
@@ -60,6 +65,11 @@ class PageController extends Controller {
 
 		$response = new TemplateResponse($this->appName, $template, $params);
 		$csp = new ContentSecurityPolicy();
+		// Verbatim upstream HTML/JS has many inline `style="..."` attributes
+		// and Chart.js draws canvases dynamically — both require relaxed
+		// style-src. Inline <script> remains blocked; inline event handlers
+		// were re-wired to addEventListener.
+		$csp->allowInlineStyle(true);
 		$response->setContentSecurityPolicy($csp);
 		return $response;
 	}

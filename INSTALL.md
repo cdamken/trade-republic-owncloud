@@ -23,12 +23,12 @@ sudo python3.10 -m venv /opt/tr-venv
 # ese binario. Detalle abajo si te aplica.
 ```
 
-Instalar `tr-api` con extras de browser (para el WAF de TR):
+Instalar `tr-api` con extras de browser (para el WAF de TR). `tr-api` no
+está publicada en PyPI todavía — se instala directo desde GitHub:
 
 ```bash
 sudo /opt/tr-venv/bin/pip install --upgrade pip
-sudo /opt/tr-venv/bin/pip install 'tr-api[browser]'
-sudo /opt/tr-venv/bin/playwright install chromium
+sudo /opt/tr-venv/bin/pip install "tr-api[browser] @ git+https://github.com/cdamken/tr-api.git"
 
 # Verificar
 sudo /opt/tr-venv/bin/python -c "import tr_api; print(tr_api.__version__)"
@@ -51,41 +51,48 @@ sudo uv venv --python 3.11 /opt/tr-venv
 
 Después continúa con `pip install 'tr-api[browser]'` igual que arriba.
 
-## 2. Permisos del venv y de Playwright
+## 2. Chromium (Playwright) en cache compartida
 
-ownCloud corre como `www-data`. El subprocess que arranca PHP necesita poder
-**leer** el venv y **escribir** la cache de Playwright. Lo más simple:
+`tr-api` usa Playwright para resolver el WAF de Cloudflare delante del login
+de TR. Si dejamos que cada usuario instale Chromium en su HOME, se baja ~150
+MB por usuario en el primer login. Mejor instalarlo una sola vez en una
+cache compartida y dejar que el app la consuma:
 
 ```bash
-sudo chown -R root:www-data /opt/tr-venv
-sudo chmod -R g+rX /opt/tr-venv
+# 1. Descargar Chromium directo a la cache compartida (PLAYWRIGHT_BROWSERS_PATH
+#    le dice a `playwright install` dónde poner los binarios).
+sudo PLAYWRIGHT_BROWSERS_PATH=/var/cache/tr-playwright \
+  /opt/tr-venv/bin/playwright install chromium
 
-# Playwright cachea Chromium en ~/.cache. Como mandamos HOME=tempdir desde PHP,
-# Playwright lo recreará ahí cada vez. Para evitarlo, exporta una cache
-# compartida via env (alternativa: dejar que el primer fetch tarde un poco más).
-sudo mkdir -p /var/cache/tr-playwright
-sudo chown www-data:www-data /var/cache/tr-playwright
-sudo chmod 0750 /var/cache/tr-playwright
+# 2. Instalar las libs del sistema que Chromium necesita (libatk-bridge,
+#    libgtk-3, libnss, etc.). Sin esto, Chromium falla con
+#    "error while loading shared libraries".
+sudo /opt/tr-venv/bin/playwright install-deps chromium
+
+# 3. Permisos: venv y cache leíbles por www-data, no escribibles.
+sudo chown -R root:www-data /opt/tr-venv /var/cache/tr-playwright
+sudo chmod -R g+rX        /opt/tr-venv /var/cache/tr-playwright
+
+# 4. Verificar que www-data puede ejecutar Chromium.
+sudo -u www-data /var/cache/tr-playwright/chromium-*/chrome-linux64/chrome --version
 ```
 
-Si quieres usar la cache compartida, añade en tu configuración de PHP-FPM
-(pool `www`) algo como:
+El app pasa `PLAYWRIGHT_BROWSERS_PATH=/var/cache/tr-playwright` al wrapper
+Python automáticamente (ver `TrService::runFetch`). Si necesitas otra ruta:
 
-```ini
-env[PLAYWRIGHT_BROWSERS_PATH] = /var/cache/tr-playwright
+```bash
+sudo -u www-data php occ config:system:set trade_republic.playwright_browsers_path \
+    --value=/otra/ruta/playwright
 ```
-
-y reinicia `php-fpm`. (Opcional — si lo omites, cada usuario reinstalará
-chromium en su tempdir la primera vez.)
 
 ## 3. Clonar y habilitar el app
 
 ```bash
 cd /var/www/owncloud/apps
-sudo -u www-data git clone https://github.com/cdamken/trade-republic-owncloud.git tr
+sudo -u www-data git clone https://github.com/cdamken/trade-republic-owncloud.git trade_republic
 
-# Verificar permisos
-sudo -u www-data ls -la /var/www/owncloud/apps/trade_republic
+# Verificar permisos (debe ser www-data:www-data)
+ls -la /var/www/owncloud/apps/trade_republic
 
 # Habilitar
 sudo -u www-data php /var/www/owncloud/occ app:enable trade_republic
@@ -122,7 +129,8 @@ Abre `https://tu-owncloud/index.php/apps/trade_republic/`:
 | Síntoma | Causa probable / fix |
 |---|---|
 | Modal de error "tr-api is not installed" | El `trade_republic.python_bin` no apunta al venv correcto. Verifica con `occ config:system:get trade_republic.python_bin`. |
-| `playwright._impl._api_types.Error: Executable doesn't exist` | Falta `playwright install chromium` en el venv, o `www-data` no puede escribir en `$HOME` de PHP. Mira la sección 2. |
+| `playwright._impl._api_types.Error: Executable doesn't exist` | Falta `playwright install chromium`, o la cache no es leíble por `www-data`. Mira la sección 2. |
+| `error while loading shared libraries: libatk-bridge-2.0.so.0` (o similar) | Falta `playwright install-deps chromium` (las libs del sistema). Mira la sección 2 paso 2. |
 | El modal de MFA se reabre con "Código incorrecto" varias veces | El código expira en ~60 s. Si te llega tarde, espera al siguiente push (vuelve a darle al botón Actualizar). |
 | `rate_limited` | TR limita los intentos de login. Espera 5–15 min. Esta app cachea el `processId` del último push 5 min y reutiliza, justo para no quemar intentos. |
 | `auth_failed` | Teléfono o PIN incorrecto. Reabre **⚙ Cuenta** y guárdalos otra vez. |

@@ -220,6 +220,17 @@ class TrService {
 			'HOME'        => sys_get_temp_dir(),
 			'LANG'        => 'C.UTF-8',
 		];
+		// Shared Playwright/Chromium cache. The wrapper re-points HOME to a
+		// per-user profile dir, which would otherwise force Playwright to
+		// re-download Chromium on every first run. Default matches INSTALL.md;
+		// override with `occ config:system:set trade_republic.playwright_browsers_path`.
+		$browsersPath = (string) $this->config->getSystemValue(
+			'trade_republic.playwright_browsers_path',
+			'/var/cache/tr-playwright'
+		);
+		if ($browsersPath !== '') {
+			$env['PLAYWRIGHT_BROWSERS_PATH'] = $browsersPath;
+		}
 
 		return $this->runProcess($cmd, $env, 240);
 	}

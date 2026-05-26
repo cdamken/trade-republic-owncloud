@@ -1,14 +1,43 @@
-# Relationship with `Trade-Republic-Dashboard` (upstream)
+# Relationship with upstream
 
-[`Trade-Republic-Dashboard`](https://github.com/cdamken/trade-republic-dashboard)
-is the base — the local single-user dashboard running on `localhost`.
+This repo has **two upstreams**, both authored by Carlos Damken:
 
-**This repo is a port** for multi-user ownCloud 10. The two installations
-are **independent**: they don't share credentials, data or session state.
-One runs on your Mac, the other on your ownCloud server.
+- [`tr-api`](https://github.com/cdamken/tr-api) — the Python library that
+  reverse-engineers Trade Republic's WebSocket. Source of truth for
+  everything that touches the TR servers (login, portfolio,
+  transactions). Installed from GitHub into the server's venv.
+- [`Trade-Republic-Dashboard`](https://github.com/cdamken/trade-republic-dashboard) —
+  the local single-user dashboard running on `localhost`. Source of
+  truth for the UI/UX (HTML, CSS, Chart.js graphs) and the data-shaping
+  logic (`tr_fetch.py`, `analyze_analytics.py`).
+
+**This repo is a port** for multi-user ownCloud 10. The installations
+are **independent**: they don't share credentials, data or session
+state. One runs on your Mac, the other on your ownCloud server.
+
+## Workflow rule (read this first)
+
+New features land in `tr-api` or `Trade-Republic-Dashboard` **first**.
+The ownCloud port follows. Never the reverse, never in parallel.
+
+When porting:
+
+1. **Copy verbatim.** HTML, CSS, JS, Python — line-for-line copies of
+   the upstream files, into the matching ownCloud locations.
+2. **Patch only what ownCloud forces.** The exhaustive list is in
+   "Structural divergences" below. Anything else is a bug.
+3. **Document anything else.** If a UX divergence is genuinely
+   justified by the multi-user context, add it under "Intentional
+   divergences" with a reason. Drift without an entry here = bug.
+
+If you find yourself rebuilding UI from scratch or using a sibling
+project (e.g. `gbm-owncloud`) as a template, **stop**. That's how the
+port grew Spanish strings and lost the Chart.js graphs in earlier
+attempts.
 
 This doc enumerates, one by one, the divergences from upstream and why
-they exist. If you're coming from the local repo, this is your roadmap.
+they exist. If you're coming from either upstream repo, this is your
+roadmap.
 
 > When upstream moves, this port should align unless the divergence is
 > structural (marked with 🔒). Any other divergence should converge.

@@ -45,6 +45,10 @@ por usuario dentro del propio ownCloud.
 Si solo quieres verlo tú en tu máquina, usa `Trade-Republic-Dashboard`. Si
 quieres que varios usuarios de tu ownCloud lo tengan, este es el repo.
 
+> **Las dos instalaciones son independientes** — no comparten credenciales,
+> datos ni sesión. `Trade-Republic-Dashboard` es upstream/base; este port
+> documenta sus divergencias en [UPSTREAM.md](UPSTREAM.md).
+
 ## Diferencia con `gbm-owncloud`
 
 Esta app es el equivalente para Trade Republic de

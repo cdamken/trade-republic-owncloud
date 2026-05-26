@@ -412,7 +412,7 @@ def _append_net_worth_history(data_dir: Path, summary: dict[str, Any]) -> None:
         "pl_eur": summary["depot_pl_eur"],
     })
     rows.sort(key=lambda r: r["date"])
-    rows = rows[-365:]
+    rows = rows[-180:]  # match TR-Dashboard's truncation (analyze_analytics.py)
     history_file.write_text(json.dumps(rows, indent=2, ensure_ascii=False), encoding="utf-8")
 
 

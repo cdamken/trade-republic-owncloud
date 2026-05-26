@@ -1,154 +1,158 @@
 # INSTALL — trade-republic-owncloud
 
-Pasos exactos para instalar el app en una instancia de ownCloud 10. Se asume
-Ubuntu 20.04+ / Debian 11+ con Apache + PHP-FPM, pero el app es agnóstico al
-SO; solo necesita Python 3.10+ con `tr-api` instalado y un ownCloud 10.x.
+Exact steps to install the app on an ownCloud 10 instance. Assumes
+Ubuntu 20.04+ / Debian 11+ with Apache + PHP-FPM, but the app is
+OS-agnostic; it just needs Python 3.10+ with `tr-api` installed and an
+ownCloud 10.x.
 
-## 1. Python 3.10+ con `tr-api`
+## 1. Python 3.10+ with `tr-api`
 
-`tr-api` requiere Python 3.10 o superior. Si tu sistema solo tiene 3.8 (típico
-en Ubuntu 20.04), instala uno standalone — un venv aparte funciona perfecto y
-no toca el sistema.
+`tr-api` requires Python 3.10 or higher. If your system only ships 3.8
+(typical on Ubuntu 20.04), install a standalone one — a separate venv
+works perfectly and doesn't touch the system.
 
 ```bash
-# Si ya tienes python3.10+ en el server:
+# If you already have python3.10+ on the server:
 sudo python3 -m venv /opt/tr-venv
 
-# Si no, en Ubuntu 22.04+ basta con:
+# If not, on Ubuntu 22.04+:
 sudo apt install python3.10-venv
 sudo python3.10 -m venv /opt/tr-venv
 
-# En Ubuntu 20.04 (focal), deadsnakes ya no publica para focal. La salida es
-# instalar Python 3.11 standalone con uv o pyenv y crear el venv a partir de
-# ese binario. Detalle abajo si te aplica.
+# On Ubuntu 20.04 (focal), deadsnakes no longer publishes for focal. The
+# fix is to install standalone Python 3.11 with uv or pyenv and create
+# the venv from that binary. Detail below if it applies to you.
 ```
 
-Instalar `tr-api` con extras de browser (para el WAF de TR). `tr-api` no
-está publicada en PyPI todavía — se instala directo desde GitHub:
+Install `tr-api` with the browser extras (for the TR WAF). `tr-api` is
+not yet published on PyPI — install directly from GitHub:
 
 ```bash
 sudo /opt/tr-venv/bin/pip install --upgrade pip
 sudo /opt/tr-venv/bin/pip install "tr-api[browser] @ git+https://github.com/cdamken/tr-api.git"
 
-# Verificar
+# Verify
 sudo /opt/tr-venv/bin/python -c "import tr_api; print(tr_api.__version__)"
 ```
 
-### Si estás en Ubuntu 20.04 (focal)
+### If you're on Ubuntu 20.04 (focal)
 
-`python3.10-venv` no se publica para focal. Opciones:
+`python3.10-venv` isn't published for focal. Options:
 
 ```bash
-# Opción A: pyenv
+# Option A: pyenv
 curl https://pyenv.run | bash
 pyenv install 3.11.9
 sudo $(pyenv which python) -m venv /opt/tr-venv
 
-# Opción B: uv (más simple)
+# Option B: uv (simpler)
 curl -LsSf https://astral.sh/uv/install.sh | sh
 sudo uv venv --python 3.11 /opt/tr-venv
 ```
 
-Después continúa con `pip install 'tr-api[browser]'` igual que arriba.
+Then continue with `pip install "tr-api[browser] @ git+..."` as above.
 
-## 2. Chromium (Playwright) en cache compartida
+## 2. Chromium (Playwright) in a shared cache
 
-`tr-api` usa Playwright para resolver el WAF de Cloudflare delante del login
-de TR. Si dejamos que cada usuario instale Chromium en su HOME, se baja ~150
-MB por usuario en el primer login. Mejor instalarlo una sola vez en una
-cache compartida y dejar que el app la consuma:
+`tr-api` uses Playwright to resolve the Cloudflare WAF in front of TR's
+login. If we let each user install Chromium in their HOME, that's ~150 MB
+downloaded per user on first login. Better to install once in a shared
+cache and let the app consume it:
 
 ```bash
-# 1. Descargar Chromium directo a la cache compartida (PLAYWRIGHT_BROWSERS_PATH
-#    le dice a `playwright install` dónde poner los binarios).
+# 1. Download Chromium straight into the shared cache
+#    (PLAYWRIGHT_BROWSERS_PATH tells `playwright install` where to put
+#    the binaries).
 sudo PLAYWRIGHT_BROWSERS_PATH=/var/cache/tr-playwright \
   /opt/tr-venv/bin/playwright install chromium
 
-# 2. Instalar las libs del sistema que Chromium necesita (libatk-bridge,
-#    libgtk-3, libnss, etc.). Sin esto, Chromium falla con
+# 2. Install the system libraries Chromium needs (libatk-bridge,
+#    libgtk-3, libnss, etc.). Without these, Chromium fails with
 #    "error while loading shared libraries".
 sudo /opt/tr-venv/bin/playwright install-deps chromium
 
-# 3. Permisos: venv y cache leíbles por www-data, no escribibles.
+# 3. Permissions: venv and cache readable by www-data, not writable.
 sudo chown -R root:www-data /opt/tr-venv /var/cache/tr-playwright
 sudo chmod -R g+rX        /opt/tr-venv /var/cache/tr-playwright
 
-# 4. Verificar que www-data puede ejecutar Chromium.
+# 4. Verify www-data can run Chromium.
 sudo -u www-data /var/cache/tr-playwright/chromium-*/chrome-linux64/chrome --version
 ```
 
-El app pasa `PLAYWRIGHT_BROWSERS_PATH=/var/cache/tr-playwright` al wrapper
-Python automáticamente (ver `TrService::runFetch`). Si necesitas otra ruta:
+The app passes `PLAYWRIGHT_BROWSERS_PATH=/var/cache/tr-playwright` to the
+Python wrapper automatically (see `TrService::runFetch`). If you need a
+different path:
 
 ```bash
 sudo -u www-data php occ config:system:set trade_republic.playwright_browsers_path \
-    --value=/otra/ruta/playwright
+    --value=/some/other/playwright
 ```
 
-## 3. Clonar y habilitar el app
+## 3. Clone and enable the app
 
 ```bash
 cd /var/www/owncloud/apps
 sudo -u www-data git clone https://github.com/cdamken/trade-republic-owncloud.git trade_republic
 
-# Verificar permisos (debe ser www-data:www-data)
+# Verify permissions (should be www-data:www-data)
 ls -la /var/www/owncloud/apps/trade_republic
 
-# Habilitar
+# Enable
 sudo -u www-data php /var/www/owncloud/occ app:enable trade_republic
 
-# Apuntar al venv
+# Point at the venv
 sudo -u www-data php /var/www/owncloud/occ config:system:set trade_republic.python_bin --value=/opt/tr-venv/bin/python
 ```
 
 ## 4. Smoke test
 
 ```bash
-# Forzar que el wrapper se queje claramente si algo está mal:
+# Make the wrapper complain loudly if anything is wrong:
 sudo -u www-data /opt/tr-venv/bin/python /var/www/owncloud/apps/trade_republic/python/fetch_wrapper.py --help
 ```
 
-Debería imprimir el `argparse` help con `--profile-dir`, `--data-dir`,
-`--mfa-code` y `--full`. Si dice "tr-api is not installed", revisa la ruta
-del venv y el comando `config:system:set`.
+Should print the `argparse` help with `--profile-dir`, `--data-dir`,
+`--mfa-code` and `--full`. If it says "tr-api is not installed", check
+the venv path and the `config:system:set` command.
 
-## 5. Primer login desde el browser
+## 5. First login from the browser
 
-Abre `https://tu-owncloud/index.php/apps/trade_republic/`:
+Open `https://your-owncloud/index.php/apps/trade_republic/`:
 
-1. Aparece el modal **⚙ Cuenta**. Mete teléfono (`+491701234567`) y PIN.
-2. Al guardar, dispara un /update. Como no hay cookies, TR envía un código
-   push de 4 dígitos a tu app de TR en tu móvil.
-3. Se abre el modal **🔐 Código de Trade Republic**. Tecléalo y dale a
-   Actualizar.
-4. El backend descarga tu portafolio, transacciones y computa analytics.
-   Tarda entre 30 s y 2 min según el tamaño del historial.
+1. The **⚙ Account** modal appears. Put your phone (`+491701234567`) and
+   PIN.
+2. On save, it fires a `/update`. With no cookies, TR pushes a 4-digit
+   code to your TR mobile app.
+3. The **🔐 Trade Republic Security Code** modal opens. Type the code
+   and press Update.
+4. The backend downloads your portfolio, transactions and computes
+   analytics. Takes 30 s – 2 min depending on the size of your history.
 
 ## 6. Troubleshooting
 
-| Síntoma | Causa probable / fix |
+| Symptom | Likely cause / fix |
 |---|---|
-| Modal de error "tr-api is not installed" | El `trade_republic.python_bin` no apunta al venv correcto. Verifica con `occ config:system:get trade_republic.python_bin`. |
-| `playwright._impl._api_types.Error: Executable doesn't exist` | Falta `playwright install chromium`, o la cache no es leíble por `www-data`. Mira la sección 2. |
-| `error while loading shared libraries: libatk-bridge-2.0.so.0` (o similar) | Falta `playwright install-deps chromium` (las libs del sistema). Mira la sección 2 paso 2. |
-| El modal de MFA se reabre con "Código incorrecto" varias veces | El código expira en ~60 s. Si te llega tarde, espera al siguiente push (vuelve a darle al botón Actualizar). |
-| `rate_limited` | TR limita los intentos de login. Espera 5–15 min. Esta app cachea el `processId` del último push 5 min y reutiliza, justo para no quemar intentos. |
-| `auth_failed` | Teléfono o PIN incorrecto. Reabre **⚙ Cuenta** y guárdalos otra vez. |
-| El fetch tarda > 2 min y se corta | El timeout del servicio PHP es 240 s. Si tu historial es muy grande, usa el checkbox "Descarga completa" del modal de MFA solo cuando lo necesites — el resto del tiempo el modo incremental tarda 5–15 s. |
+| Modal error "tr-api is not installed" | `trade_republic.python_bin` doesn't point at the right venv. Verify with `occ config:system:get trade_republic.python_bin`. |
+| `playwright._impl._api_types.Error: Executable doesn't exist` | Missing `playwright install chromium`, or the cache isn't readable by `www-data`. See section 2. |
+| `error while loading shared libraries: libatk-bridge-2.0.so.0` (or similar) | Missing `playwright install-deps chromium` (system libs). See section 2 step 2. |
+| MFA modal reopens with "Wrong code" several times | The code expires in ~60 s. If it arrives late, wait for the next push (press Update again). |
+| `rate_limited` | TR rate-limits login attempts. Wait 5–15 min. This app caches the latest `processId` for 5 min and reuses it, precisely to avoid burning attempts. |
+| `auth_failed` | Wrong phone or PIN. Open **⚙ Account** and save them again. |
+| Fetch takes > 2 min and times out | The PHP service timeout is 240 s. If your history is huge, use the "Full reload" checkbox in the MFA modal only when needed — incremental mode normally takes 5–15 s. |
 
-## 7. Datos por usuario
+## 7. Per-user data
 
-Después del primer fetch, en disco verás:
+After the first fetch, you'll see on disk:
 
 ```
 {datadirectory}/<uid>/trade_republic/
-├── profile/                         ← cookies + perfil de tr-api (0700)
+├── profile/                         ← tr-api cookies + profile (0700)
 │   └── .tr-api/profiles/<phone>/
-├── portfolio.json                   ← consumido por el dashboard
-├── portfolio_raw.json               ← payload crudo de TR (debug)
-├── account_transactions.csv         ← timeline en formato CSV
-├── analytics.json                   ← cash flow / dividendos / allocation
-├── net_worth_history.json           ← snapshot diario
+├── portfolio.json                   ← consumed by the dashboard
+├── portfolio_raw.json               ← raw TR payload (debug)
+├── account_transactions.csv         ← timeline in CSV format
+├── analytics.json                   ← cash flow / dividends / allocation
+├── net_worth_history.json           ← daily snapshot
 ├── last_update.date
-└── fetch.log                        ← stdout/stderr del último run
+└── fetch.log                        ← stdout/stderr of the last run
 ```

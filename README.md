@@ -1,168 +1,170 @@
 # trade-republic-owncloud
 
-App para **ownCloud 10** que da a cada usuario su propio dashboard de
-**Trade Republic**. El teléfono, el PIN y los datos descargados viven aislados
-por usuario dentro del propio ownCloud.
+App for **ownCloud 10** that gives each user their own **Trade Republic**
+dashboard. Phone, PIN and downloaded data live isolated per user inside
+ownCloud itself.
 
-> ⚠️ **No oficial.** No está afiliada, endorsed ni patrocinada por Trade
-> Republic Bank GmbH. Hecha por ingeniería inversa de su WebSocket interno
-> (vía [`tr-api`](https://github.com/cdamken/tr-api)). Los endpoints pueden
-> cambiar sin aviso. Usar bajo tu propio riesgo.
+> ⚠️ **Unofficial.** Not affiliated with, endorsed by, or sponsored by
+> Trade Republic Bank GmbH. Built by reverse-engineering their internal
+> WebSocket (via [`tr-api`](https://github.com/cdamken/tr-api)). The
+> endpoints can change without notice. Use at your own risk.
 
 ---
 
-## Qué hace
+## What it does
 
-- Aparece como un app más en la barra de navegación de ownCloud, junto a
-  Files, Calendar, etc.
-- Cada usuario:
-  - Configura una vez su **teléfono (E.164)** + **PIN** de Trade Republic
-    desde la propia app (modal **⚙ Cuenta**). El PIN se cifra antes de
-    guardarse.
-  - Verifica el **código de 4 dígitos** que TR le envía a su app móvil la
-    primera vez (después la sesión se reusa mientras las cookies sigan vivas).
-  - Descarga su portafolio (todas las posiciones con precio actual, precio
-    promedio y P&L), efectivo en EUR, transacciones (depósitos, retiros,
-    compras, ventas, dividendos, intereses) y analytics (cash flow por mes,
-    P&L de por vida, distribución por categoría, historial de patrimonio).
-  - Renderiza un dashboard oscuro con resumen, top movers, tabla buscable
-    + ordenable de posiciones, y una página de analytics con cash flow,
-    dividendos, allocation y patrimonio histórico.
-- **Aislamiento por usuario garantizado por construcción** — ver
+- Shows up as another app in ownCloud's nav bar, next to Files, Calendar,
+  etc.
+- Each user:
+  - Configures their TR **phone (E.164)** + **PIN** once from inside the
+    app (modal **⚙ Account**). The PIN is encrypted before being stored.
+  - Confirms the **4-digit code** TR pushes to their mobile app the first
+    time (after that the session is reused while cookies live).
+  - Downloads their portfolio (every position with current price, average
+    cost, P/L), EUR cash, transactions (deposits, removals, buys, sells,
+    dividends, interest) and analytics (monthly cash flow, lifetime P/L,
+    rough allocation by category, net-worth history).
+  - Renders a dark dashboard with summary, top movers, a searchable
+    sortable positions table, and an analytics page with cash flow,
+    dividends, allocation and history.
+- **Per-user isolation guaranteed by construction** — see
   [ARCHITECTURE.md](ARCHITECTURE.md).
 
-## Diferencia con `Trade-Republic-Dashboard`
+## Difference vs `Trade-Republic-Dashboard`
 
-|                       | [Trade-Republic-Dashboard](https://github.com/cdamken/trade-republic-dashboard) | **trade-republic-owncloud (este repo)** |
+|                       | [Trade-Republic-Dashboard](https://github.com/cdamken/trade-republic-dashboard) | **trade-republic-owncloud (this repo)** |
 |-----------------------|--------------------------------------------------------------------------|-----------------------------------------|
-| Forma                 | Script local Python + browser en localhost                               | App de ownCloud multi-usuario           |
-| Quién la ejecuta      | Tú en tu Mac                                                             | Tu instancia de ownCloud                |
-| Datos por usuario     | N/A (un solo usuario)                                                    | Sí, aislados en `{datadir}/<uid>/trade_republic/`   |
-| Credenciales          | `~/.pytr/credentials` con `0600` en tu home                              | DB de ownCloud, PIN cifrado con `ICrypto` |
-| Acceso remoto         | No (solo localhost)                                                      | Sí (vía URL de tu ownCloud, con su login) |
-| Auto-actualización    | Manual con `./dashboard.sh`                                              | Botón ⟳ Actualizar en el header         |
+| Form                  | Local Python script + browser on localhost                               | Multi-user ownCloud app                 |
+| Who runs it           | You on your Mac                                                          | Your ownCloud instance                  |
+| Per-user data         | N/A (single user)                                                        | Yes, isolated in `{datadir}/<uid>/trade_republic/` |
+| Credentials           | `~/.pytr/credentials` with `0600` in your home                           | ownCloud DB, PIN encrypted with `ICrypto` |
+| Remote access         | No (localhost only)                                                      | Yes (via your ownCloud URL, with its login) |
+| Auto-update           | Manual with `./dashboard.sh`                                             | ⟳ Update Now button in the header       |
 
-Si solo quieres verlo tú en tu máquina, usa `Trade-Republic-Dashboard`. Si
-quieres que varios usuarios de tu ownCloud lo tengan, este es el repo.
+If you only want it for yourself on your machine, use
+`Trade-Republic-Dashboard`. If you want several ownCloud users to have it,
+this is the repo.
 
-> **Las dos instalaciones son independientes** — no comparten credenciales,
-> datos ni sesión. `Trade-Republic-Dashboard` es upstream/base; este port
-> documenta sus divergencias en [UPSTREAM.md](UPSTREAM.md).
+> **The two installations are independent** — they don't share credentials,
+> data or session. `Trade-Republic-Dashboard` is upstream/base; this port
+> documents every divergence in [UPSTREAM.md](UPSTREAM.md).
 
-## Diferencia con `gbm-owncloud`
+## Difference vs `gbm-owncloud`
 
-Esta app es el equivalente para Trade Republic de
-[`gbm-owncloud`](https://github.com/cdamken/gbm-owncloud) (GBM México).
-Misma arquitectura (PageController + ApiController + Service + Python
-wrapper), mismos exit codes mapeados a HTTP, mismas garantías de aislamiento
-por usuario. Lo que cambia:
+This app is the Trade Republic equivalent of
+[`gbm-owncloud`](https://github.com/cdamken/gbm-owncloud) (GBM Mexico).
+Same architecture (PageController + ApiController + Service + Python
+wrapper), same exit codes mapped to HTTP, same per-user isolation
+guarantees. What changes:
 
-- **Credenciales**: teléfono + PIN, no email + password.
-- **2FA**: código de **4 dígitos push** que TR envía a tu app móvil, no
-  TOTP de 6 dígitos.
-- **Lib backend**: [`tr-api`](https://github.com/cdamken/tr-api),
-  no [`gbm-mx-api`](https://github.com/cdamken/gbm-mx-api).
-- **Datos**: portafolio + transacciones + analytics, no posiciones por
-  cuenta + órdenes.
+- **Credentials**: phone + PIN, not email + password.
+- **2FA**: **4-digit push** TR sends to your mobile app, not 6-digit TOTP.
+- **Backend lib**: [`tr-api`](https://github.com/cdamken/tr-api), not
+  [`gbm-mx-api`](https://github.com/cdamken/gbm-mx-api).
+- **Data**: portfolio + transactions + analytics, not positions per
+  account + orders.
 
-## Dependencias
+## Dependencies
 
 - **ownCloud 10.x**.
-- **Python 3.10+** en el server.
-- **[`tr-api`](https://github.com/cdamken/tr-api)** instalado en ese Python
-  (un venv dedicado funciona perfecto). Necesita `[browser]` extra para
-  Playwright (TR mete un WAF de Cloudflare en el login inicial).
+- **Python 3.10+** on the server.
+- **[`tr-api`](https://github.com/cdamken/tr-api)** installed in that
+  Python (a dedicated venv works great). Needs the `[browser]` extra for
+  Playwright (TR puts a Cloudflare WAF in front of the initial login).
 
-Ver [INSTALL.md](INSTALL.md) para los pasos exactos.
+See [INSTALL.md](INSTALL.md) for the exact steps.
 
-## Instalación corta
+## Short install
 
 ```bash
-# 1. Venv con la lib Python
+# 1. Venv with the Python lib
 sudo python3 -m venv /opt/tr-venv
-sudo /opt/tr-venv/bin/pip install 'tr-api[browser]'
-sudo /opt/tr-venv/bin/playwright install chromium
+sudo /opt/tr-venv/bin/pip install "tr-api[browser] @ git+https://github.com/cdamken/tr-api.git"
+sudo PLAYWRIGHT_BROWSERS_PATH=/var/cache/tr-playwright /opt/tr-venv/bin/playwright install chromium
+sudo /opt/tr-venv/bin/playwright install-deps chromium
 
-# 2. Clonar el app a la carpeta de apps de ownCloud
+# 2. Clone the app into ownCloud's apps directory
 cd /var/www/owncloud/apps
 sudo -u www-data git clone https://github.com/cdamken/trade-republic-owncloud.git trade_republic
 
-# 3. Habilitar y apuntar al venv
+# 3. Enable and point at the venv
 sudo -u www-data php /var/www/owncloud/occ app:enable trade_republic
 sudo -u www-data php /var/www/owncloud/occ config:system:set trade_republic.python_bin --value=/opt/tr-venv/bin/python
 ```
 
-Listo — cada usuario abre `https://tu-owncloud/index.php/apps/trade_republic/`, mete
-teléfono + PIN en el modal, introduce el código de 4 dígitos que le llega a
-su app de TR, y ya está.
+Done — each user opens `https://your-owncloud/index.php/apps/trade_republic/`,
+puts their phone + PIN in the modal, enters the 4-digit code TR pushes to
+their phone, and they're in.
 
-## Uso
+## Usage
 
-1. **Primera vez** — al entrar al app aparece el modal **⚙ Cuenta** pidiendo
-   teléfono (formato `+491701234567`) y PIN.
-2. **Al guardar** — se dispara una sincronización. Como aún no hay cookies de
-   sesión, TR envía un push con un código de **4 dígitos** a tu móvil y se
-   abre el modal **🔐 Código de Trade Republic**.
-3. **Tecleas el código** — se completa el login, se guardan las cookies, se
-   descarga tu portafolio, las transacciones y se computan los analytics.
-   Aparece el dashboard.
-4. **Update** — el botón **⟳ Actualizar** rebaja datos. Si las cookies siguen
-   vivas no pide código; si TR las invalidó, vuelve a abrir el modal de MFA.
-5. **Cambiar credenciales** — el botón **⚙ Cuenta** reabre el modal.
-6. **Borrar cuenta** — desde el modal de **⚙ Cuenta**, botón **Borrar
-   cuenta** (escribe `delete` para confirmar). Limpia teléfono, PIN, cookies
-   y todos los datos descargados.
+1. **First time** — opening the app shows the **⚙ Account** modal asking
+   for phone (format `+491701234567`) and PIN.
+2. **On save** — triggers a sync. With no cookies yet, TR pushes a
+   **4-digit code** to your phone and the **🔐 Trade Republic Security
+   Code** modal opens.
+3. **Type the code** — login completes, cookies are stored, portfolio is
+   downloaded, transactions fetched and analytics computed. The dashboard
+   appears.
+4. **Update** — the **⟳ Update Now** button refreshes the data. If cookies
+   are still alive it doesn't ask for a code; if TR invalidated them, the
+   MFA modal opens again.
+5. **Change credentials** — the **⚙ Account** button reopens the modal.
+6. **Erase account** — inside the **⚙ Account** modal there's an **Erase
+   account** button (type `delete` to confirm). It wipes phone, PIN,
+   cookies and every downloaded file.
 
-## Configuración
+## Configuration
 
-Valores del server (`occ config:system:set ...`):
+System config values (`occ config:system:set ...`):
 
-| Clave            | Default     | Para qué |
-|------------------|-------------|----------|
-| `trade_republic.python_bin`  | `python3`   | Ruta al Python con `tr-api` instalado. |
+| Key                                          | Default                 | What it does |
+|----------------------------------------------|-------------------------|--------------|
+| `trade_republic.python_bin`                  | `python3`               | Path to the Python that has `tr-api` installed. |
+| `trade_republic.playwright_browsers_path`    | `/var/cache/tr-playwright` | Shared Playwright/Chromium cache. Avoids each user re-downloading ~150 MB. |
 
 ```bash
 sudo -u www-data php occ config:system:set trade_republic.python_bin --value=/opt/tr-venv/bin/python
 ```
 
-## Dónde se guarda cada cosa
+## Where each thing lives
 
-| Dato | Lugar |
+| Datum | Location |
 |---|---|
-| Teléfono (por usuario) | DB de ownCloud (`oc_preferences`) |
-| PIN (por usuario, **cifrado**) | DB de ownCloud (`oc_preferences`), cifrado con `ICrypto` |
-| Cookies de sesión TR | Filesystem: `{datadir}/<uid>/trade_republic/profile/.tr-api/...` (`0700`) |
-| Portafolio / transacciones / analytics | Filesystem: `{datadir}/<uid>/trade_republic/*.{json,csv}` |
-| Pending login (entre push y submit) | Filesystem: `{datadir}/<uid>/trade_republic/.pending_login.json` (`0600`, TTL 5 min) |
-| `fetch.log` del último run | Filesystem: `{datadir}/<uid>/trade_republic/fetch.log` |
-| `trade_republic.python_bin` | `config.php` de ownCloud |
+| Phone (per user) | ownCloud DB (`oc_preferences`) |
+| PIN (per user, **encrypted**) | ownCloud DB (`oc_preferences`), encrypted with `ICrypto` |
+| TR session cookies | Filesystem: `{datadir}/<uid>/trade_republic/profile/.tr-api/...` (`0700`) |
+| Portfolio / transactions / analytics | Filesystem: `{datadir}/<uid>/trade_republic/*.{json,csv}` |
+| Pending login (between push & submit) | Filesystem: `{datadir}/<uid>/trade_republic/.pending_login.json` (`0600`, TTL 5 min) |
+| `fetch.log` of last run | Filesystem: `{datadir}/<uid>/trade_republic/fetch.log` |
+| `trade_republic.python_bin` | ownCloud's `config.php` |
 
-Detalle completo y razones en [ARCHITECTURE.md](ARCHITECTURE.md).
+Full detail and rationale in [ARCHITECTURE.md](ARCHITECTURE.md).
 
-## Desinstalar (limpio)
+## Uninstall (clean)
 
 ```bash
 sudo -u www-data php occ app:disable trade_republic
-# por cada usuario que la haya usado:
+# for each user that used it:
 sudo -u www-data php occ user:setting <uid> trade_republic --delete
 sudo rm -rf {datadir}/<uid>/trade_republic/
 ```
 
-## Estado
+## Status
 
-Alpha. Estructuralmente paralela a `gbm-owncloud` (que sí ha rodado en
-producción casera). Si lo pruebas y rompe algo, abre un
+Alpha. Structurally parallel to `gbm-owncloud` (which has been running in
+my home-lab production). If you try it and something breaks, open an
 [issue](https://github.com/cdamken/trade-republic-owncloud/issues).
 
-## Licencia
+## License
 
-[Business Source License 1.1](LICENSE) — alineada con `tr-api` y
-`Trade-Republic-Dashboard`. Convierte a Apache 2.0 a los 4 años. Si quieres
-usarla en producción comercial antes de eso, escríbeme.
+[Business Source License 1.1](LICENSE) — aligned with `tr-api` and
+`Trade-Republic-Dashboard`. Converts to Apache 2.0 after 4 years. If you
+want to use it in commercial production before then, ping me.
 
-## Créditos
+## Credits
 
-- API Trade Republic → [`tr-api`](https://github.com/cdamken/tr-api).
-- Dashboard original (versión local) → [`Trade-Republic-Dashboard`](https://github.com/cdamken/trade-republic-dashboard).
-- App de ownCloud (este repo) → Carlos Damken.
-- Inspiración estructural → [`gbm-owncloud`](https://github.com/cdamken/gbm-owncloud) y las apps `pong` / `drawio` de ownCloud.
+- Trade Republic API → [`tr-api`](https://github.com/cdamken/tr-api).
+- Original dashboard (local version) → [`Trade-Republic-Dashboard`](https://github.com/cdamken/trade-republic-dashboard).
+- ownCloud app (this repo) → Carlos Damken.
+- Structural inspiration → [`gbm-owncloud`](https://github.com/cdamken/gbm-owncloud) and ownCloud's `pong` / `drawio` apps.

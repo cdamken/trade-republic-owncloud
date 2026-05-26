@@ -3,18 +3,18 @@
  * Trade Republic Portfolio — portfolio page logic.
  *
  * Ported from Trade-Republic-Dashboard/app/index.html. URLs come from
- * data-route-* attributes on #tr-app (set by templates/main.php) — that way
- * nothing has to live in an inline <script>, which OC's default CSP blocks.
+ * data-route-* attributes on #tr-app (set by templates/main.php) so nothing
+ * needs to live in an inline <script>, which OC's default CSP blocks.
  * POSTs carry the ownCloud CSRF token.
  *
  * Login differences vs. the GBM sibling app:
  *   - Credentials are phone (E.164) + PIN, not email + password.
  *   - MFA is a 4-digit push (TR sends it to the user's mobile app), not a
- *     6-digit TOTP — so the modal accepts only 4 digits and tells the user
- *     to check their phone, not their authenticator.
+ *     6-digit TOTP — the modal accepts only 4 digits and points the user
+ *     to their phone, not an authenticator.
  *   - Login is two-step on the server side: first /update with no code
- *     triggers the push, second /update with the code completes it. The JS
- *     side just sees mfa_required and reopens the modal.
+ *     triggers the push, second /update with the code completes it. The
+ *     JS side just sees mfa_required and reopens the modal.
  */
 (function () {
 	'use strict';
@@ -32,7 +32,7 @@
 		const decimals = opts.decimals != null ? opts.decimals : 2;
 		const currency = opts.currency === true;
 		const abs = Math.abs(n);
-		const formatted = abs.toLocaleString('de-DE', {
+		const formatted = abs.toLocaleString('en-US', {
 			minimumFractionDigits: decimals,
 			maximumFractionDigits: decimals,
 		});
@@ -51,7 +51,7 @@
 		// last_update.date is "YYYY-MM-DD HH:MM:SS" — make it ISO-ish for Date.
 		const d = new Date(s.replace(' ', 'T'));
 		if (isNaN(d.getTime())) return s;
-		return d.toLocaleString('de-DE', {
+		return d.toLocaleString('en-US', {
 			year: 'numeric', month: 'short', day: 'numeric',
 			hour: '2-digit', minute: '2-digit',
 		});
@@ -81,9 +81,9 @@
 			renderAll();
 		} catch (err) {
 			$('error-box').innerHTML =
-				'<div class="error"><b>No se pudieron cargar los datos.</b><br>' +
-				'Haz clic en <code>⟳ Actualizar</code> para descargar.<br>' +
-				'Detalle: ' + (err.message || err) + '</div>';
+				'<div class="error"><b>Could not load data.</b><br>' +
+				'Click <code>⟳ Update Now</code> to fetch.<br>' +
+				'Detail: ' + (err.message || err) + '</div>';
 		}
 	}
 
@@ -121,8 +121,8 @@
 		pctEl.className = 'delta ' + pnlClass(s.depot_pl_eur);
 		$('num-positions').textContent = state.data.total_positions || 0;
 		$('positions-note').textContent =
-			(state.data.positions_with_value || 0) + ' con precio · ' +
-			((state.data.zero_value_positions || []).length) + ' sin precio';
+			(state.data.positions_with_value || 0) + ' with price · ' +
+			((state.data.zero_value_positions || []).length) + ' without price';
 		$('cash-value').textContent = fmtMoney(s.cash_eur, { currency: true });
 	}
 
@@ -140,7 +140,7 @@
 	}
 
 	function emptyRow() {
-		return '<tr><td colspan="6" style="color: var(--muted); text-align: center;">Sin datos</td></tr>';
+		return '<tr><td colspan="6" style="color: var(--muted); text-align: center;">No data</td></tr>';
 	}
 
 	function moverRow(p) {
@@ -255,7 +255,7 @@
 	async function triggerUpdate(mfaCode) {
 		const btn = $('update-btn');
 		btn.disabled = true;
-		btn.textContent = mfaCode ? '⟳ Verificando código...' : '⟳ Conectando...';
+		btn.textContent = mfaCode ? '⟳ Verifying code...' : '⟳ Connecting...';
 
 		// Defer the heavy overlay: the first probe (no MFA) might come back
 		// with mfa_required, in which case we don't want to flash the overlay
@@ -268,7 +268,7 @@
 			overlayShown = true;
 			showProgressOverlay();
 			pollTimer = startProgressPolling();
-			btn.textContent = '⟳ Actualizando...';
+			btn.textContent = '⟳ Updating...';
 		};
 		const overlayDelay = mfaCode != null ? 0 : 700;
 		const overlayTimer = setTimeout(startOverlay, overlayDelay);
@@ -290,8 +290,8 @@
 		} catch (err) {
 			stopOverlay();
 			btn.disabled = false;
-			btn.textContent = '⟳ Actualizar';
-			alert('No se pudo conectar al servidor.\nDetalle: ' + err.message);
+			btn.textContent = '⟳ Update Now';
+			alert('Could not reach the server.\nDetail: ' + err.message);
 			return;
 		}
 
@@ -303,31 +303,31 @@
 
 		if (res.ok && payload.status === 'ok') {
 			closeMfaModal();
-			btn.textContent = '⟳ Refrescando vista...';
+			btn.textContent = '⟳ Refreshing view...';
 			await load();
 			stopOverlay();
 			btn.disabled = false;
-			btn.textContent = '⟳ Actualizar';
+			btn.textContent = '⟳ Update Now';
 			return;
 		}
 
 		stopOverlay();
 		btn.disabled = false;
-		btn.textContent = '⟳ Actualizar';
+		btn.textContent = '⟳ Update Now';
 
 		if (payload.status === 'mfa_required') { openMfaModal(); return; }
-		if (payload.status === 'mfa_invalid') { openMfaModal('Código incorrecto o expirado. Pulsa Actualizar otra vez para que TR te envíe uno nuevo.'); return; }
+		if (payload.status === 'mfa_invalid') { openMfaModal('Wrong or expired code. Press Update again so TR sends you a new one.'); return; }
 		if (payload.status === 'auth_failed') {
 			closeMfaModal();
 			openConfigModal();
 			const errEl = $('config-error');
-			errEl.textContent = 'Las credenciales son incorrectas o TR las rechazó.';
+			errEl.textContent = 'Credentials rejected by Trade Republic.';
 			errEl.classList.remove('hidden');
 			return;
 		}
 		if (payload.status === 'rate_limited') {
 			closeMfaModal();
-			alert('Trade Republic limitó los intentos. Espera unos minutos.\n' + (payload.detail || ''));
+			alert('Trade Republic rate-limited the login. Wait a few minutes.\n' + (payload.detail || ''));
 			return;
 		}
 		if (payload.status === 'config_error') {
@@ -337,11 +337,11 @@
 		}
 		if (payload.status === 'api_error') {
 			closeMfaModal();
-			alert('La API de TR falló: ' + (payload.detail || 'sin detalle'));
+			alert('Trade Republic API error: ' + (payload.detail || 'no detail'));
 			return;
 		}
 		closeMfaModal();
-		alert('Update falló (HTTP ' + res.status + '): ' + (payload.detail || 'sin detalle'));
+		alert('Update failed (HTTP ' + res.status + '): ' + (payload.detail || 'no detail'));
 	}
 
 	function openMfaModal(errorMsg) {
@@ -368,7 +368,7 @@
 	async function maybeShowConfigOnFirstLoad() {
 		const s = await loadConfigStatus();
 		if (!s.configured) openConfigModal(true);
-		else if (s.phone) $('phone-label').textContent = 'Cuenta: ' + maskPhone(s.phone);
+		else if (s.phone) $('phone-label').textContent = 'Account: ' + maskPhone(s.phone);
 	}
 
 	function maskPhone(p) {
@@ -412,7 +412,7 @@
 			const res = await postJson(routes.reset, {});
 			if (res.ok) {
 				closeResetModal();
-				$('phone-label').textContent = 'Cuenta: —';
+				$('phone-label').textContent = 'Account: —';
 				$('last-update').textContent = '—';
 				state.data = null;
 				renderAll();
@@ -420,10 +420,10 @@
 				return;
 			}
 			const p = await res.json().catch(() => ({}));
-			$('reset-error').textContent = p.detail || 'Error al borrar la cuenta.';
+			$('reset-error').textContent = p.detail || 'Could not erase the account.';
 			$('reset-error').classList.remove('hidden');
 		} catch (e) {
-			$('reset-error').textContent = 'No se pudo conectar al servidor.';
+			$('reset-error').textContent = 'Could not reach the server.';
 			$('reset-error').classList.remove('hidden');
 		}
 		$('reset-submit').disabled = false;
@@ -433,12 +433,12 @@
 	// Progress overlay
 	// ----------------------------------------------------------------------
 	const PROGRESS_STAGES = [
-		{ until: 3,        text: 'Conectando con Trade Republic…' },
-		{ until: 15,       text: 'Descargando tu portafolio…' },
-		{ until: 45,       text: 'Descargando transacciones…' },
-		{ until: 120,      text: 'Calculando analytics…' },
-		{ until: 180,      text: 'Ya casi terminamos…' },
-		{ until: Infinity, text: 'Sigue trabajando, espera un poco más…' },
+		{ until: 3,        text: 'Connecting to Trade Republic…' },
+		{ until: 15,       text: 'Downloading your portfolio…' },
+		{ until: 45,       text: 'Downloading transactions…' },
+		{ until: 120,      text: 'Computing analytics…' },
+		{ until: 180,      text: 'Almost done…' },
+		{ until: Infinity, text: 'Still working, hang on…' },
 	];
 	let _progressStartedAt = null;
 
@@ -481,24 +481,24 @@
 		const btn = $('config-submit');
 		const errEl = $('config-error');
 		btn.disabled = true;
-		btn.textContent = 'Guardando...';
+		btn.textContent = 'Saving...';
 		try {
 			const res = await postJson(routes.config, { phone, pin });
 			const payload = await res.json();
 			if (res.ok && payload.status === 'ok') {
-				btn.textContent = 'Guardar';
+				btn.textContent = 'Save';
 				closeConfigModal();
-				$('phone-label').textContent = 'Cuenta: ' + maskPhone(phone);
+				$('phone-label').textContent = 'Account: ' + maskPhone(phone);
 				triggerUpdate();
 				return;
 			}
-			errEl.textContent = payload.detail || 'Error guardando credenciales.';
+			errEl.textContent = payload.detail || 'Error saving credentials.';
 			errEl.classList.remove('hidden');
 		} catch (_) {
-			errEl.textContent = 'No se pudo conectar al servidor.';
+			errEl.textContent = 'Could not reach the server.';
 			errEl.classList.remove('hidden');
 		}
-		btn.textContent = 'Guardar';
+		btn.textContent = 'Save';
 		onConfigInput();
 	}
 

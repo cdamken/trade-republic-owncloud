@@ -3,7 +3,7 @@
  * Trade Republic Portfolio — analytics page logic.
  *
  * Consumes /data/analytics + /data/last_update. Renders cash-flow cards,
- * monthly chart-ish table, dividends, allocation and net-worth history.
+ * monthly table, dividends, allocation and net-worth history.
  */
 (function () {
 	'use strict';
@@ -19,7 +19,7 @@
 		const sign = opts.sign === true;
 		const currency = opts.currency !== false;
 		const abs = Math.abs(n);
-		const formatted = abs.toLocaleString('de-DE', {
+		const formatted = abs.toLocaleString('en-US', {
 			minimumFractionDigits: decimals,
 			maximumFractionDigits: decimals,
 		});
@@ -36,7 +36,7 @@
 		const s = String(raw).trim();
 		const d = new Date(s.replace(' ', 'T'));
 		if (isNaN(d.getTime())) return s;
-		return d.toLocaleString('de-DE', {
+		return d.toLocaleString('en-US', {
 			year: 'numeric', month: 'short', day: 'numeric',
 			hour: '2-digit', minute: '2-digit',
 		});
@@ -54,14 +54,14 @@
 			$('last-update').textContent = formatTimestamp(lastUpdate);
 			if (!data) {
 				$('error-box').innerHTML =
-					'<div class="error"><b>No hay datos de analytics todavía.</b><br>' +
-					'Vuelve al portafolio y haz clic en <code>⟳ Actualizar</code>.</div>';
+					'<div class="error"><b>No analytics yet.</b><br>' +
+					'Go back to the portfolio and click <code>⟳ Update Now</code>.</div>';
 				return;
 			}
 			renderAll(data);
 		} catch (err) {
 			$('error-box').innerHTML =
-				'<div class="error"><b>No se pudieron cargar los datos.</b><br>' +
+				'<div class="error"><b>Could not load data.</b><br>' +
 				(err.message || err) + '</div>';
 		}
 	}
@@ -90,7 +90,7 @@
 					'<td class="num ' + pnlClass(m.net_flow) + '">' + fmtMoney(m.net_flow, { sign: true }) + '</td>' +
 				'</tr>'
 			).join('')
-			: '<tr><td colspan="5" class="empty">Sin movimientos.</td></tr>';
+			: '<tr><td colspan="5" class="empty">No movements.</td></tr>';
 
 		// Dividends
 		const div = data.dividends || {};
@@ -104,7 +104,7 @@
 					'<td class="num pos">' + fmtMoney(d.amount, { sign: true }) + '</td>' +
 				'</tr>'
 			).join('')
-			: '<tr><td colspan="3" class="empty">Sin dividendos registrados.</td></tr>';
+			: '<tr><td colspan="3" class="empty">No dividends recorded.</td></tr>';
 
 		// Allocation
 		const alloc = data.allocation || { categories: {}, total: 0 };
@@ -121,7 +121,7 @@
 					'<td class="num">' + pct.toFixed(1) + '%</td>' +
 				'</tr>';
 			}).join('')
-			: '<tr><td colspan="3" class="empty">Sin datos.</td></tr>';
+			: '<tr><td colspan="3" class="empty">No data.</td></tr>';
 
 		// History (recent 180 days)
 		const history = (data.history || []).slice(-180).reverse();
@@ -135,7 +135,7 @@
 					'<td class="num">' + fmtMoney(h.cash != null ? h.cash : '') + '</td>' +
 				'</tr>'
 			).join('')
-			: '<tr><td colspan="4" class="empty">Sin historial todavía.</td></tr>';
+			: '<tr><td colspan="4" class="empty">No history yet.</td></tr>';
 	}
 
 	function escapeHtml(s) {

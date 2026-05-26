@@ -1,197 +1,196 @@
-# Relación con `Trade-Republic-Dashboard` (upstream)
+# Relationship with `Trade-Republic-Dashboard` (upstream)
 
 [`Trade-Republic-Dashboard`](https://github.com/cdamken/trade-republic-dashboard)
-es la base — el dashboard local de un solo usuario que corre en `localhost`.
+is the base — the local single-user dashboard running on `localhost`.
 
-**Este repo es un port** para ownCloud 10 multi-usuario. Las dos
-instalaciones son **independientes**: no comparten credenciales, datos, ni
-estado de sesión. Una corre en tu Mac, la otra en tu server ownCloud.
+**This repo is a port** for multi-user ownCloud 10. The two installations
+are **independent**: they don't share credentials, data or session state.
+One runs on your Mac, the other on your ownCloud server.
 
-Este doc enumera, una a una, las divergencias respecto al upstream y por
-qué existen. Si vienes del repo local, esta es tu hoja de ruta.
+This doc enumerates, one by one, the divergences from upstream and why
+they exist. If you're coming from the local repo, this is your roadmap.
 
-> Cuando upstream se mueve, este port debe alinearse a menos que la
-> divergencia sea estructural (las marcadas con 🔒). Cualquier otra
-> divergencia debe converger.
+> When upstream moves, this port should align unless the divergence is
+> structural (marked with 🔒). Any other divergence should converge.
 
 ---
 
-## Mapa de archivos
+## File map
 
-| Upstream (TR-Dashboard) | Port (este repo) | Cambio |
+| Upstream (TR-Dashboard) | Port (this repo) | Change |
 |---|---|---|
-| `app/tr_fetch.py` (717 líneas) | `python/fetch_wrapper.py` (746) | Fusionado con `analyze_analytics.py` |
+| `app/tr_fetch.py` (717 lines) | `python/fetch_wrapper.py` (746) | Merged with `analyze_analytics.py` |
 | `app/analyze_analytics.py` (190) | `python/fetch_wrapper.py::compute_analytics` | Inline (no subprocess) |
-| `app/server.py` | `lib/Controller/ApiController.php` | PHP en lugar de Python HTTP |
-| `app/index.html` | `templates/main.php` + `js/dashboard.js` + `css/dashboard.css` | Template ownCloud, CSP-friendly |
-| `app/analytics.html` | `templates/analytics.php` + `js/analytics.js` | Idem |
-| `dashboard.sh` | n/a — la app la habilita `occ app:enable` | No hay script |
-| `~/.pytr/credentials` (texto plano) | DB `oc_preferences` (PIN cifrado) | Per-user, cifrado |
+| `app/server.py` | `lib/Controller/ApiController.php` | PHP instead of a Python HTTP server |
+| `app/index.html` | `templates/main.php` + `js/dashboard.js` + `css/dashboard.css` | ownCloud template, CSP-friendly |
+| `app/analytics.html` | `templates/analytics.php` + `js/analytics.js` | Same |
+| `dashboard.sh` | n/a — the app is enabled by `occ app:enable` | No script |
+| `~/.pytr/credentials` (plain text) | DB `oc_preferences` (PIN encrypted) | Per-user, encrypted |
 | `~/.tr-api/profiles/<phone>/` | `{datadir}/<uid>/trade_republic/profile/.tr-api/profiles/<phone>/` | Per-user, via `HOME` override |
-| `DATA/` (raíz del repo) | `{datadir}/<uid>/trade_republic/` | Per-user, fuera de `files/` |
+| `DATA/` (repo root) | `{datadir}/<uid>/trade_republic/` | Per-user, outside `files/` |
 
 ---
 
-## Divergencias estructurales 🔒 (no convergen)
+## Structural divergences 🔒 (don't converge)
 
-Forzadas por el contexto ownCloud. Upstream nunca tendrá esto, y este port
-nunca quitará esto.
+Forced by the ownCloud context. Upstream will never have these, and this
+port will never drop them.
 
-### 1. Credenciales en `oc_preferences`, no en `~/.pytr/credentials`
+### 1. Credentials in `oc_preferences`, not in `~/.pytr/credentials`
 
-- **Upstream**: lee `~/.pytr/credentials` (línea 1 teléfono, línea 2 PIN,
-  texto plano, `0600`).
-- **Port**: lee `TR_PHONE` y `TR_PIN` de env vars. Las inyecta
-  `TrService::runFetch()` después de descifrar el PIN con `ICrypto`.
-- **Por qué**: multi-usuario. No hay home único; `www-data` no podría
-  separar credenciales por sesión.
+- **Upstream**: reads `~/.pytr/credentials` (line 1 phone, line 2 PIN,
+  plain text, `0600`).
+- **Port**: reads `TR_PHONE` and `TR_PIN` from env vars.
+  `TrService::runFetch()` injects them after decrypting the PIN with
+  `ICrypto`.
+- **Why**: multi-user. There's no single home; `www-data` can't separate
+  credentials per session.
 
-### 2. Profile dir per-user via `HOME` redirect
+### 2. Per-user profile dir via `HOME` redirect
 
-- **Upstream**: `tr-api` escribe en `~/.tr-api/profiles/<phone>/`.
-- **Port**: `fetch_wrapper.py` setea `os.environ["HOME"] = profile_dir`
-  antes de importar `tr-api`, así sus paths internos quedan dentro de
+- **Upstream**: `tr-api` writes to `~/.tr-api/profiles/<phone>/`.
+- **Port**: `fetch_wrapper.py` sets `os.environ["HOME"] = profile_dir`
+  before importing `tr-api`, so its internal paths land inside
   `{datadir}/<uid>/trade_republic/profile/.tr-api/...`.
-- **Por qué**: aislar las cookies de TR de cada usuario de ownCloud.
+- **Why**: isolate each ownCloud user's TR cookies.
 
-### 3. Pending login state per-user
+### 3. Per-user pending login state
 
-- **Upstream**: `.pending_login.json` en `PROJECT_DIR/DATA/`.
-- **Port**: `.pending_login.json` en `{datadir}/<uid>/trade_republic/`.
-- **Por qué**: same as #2.
+- **Upstream**: `.pending_login.json` in `PROJECT_DIR/DATA/`.
+- **Port**: `.pending_login.json` in `{datadir}/<uid>/trade_republic/`.
+- **Why**: same as #2.
 
-### 4. Data dir per-user
+### 4. Per-user data dir
 
-- **Upstream**: `PROJECT_DIR/DATA/` (descubierto vía
+- **Upstream**: `PROJECT_DIR/DATA/` (discovered via
   `Path(__file__).resolve().parent.parent / "DATA"`).
-- **Port**: `--data-dir` se pasa por CLI desde PHP. Whitelist en
-  `TrService::dataPath()` previene path traversal.
-- **Por qué**: PHP debe controlar la ruta para garantizar aislamiento.
+- **Port**: `--data-dir` passed by CLI from PHP. Whitelist in
+  `TrService::dataPath()` prevents path traversal.
+- **Why**: PHP must control the path to guarantee isolation.
 
-### 5. Login MFA: ya no hay TTY
+### 5. MFA login: no more TTY
 
-- **Upstream**: `tr_fetch.py` puede leer el código MFA por stdin si está en
-  modo interactivo (`--non-interactive` lo evita).
-- **Port**: **siempre** non-interactive. `--mfa-code` es la única forma de
-  pasar el código. PHP no puede hablar a stdin después de `proc_open`.
-- **Por qué**: el browser entrega el código vía POST `/api/update`; PHP
-  arranca un subprocess fresco con el código en `argv`.
+- **Upstream**: `tr_fetch.py` can read the MFA code from stdin when
+  interactive (`--non-interactive` skips that).
+- **Port**: **always** non-interactive. `--mfa-code` is the only way to
+  pass the code. PHP can't talk to stdin after `proc_open`.
+- **Why**: the browser delivers the code via POST `/api/update`; PHP
+  starts a fresh subprocess with the code in `argv`.
 
-### 6. Analytics computado inline
+### 6. Analytics computed inline
 
-- **Upstream**: `tr_fetch.py` corre `subprocess.run([sys.executable,
-  "analyze_analytics.py"])` al final.
-- **Port**: `fetch_wrapper.py::compute_analytics()` lo hace en el mismo
-  proceso.
-- **Por qué**: un solo subprocess desde PHP → un solo timeout, un solo
-  exit code, un solo log. Menos partes móviles.
+- **Upstream**: `tr_fetch.py` runs `subprocess.run([sys.executable,
+  "analyze_analytics.py"])` at the end.
+- **Port**: `fetch_wrapper.py::compute_analytics()` does it in the same
+  process.
+- **Why**: one subprocess from PHP → one timeout, one exit code, one
+  log. Fewer moving parts.
 
-### 7. Update + MFA flow vive en PHP/JS, no en Python HTTP server
+### 7. Update + MFA flow lives in PHP/JS, not in a Python HTTP server
 
-- **Upstream**: `app/server.py` corre en `localhost:8085`, sirve
-  `index.html` estático y endpoints `/update`, `/config`, `/reset`.
-- **Port**: rutas reales de ownCloud:
+- **Upstream**: `app/server.py` runs on `localhost:8085`, serves
+  `index.html` statically and endpoints `/update`, `/config`, `/reset`.
+- **Port**: real ownCloud routes:
   - `GET /apps/trade_republic/` → `PageController::index`
   - `POST /apps/trade_republic/api/update` → `ApiController::update`
   - etc.
-- **Por qué**: ownCloud ya tiene auth, CSRF, sesiones, navegación. Levantar
-  un Python HTTP server sería redundante e inseguro (puerto abierto,
-  sin CSRF, sin login).
+- **Why**: ownCloud already has auth, CSRF, sessions, navigation.
+  Spinning up a Python HTTP server would be redundant and insecure
+  (open port, no CSRF, no login).
 
-### 8. Cache compartida de Chromium para Playwright
+### 8. Shared Chromium cache for Playwright
 
-- **Upstream**: cada usuario instala Playwright/Chromium localmente
-  (`pipx install pytr` + `playwright install chromium`) en su home.
-- **Port**: instalación una sola vez en `/var/cache/tr-playwright/`,
-  pasada al subprocess vía `PLAYWRIGHT_BROWSERS_PATH`. Configurable con
+- **Upstream**: each user installs Playwright/Chromium locally
+  (`pipx install pytr` + `playwright install chromium`) in their home.
+- **Port**: install once in `/var/cache/tr-playwright/`, passed to the
+  subprocess via `PLAYWRIGHT_BROWSERS_PATH`. Configurable with
   `occ config:system:set trade_republic.playwright_browsers_path`.
-- **Por qué**: la app redirige `HOME` per-user → sin la cache compartida,
-  cada usuario re-bajaría ~150 MB en su primer login.
+- **Why**: the app redirects `HOME` per user → without the shared cache,
+  every user would re-download ~150 MB on their first login.
 
-### 9. `--full` aparece también en el modal MFA
+### 9. `--full` exists in the MFA modal too
 
-- **Upstream**: `--full` es solo CLI (`./dashboard.sh full`).
-- **Port**: el modal MFA tiene un checkbox "Descarga completa" que pasa
-  `{full: true}` al `POST /api/update`.
-- **Por qué**: el usuario no tiene shell access al server; necesita una
-  forma desde el browser.
+- **Upstream**: `--full` is CLI-only (`./dashboard.sh full`).
+- **Port**: the MFA modal has a "Full reload" checkbox that sends
+  `{full: true}` in the `POST /api/update`.
+- **Why**: the user has no shell access on the server; they need a
+  browser-side option.
 
-### 10. Botón "Borrar cuenta" (no existe en upstream)
+### 10. "Erase account" button (not in upstream)
 
-- **Upstream**: borrado manual con `./dashboard.sh reset` (CLI).
-- **Port**: botón rojo en el modal **⚙ Cuenta** con confirmación tipo
-  `delete`. Llama `POST /api/reset` → `TrService::reset()` que borra prefs
-  y `rm -rf {datadir}/<uid>/trade_republic/`.
-- **Por qué**: same as #9.
+- **Upstream**: manual delete via `./dashboard.sh reset` (CLI).
+- **Port**: red button in the **⚙ Account** modal with a `delete`-style
+  confirmation. Calls `POST /api/reset` → `TrService::reset()` which
+  wipes prefs and `rm -rf {datadir}/<uid>/trade_republic/`.
+- **Why**: same as #9.
 
 ---
 
-## Divergencias intencionales (no estructurales, pero justificadas)
+## Intentional divergences (non-structural, but justified)
 
-Decisiones de diseño que mejoran el UX del port y no aplicarían al script
-local. Documentadas para que un futuro merge desde upstream no las
-sobrescriba accidentalmente.
+Design decisions that improve the port's UX and wouldn't apply to the
+local script. Documented so a future merge from upstream doesn't
+accidentally overwrite them.
 
-### 11. `last_update.date` incluye hora
+### 11. `last_update.date` includes time
 
 - **Upstream**: `datetime.now().strftime("%Y-%m-%d")` → `"2026-05-23"`.
 - **Port**: `datetime.now().strftime("%Y-%m-%d %H:%M:%S")` →
   `"2026-05-23 14:32:01"`.
-- **Por qué**: el header del port muestra "Última actualización: 23 may
-  2026, 14:32"; el local muestra "2026-05-23". Más útil cuando varios
-  usuarios refrescan a distintas horas del día.
-- **Compatibilidad**: la lógica de incremental usa `.strip().split()[0]`
-  en ambos lados, así que la fecha sigue siendo extraíble igual.
+- **Why**: the port's header shows "Last update: May 23, 2026, 2:32 PM";
+  the local one shows "2026-05-23". More useful when several users
+  refresh at different times of day.
+- **Compatibility**: the incremental logic uses `.strip().split()[0]` on
+  both sides, so the date stays extractable in either format.
 
-### 12. `net_worth_history.json` guarda valores detallados
+### 12. `net_worth_history.json` stores detailed values
 
-- **Upstream**: `analyze_analytics.py` sobrescribe el archivo con
-  `[{date, value}]` (solo dos campos). Trim a 180 días.
-- **Port**: `_append_net_worth_history` escribe
-  `{date, value, net_value, depot, cash, pl_eur}` y `compute_analytics` lo
-  deja como está. Trim a 180 días (alineado con upstream desde
-  [bb92d81+1]).
-- **Por qué**: la página de analytics del port tiene columnas para
-  Depósito y Efectivo además del valor total. El JS de upstream solo lee
-  `value`, así que sigue siendo compatible si alguien migra del local al
-  port (el campo `value` está presente).
+- **Upstream**: `analyze_analytics.py` overwrites the file with
+  `[{date, value}]` (just two fields). Trims to 180 days.
+- **Port**: `_append_net_worth_history` writes
+  `{date, value, net_value, depot, cash, pl_eur}` and `compute_analytics`
+  leaves it as is. Trims to 180 days (aligned with upstream as of
+  `bb92d81+1`).
+- **Why**: the port's analytics page has columns for Depot and Cash on
+  top of total value. The upstream JS only reads `value`, so it's still
+  compatible if someone migrates from local to the port (the `value`
+  field is present).
 
-### 13. Schema de cookies / pending login
+### 13. Cookies / pending login schema
 
-- **Upstream**: `_pending_login.json` con `{phone, process_id, issued_at}`,
+- **Upstream**: `_pending_login.json` with `{phone, process_id, issued_at}`,
   TTL 5 min.
-- **Port**: idéntico. **Sin divergencia** — incluido aquí para evitar
-  confusión.
+- **Port**: identical. **No divergence** — listed here to avoid confusion.
 
 ---
 
-## Convergencia esperada (alineado con upstream a propósito)
+## Expected convergence (intentionally aligned with upstream)
 
-Áreas donde explícitamente queremos comportamiento idéntico al local.
-Si encuentras drift aquí, **es un bug** que hay que cerrar.
+Areas where we explicitly want behavior identical to local. If you find
+drift here, **it's a bug** worth fixing.
 
-| Área | Comportamiento esperado |
+| Area | Expected behavior |
 |---|---|
-| `EVENT_TYPE_MAP` (TR eventType → CSV Type) | Idéntico carácter por carácter |
-| `_shape_portfolio` (mapeo TR JSON → portfolio.json) | Mismos field names, mismas reglas de fallback, misma truncación de nombres a 25 chars |
-| Schema de `account_transactions.csv` | Mismas columnas, mismo `;` separador, mismo merge dedupe key `Date|Type|Value|Note` |
-| Schema de `portfolio.json` | Misma estructura (`summary`, `top_25`, `winners_50plus`, `losers_25minus`, `all_positions`, `zero_value_positions`) |
-| Schema de `analytics.json` | Mismas sub-keys (`cash_flow`, `dividends`, `allocation`, `history`) |
-| Exit codes 0/10/11/12/20/21/30 | Mismos significados |
-| Ventana incremental de transacciones (3 días overlap) | Idéntica |
-| Categorización heurística allocation (ETFs / Crypto / Stocks / Cash) | Idéntica |
-| Truncación de `net_worth_history` a 180 días | Idéntica |
+| `EVENT_TYPE_MAP` (TR eventType → CSV Type) | Identical, character for character |
+| `_shape_portfolio` (TR JSON → portfolio.json mapping) | Same field names, same fallback rules, same 25-char name truncation |
+| `account_transactions.csv` schema | Same columns, same `;` separator, same merge dedupe key `Date|Type|Value|Note` |
+| `portfolio.json` schema | Same structure (`summary`, `top_25`, `winners_50plus`, `losers_25minus`, `all_positions`, `zero_value_positions`) |
+| `analytics.json` schema | Same sub-keys (`cash_flow`, `dividends`, `allocation`, `history`) |
+| Exit codes 0/10/11/12/20/21/30 | Same meanings |
+| Incremental transactions window (3-day overlap) | Identical |
+| Heuristic allocation categories (ETFs / Crypto / Stocks / Cash) | Identical |
+| `net_worth_history` truncation to 180 days | Identical |
 
 ---
 
-## Cómo verificar que no haya drift accidental
+## How to verify there's no accidental drift
 
-Una sola fuente de divergencia es el wrapper:
+The single source of divergence is the wrapper:
 
 ```bash
-# Desde la raíz del repo de la app:
+# From the app repo root:
 diff -u <(sed -n '/^EVENT_TYPE_MAP/,/^}/p' python/fetch_wrapper.py) \
         <(sed -n '/^EVENT_TYPE_MAP/,/^}/p' ../Trade-Republic-Dashboard/app/tr_fetch.py)
 ```
 
-Cualquier output ahí significa que el mapa de tipos divergió — investiga.
+Any output there means the type map drifted — investigate.

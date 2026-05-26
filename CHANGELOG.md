@@ -2,37 +2,39 @@
 
 ## 0.1.0 — 2026-05-26
 
-Primera versión.
+First release.
 
-### Funcionalidad
+### Features
 
-- App de ownCloud 10 (`apps/trade_republic/`) con namespace `OCA\TradeRepublic` y app
-  id `tr`.
-- Entrada en la barra de navegación ("Trade Republic") con icono `app.svg`.
-- Dos páginas:
-  - `/` — dashboard de portafolio (resumen, top movers, tabla buscable
-    con filtros por rango de valor y por P&L).
-  - `/analytics` — cash flow mensual, dividendos, distribución por
-    categoría, historial de patrimonio.
-- Endpoints JSON `/data/{type}` para `portfolio`, `analytics`,
+- ownCloud 10 app (`apps/trade_republic/`) with namespace
+  `OCA\TradeRepublic` and app id `trade_republic`.
+- Entry in the navigation bar ("Trade Republic") with `app.svg` icon.
+- Two pages:
+  - `/` — portfolio dashboard (summary, top movers, searchable table
+    with filters by value range and by P/L).
+  - `/analytics` — monthly cash flow, dividends, allocation by category,
+    net-worth history.
+- JSON endpoints `/data/{type}` for `portfolio`, `analytics`,
   `net_worth_history`, `last_update`.
-- Configuración por usuario (`⚙ Cuenta`): teléfono E.164 + PIN. PIN
-  cifrado con `ICrypto`.
-- Flujo de login two-step de Trade Republic:
-  - POST `/api/update` sin código → `initiate_login` → TR push de 4 dígitos
-    → exit 10 / `mfa_required`.
-  - POST `/api/update` con `mfa_code` → `complete_login` → cookies
-    guardadas → fetch + analytics.
-- Botón "Borrar cuenta" que limpia teléfono, PIN, cookies y datos
-  descargados (confirmación tipo `delete`).
-- Checkbox "Descarga completa" en el modal de MFA: fuerza re-bajar todo el
-  historial de transacciones (vs. el modo incremental por default).
-- Aislamiento por usuario garantizado por `TrService::userId()` (lazy
-  desde `IUserSession`) + whitelist de archivos + redirección de `HOME`
-  para que `tr-api` escriba sus cookies dentro del dir per-user.
-- Configuración del server: `trade_republic.python_bin` (default `python3`).
+- Per-user configuration (`⚙ Account`): E.164 phone + PIN. PIN encrypted
+  with `ICrypto`.
+- Trade Republic two-step login flow:
+  - POST `/api/update` with no code → `initiate_login` → TR pushes a
+    4-digit code → exit 10 / `mfa_required`.
+  - POST `/api/update` with `mfa_code` → `complete_login` → cookies
+    saved → fetch + analytics.
+- "Erase account" button that wipes phone, PIN, cookies and downloaded
+  data (`delete`-style confirmation).
+- "Full reload" checkbox in the MFA modal: forces a full re-download of
+  the transaction history (vs. the default incremental mode).
+- Per-user isolation guaranteed by `TrService::userId()` (lazy from
+  `IUserSession`) + file whitelist + `HOME` redirect so `tr-api` writes
+  its cookies inside the per-user dir.
+- Server config: `trade_republic.python_bin` (default `python3`),
+  `trade_republic.playwright_browsers_path` (default
+  `/var/cache/tr-playwright`).
 
-### Estructura del repo
+### Repo layout
 
 ```
 appinfo/{info.xml, app.php, routes.php}
@@ -46,11 +48,11 @@ css/dashboard.css
 img/app.svg
 ```
 
-### Notas
+### Notes
 
-- Estructuralmente paralela a `gbm-owncloud@0.4.0`. Mismos exit codes,
-  mismo modelo de aislamiento, misma manera de inyectar credenciales por
-  env vars al wrapper Python.
-- Lib backend: [`tr-api`](https://github.com/cdamken/tr-api) con extras
-  `[browser]` (Playwright + Chromium) para resolver el WAF de Cloudflare
-  que TR pone delante de auth.
+- Structurally parallel to `gbm-owncloud@0.4.0`. Same exit codes, same
+  isolation model, same approach of injecting credentials via env vars
+  into the Python wrapper.
+- Backend lib: [`tr-api`](https://github.com/cdamken/tr-api) with the
+  `[browser]` extras (Playwright + Chromium) to resolve the Cloudflare
+  WAF in front of TR's auth.

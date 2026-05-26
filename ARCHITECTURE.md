@@ -1,16 +1,17 @@
 # ARCHITECTURE — trade-republic-owncloud
 
-Cómo está construida la app, dónde vive cada cosa y por qué.
+How the app is built, where each thing lives, and why.
 
-Estructuralmente paralela a [`gbm-owncloud`](https://github.com/cdamken/gbm-owncloud).
-Si conoces ese repo, este se entiende en cinco minutos — lo único realmente
-distinto es el flujo de login (TR usa **2-step push** en lugar de TOTP).
+Structurally parallel to
+[`gbm-owncloud`](https://github.com/cdamken/gbm-owncloud). If you know
+that repo, this one is five minutes to get up to speed — the only real
+difference is the login flow (TR uses **2-step push** instead of TOTP).
 
-## Diagrama de alto nivel
+## High-level diagram
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
-│  Browser del usuario (logueado en ownCloud, su propia sesión + cookie) │
+│  User's browser (logged into ownCloud, own session + cookie)           │
 └──────────────────────────────┬─────────────────────────────────────────┘
                                │ HTTPS
                                ▼
@@ -20,39 +21,39 @@ distinto es el flujo de login (TR usa **2-step push** en lugar de TOTP).
 │  Router → OCA\TradeRepublic\Controller\PageController   (GET  /)       │
 │        → OCA\TradeRepublic\Controller\ApiController     (GET/POST /api)│
 │                                                                        │
-│  CSRF middleware activo en los POST (setConfig, update, reset)         │
+│  CSRF middleware active on POSTs (setConfig, update, reset)            │
 │                                                                        │
-│  Controllers reciben TrService vía DI auto-wiring.                     │
-│  TrService resuelve userId LAZILY desde IUserSession en cada request.  │
+│  Controllers get TrService via DI auto-wiring.                         │
+│  TrService resolves userId LAZILY from IUserSession per request.       │
 │                                                                        │
 │  TrService.runFetch($mfaCode, $full)                                   │
 │    └─ proc_open([                                                      │
-│           trade_republic.python_bin,                                               │
-│           apps/trade_republic/python/fetch_wrapper.py,                             │
-│           --profile-dir {datadir}/<uid>/trade_republic/profile,                    │
-│           --data-dir    {datadir}/<uid>/tr,                            │
-│           --mfa-code    (si lo mandó el browser)                       │
-│           --full        (si el usuario marcó "descarga completa")      │
-│       ], env=TR_PHONE, TR_PIN (descifrado via ICrypto), ...)           │
+│           trade_republic.python_bin,                                   │
+│           apps/trade_republic/python/fetch_wrapper.py,                 │
+│           --profile-dir {datadir}/<uid>/trade_republic/profile,        │
+│           --data-dir    {datadir}/<uid>/trade_republic,                │
+│           --mfa-code    (if the browser sent one)                      │
+│           --full        (if the user ticked "Full reload")             │
+│       ], env=TR_PHONE, TR_PIN (decrypted via ICrypto), ...)            │
 └──────────────────────────────┬─────────────────────────────────────────┘
                                │ subprocess
                                ▼
 ┌────────────────────────────────────────────────────────────────────────┐
-│  fetch_wrapper.py  (Python 3.10+, venv con tr-api[browser])            │
+│  fetch_wrapper.py  (Python 3.10+, venv with tr-api[browser])           │
 │                                                                        │
-│   set HOME = --profile-dir   (redirige ~/.tr-api/ del lib a per-user)  │
+│   set HOME = --profile-dir   (redirects ~/.tr-api/ to per-user)        │
 │                                                                        │
-│   ┌── Paso 1 (sin --mfa-code, cookies muertas) ────────────────────┐   │
+│   ┌── Step 1 (no --mfa-code, cookies dead) ────────────────────────┐   │
 │   │   auth.initiate_login(phone, pin)                               │   │
-│   │     → TR push 4-digit code al móvil                            │   │
-│   │     → guarda processId en {data-dir}/.pending_login.json       │   │
+│   │     → TR pushes 4-digit code to the mobile app                 │   │
+│   │     → store processId in {data-dir}/.pending_login.json        │   │
 │   │     → exit 10 (mfa_required)                                   │   │
 │   └────────────────────────────────────────────────────────────────┘   │
 │                                                                        │
-│   ┌── Paso 2 (--mfa-code provisto) ─────────────────────────────────┐  │
+│   ┌── Step 2 (--mfa-code supplied) ─────────────────────────────────┐  │
 │   │   process_id = read({data-dir}/.pending_login.json)             │  │
 │   │   auth.complete_login(process_id, code)                         │  │
-│   │     → cookies persistidas a {profile-dir}/.tr-api/.../cookies   │  │
+│   │     → cookies persisted to {profile-dir}/.tr-api/.../cookies    │  │
 │   └────────────────────────────────────────────────────────────────┘   │
 │                                                                        │
 │   ► portfolio.snapshot_full(client)  → portfolio.json + raw           │
@@ -65,179 +66,182 @@ distinto es el flujo de login (TR usa **2-step push** en lugar de TOTP).
                   (auth + WS api.traderepublic.com)
 ```
 
-## Layout en disco (por usuario)
+## On-disk layout (per user)
 
 ```
 {datadirectory}/<uid>/trade_republic/
 ├── profile/                           ← tr-api profile dir (0700)
 │   └── .tr-api/profiles/<phone>/
-│       ├── cookies.json               ← persistidas por tr-api
+│       ├── cookies.json               ← persisted by tr-api
 │       └── profile.json
-├── .pending_login.json                ← processId in-flight (0600, TTL 5 min)
-├── portfolio.json                     ← consumed by dashboard
+├── .pending_login.json                ← in-flight processId (0600, TTL 5 min)
+├── portfolio.json                     ← consumed by the dashboard
 ├── portfolio_raw.json                 ← raw TR WS payload (debug)
-├── account_transactions.csv           ← timeline en formato pytr-compatible
+├── account_transactions.csv           ← timeline in pytr-compatible CSV
 ├── analytics.json                     ← cash flow, dividends, allocation
 ├── net_worth_history.json             ← daily snapshot rows
 ├── last_update.date                   ← "YYYY-MM-DD HH:MM:SS"
-└── fetch.log                          ← stdout/stderr del último run
+└── fetch.log                          ← stdout/stderr of the last run
 ```
 
-`{datadirectory}` viene de `occ config:system:get datadirectory`. Todo se
-crea con `0700` para directorios y `0600` para archivos.
+`{datadirectory}` comes from `occ config:system:get datadirectory`. Every
+directory is `0700` and every file is `0600`.
 
-## Aislamiento por usuario — el modelo
+## Per-user isolation — the model
 
-El usuario `alice` no puede ver los datos de `bob`. Garantizado así:
+User `alice` cannot see `bob`'s data. Guaranteed by:
 
-1. **Identidad atada en construcción.** `TrService::userId()` se resuelve
-   lazily desde `IUserSession->getUser()->getUID()`. No hay setter. No hay
-   forma de construir `TrService` con un userId arbitrario.
+1. **Identity bound at construction.** `TrService::userId()` is resolved
+   lazily from `IUserSession->getUser()->getUID()`. There is no setter.
+   There is no way to construct `TrService` with an arbitrary userId.
 
-2. **Paths derivados del userId.** Cada ruta de archivo dentro del servicio
-   se construye como `$this->dataDirRoot . '/' . $this->userId() . '/tr/...'`.
+2. **Paths derived from userId.** Every file path inside the service is
+   built as `$this->dataDirRoot . '/' . $this->userId() . '/trade_republic/...'`.
 
-3. **Whitelist en `dataPath()`.** El método que mapea un nombre de archivo
-   a ruta filtra con whitelist explícita (`portfolio.json`, `analytics.json`,
-   `net_worth_history.json`, `last_update.date`). Path traversal no funciona.
+3. **Whitelist in `dataPath()`.** The method that maps a filename to a
+   path filters against an explicit whitelist (`portfolio.json`,
+   `analytics.json`, `net_worth_history.json`, `last_update.date`). Path
+   traversal does not work.
 
-4. **CSRF activo en endpoints de mutación.** `setConfig`, `update` y `reset`
-   validan el token de ownCloud. Otro tab/dominio no puede dispararlos sin la
-   cookie de sesión del usuario.
+4. **CSRF active on mutation endpoints.** `setConfig`, `update` and
+   `reset` validate the ownCloud token. Another tab/domain can't trigger
+   them without the user's session cookie.
 
-5. **`@NoAdminRequired` no significa "público"**. El middleware de auth de
-   ownCloud sigue exigiendo login. Sin login no hay user → `userId()` lanza
-   `RuntimeException` y la request muere.
+5. **`@NoAdminRequired` doesn't mean "public".** The ownCloud auth
+   middleware still requires login. Without login there's no user →
+   `userId()` throws `RuntimeException` and the request dies.
 
-6. **HOME redirigido por usuario.** El wrapper Python hace
-   `os.environ["HOME"] = profile_dir`, así que `tr-api` escribe sus cookies
-   y `processId` dentro del dir per-user. Aunque dos usuarios usen el mismo
-   teléfono (caso raro), sus profile dirs son distintos.
+6. **HOME redirected per user.** The Python wrapper does
+   `os.environ["HOME"] = profile_dir`, so `tr-api` writes its cookies and
+   `processId` inside the per-user dir. Even if two users used the same
+   phone (rare), their profile dirs are different.
 
-## Credenciales — dónde y cómo
+## Credentials — where and how
 
-| Campo | Forma | Tabla / Path | Cifrado |
+| Field | Form | Table / Path | Encrypted |
 |---|---|---|---|
-| Teléfono | string E.164 | DB `oc_preferences` (`<uid>`, `trade_republic`, `phone`) | No (no es secreto) |
-| PIN | string 4-6 dígitos | DB `oc_preferences` (`<uid>`, `trade_republic`, `pin_enc`) | **Sí**, `ICrypto::encrypt` |
-| Cookies TR | JSON | Filesystem `{datadir}/<uid>/trade_republic/profile/.tr-api/...` (0700) | No (vida corta) |
-| processId in-flight | JSON | Filesystem `{datadir}/<uid>/trade_republic/.pending_login.json` (0600) | No (TTL 5 min) |
+| Phone | E.164 string | DB `oc_preferences` (`<uid>`, `trade_republic`, `phone`) | No (not a secret) |
+| PIN | 4-6 digits string | DB `oc_preferences` (`<uid>`, `trade_republic`, `pin_enc`) | **Yes**, `ICrypto::encrypt` |
+| TR cookies | JSON | Filesystem `{datadir}/<uid>/trade_republic/profile/.tr-api/...` (0700) | No (short-lived) |
+| In-flight processId | JSON | Filesystem `{datadir}/<uid>/trade_republic/.pending_login.json` (0600) | No (TTL 5 min) |
 
-`ICrypto::encrypt` de ownCloud usa AES-256-CBC con el `secret` definido en
-`config.php`. Sin acceso al `config.php` del server, los PINs cifrados en
-`oc_preferences` no se pueden recuperar.
+ownCloud's `ICrypto::encrypt` uses AES-256-CBC with the `secret` defined
+in `config.php`. Without access to the server's `config.php`, encrypted
+PINs in `oc_preferences` can't be recovered.
 
-## Por qué el login es de dos pasos (vs. el TOTP de gbm-owncloud)
+## Why a two-step login (vs. gbm-owncloud's TOTP)
 
-TR no usa TOTP — usa un **push challenge**:
+TR doesn't use TOTP — it uses a **push challenge**:
 
-1. Llamas a `auth.initiate_login(phone, pin)`. TR responde con un
-   `processId` y envía un código de 4 dígitos a la app móvil del usuario.
-2. Recibes el código del usuario y llamas a
-   `auth.complete_login(processId, code)`. TR responde con cookies de sesión.
+1. Call `auth.initiate_login(phone, pin)`. TR responds with a `processId`
+   and pushes a 4-digit code to the user's mobile app.
+2. Receive the code from the user and call
+   `auth.complete_login(processId, code)`. TR responds with session
+   cookies.
 
-Esto fuerza dos roundtrips HTTP entre browser y servidor: el primer POST
-`/api/update` dispara `initiate_login` y guarda el `processId` en disco;
-el segundo POST `/api/update` (con `mfa_code`) lee ese `processId` y
-completa el login.
+This forces two HTTP roundtrips between browser and server: the first
+POST `/api/update` fires `initiate_login` and stores the `processId` on
+disk; the second POST `/api/update` (with `mfa_code`) reads that
+`processId` and completes the login.
 
-El archivo `.pending_login.json` es el puente entre ambos. Tiene TTL de 5
-minutos: si el usuario abre el modal y luego se distrae, al volver puede
-darle a "Actualizar" sin código y se inicia un push nuevo (porque el TTL
-ya pasó y _load_pending devuelve None); si vuelve antes del TTL, NO se
-reinicia el push (porque el código viejo todavía es válido).
+The `.pending_login.json` file is the bridge between the two. It has a
+5-minute TTL: if the user opens the modal and then gets distracted,
+coming back lets them press "Update" without a code and start a fresh
+push (the TTL has passed and `_load_pending` returns None); if they come
+back within the TTL, the push is NOT restarted (the previous code is
+still valid).
 
-Comparado con gbm-owncloud (TOTP):
-- En GBM, el código lo genera el usuario en su app autenticadora, y el
-  fetch es stateless: un solo POST con `totp_code` resuelve todo.
-- En TR, el código lo emite TR como respuesta a `initiate_login`. El
-  servidor TIENE que recordar el `processId` entre el push y el submit
-  del usuario.
+Compared to gbm-owncloud (TOTP):
+- In GBM, the code is generated by the user's authenticator app, and the
+  fetch is stateless: a single POST with `totp_code` does the whole
+  thing.
+- In TR, the code is issued by TR in response to `initiate_login`. The
+  server MUST remember the `processId` between the push and the user's
+  submission.
 
-## Por qué los datos viven en `appdata`-like y no en `files/`
+## Why data lives in an `appdata`-like dir, not in `files/`
 
-Tres razones:
+Three reasons:
 
-1. **No queremos que aparezcan en el File explorer.** Si los pongo en
-   `{datadir}/<uid>/files/TR/`, los vería en la web y se le sincronizarían
-   al desktop client.
-2. **Privacidad relativa.** Cualquier mecanismo que enseñe `files/`
-   (compartido, link público) podría exponer los JSON. Fuera de `files/` no
-   hay forma de listarlos sin acceso al filesystem.
-3. **Limpieza explícita.** Cuando un usuario se va o resetea, basta con
-   borrar el dir `tr/` — no hay que cazar archivos sueltos dentro de
-   `files/`.
+1. **We don't want it showing up in the user's File explorer.** Putting
+   it under `{datadir}/<uid>/files/TR/` would expose it in the web UI and
+   sync it to the desktop client.
+2. **Relative privacy.** Any mechanism that exposes `files/` (shares,
+   public links) could expose the JSON. Outside `files/`, there's no way
+   to list it without filesystem access.
+3. **Explicit cleanup.** When a user leaves or hits reset, deleting the
+   `trade_republic/` dir is enough — no need to chase scattered files
+   inside `files/`.
 
-## Por qué bridge Python en lugar de port a PHP
+## Why a Python bridge instead of a PHP port
 
-`tr-api` es la fuente de verdad de los endpoints WebSocket reales de TR.
-Cuando TR cambie algo, `tr-api` se actualiza y este app gana la corrección
-automáticamente con un `pip install -U tr-api`. Portar el WebSocket + el
-WAF/Playwright a PHP sería una inversión enorme con cero beneficio.
+`tr-api` is the source of truth for TR's actual WebSocket endpoints. When
+TR changes something, `tr-api` ships a fix and this app gets it for free
+with a `pip install -U tr-api`. Porting the WebSocket + WAF/Playwright to
+PHP would be enormous investment for zero benefit.
 
-Si en algún momento `tr-api` exporta su WS sobre HTTP (microservicio),
-podríamos hablar a ese endpoint desde PHP y dejar de hacer `proc_open` — la
-interfaz `TrService` no cambiaría y los controllers no se enterarían.
+If `tr-api` ever exposes its WS over HTTP (microservice), we could talk
+to that endpoint from PHP and stop `proc_open`-ing — the `TrService`
+interface wouldn't change and the controllers wouldn't notice.
 
-## Modelo de errores
+## Error model
 
-`fetch_wrapper.py` usa exit codes que `TrService` mapea a status JSON que
-el JS interpreta:
+`fetch_wrapper.py` uses exit codes that `TrService` maps to JSON statuses
+the JS interprets:
 
-| Exit | JSON status     | HTTP | Significado |
-|------|-----------------|------|-------------|
-| 0    | `ok`            | 200  | Todo bien |
-| 10   | `mfa_required`  | 401  | Cookies muertas / no había código → browser muestra modal de 4 dígitos |
-| 11   | `mfa_invalid`   | 401  | Código equivocado o expirado |
-| 12   | `auth_failed`   | 401  | Teléfono/PIN rechazados |
-| 20   | `api_error`     | 502  | TR falló o `tr-api` tronó |
-| 21   | `rate_limited`  | 429  | TR limitó los intentos de login |
-| 30   | `config_error`  | 500  | Wrapper no encontrado, lib faltante, env vacío |
+| Exit | JSON status     | HTTP | Meaning |
+|------|-----------------|------|---------|
+| 0    | `ok`            | 200  | All good |
+| 10   | `mfa_required`  | 401  | Cookies dead / no code → browser shows the 4-digit modal |
+| 11   | `mfa_invalid`   | 401  | Wrong or expired code |
+| 12   | `auth_failed`   | 401  | Phone/PIN rejected |
+| 20   | `api_error`     | 502  | TR failed or `tr-api` crashed |
+| 21   | `rate_limited`  | 429  | TR rate-limited the login |
+| 30   | `config_error`  | 500  | Wrapper not found, lib missing, env empty |
 
-El JS del browser tiene una rama explícita para cada uno (abre modal de
-MFA, abre modal de config, muestra alert de rate-limit, etc.).
+The browser JS has an explicit branch for each (opens the MFA modal,
+opens the config modal, shows a rate-limit alert, etc.).
 
-## Diferencias con la arquitectura de `Trade-Republic-Dashboard`
+## Differences vs. the `Trade-Republic-Dashboard` architecture
 
-`Trade-Republic-Dashboard` corre un mini HTTP server Python en localhost y
-sirve HTML estático + endpoints `/update` y `/config`. Aquí:
+`Trade-Republic-Dashboard` runs a small Python HTTP server on localhost
+and serves static HTML + `/update` and `/config` endpoints. Here:
 
-- El HTTP server **es ownCloud** — la app no levanta un server propio.
-- `/update`, `/config` y `/reset` se vuelven rutas de ownCloud, con auth +
-  CSRF + per-user scope reales.
-- Las páginas HTML se vuelven templates renderizadas por ownCloud (con su
-  layout, navegación, etc.).
-- `tr_fetch.py` + `analyze_analytics.py` se fusionan en `fetch_wrapper.py`
-  para que PHP solo tenga que hacer un `proc_open`.
-- Las credenciales vienen de la DB de ownCloud (PIN cifrado) en lugar de
+- The HTTP server **is ownCloud** — the app doesn't start its own.
+- `/update`, `/config` and `/reset` become ownCloud routes, with real
+  auth + CSRF + per-user scope.
+- HTML pages become templates rendered by ownCloud (with its layout,
+  navigation, etc.).
+- `tr_fetch.py` + `analyze_analytics.py` are merged into
+  `fetch_wrapper.py` so PHP only has to `proc_open` once.
+- Credentials come from the ownCloud DB (PIN encrypted) instead of
   `~/.pytr/credentials`.
 
-## Punto de extensión: añadir una nueva vista
+## Extension point: add a new view
 
-Para añadir, p.ej., una página de "alertas":
+To add, e.g., an "alerts" page:
 
-1. Añadir ruta en `appinfo/routes.php`:
+1. Add a route in `appinfo/routes.php`:
    `['name' => 'page#alerts', 'url' => '/alerts', 'verb' => 'GET']`
-2. Añadir método `alerts()` en `PageController` que devuelva un
-   `TemplateResponse` (con `@NoCSRFRequired`).
-3. Crear `templates/alerts.php` y `js/alerts.js`.
-4. Las URLs de datos siguen viniendo del array `routes` que el template
-   inyecta en `#tr-app` data-attributes.
+2. Add an `alerts()` method to `PageController` returning a
+   `TemplateResponse` (with `@NoCSRFRequired`).
+3. Create `templates/alerts.php` and `js/alerts.js`.
+4. The data URLs keep coming from the `routes` array the template
+   injects into `#tr-app` data-attributes.
 
-No se tocan controllers de API ni el servicio.
+No API controller or service changes needed.
 
-## Punto de extensión: añadir un nuevo dato a sincronizar
+## Extension point: sync a new dataset
 
-Caso típico: querer guardar también órdenes pendientes (no solo
-ejecutadas).
+Typical case: also store pending orders (not just executed).
 
-1. Modificar `python/fetch_wrapper.py` para añadir el fetch nuevo y
-   escribir, p.ej., `orders_pending.json`.
-2. Añadir `'orders_pending.json'` a la whitelist en `TrService::dataPath()`.
-3. Añadir `'orders_pending' => 'orders_pending.json'` en
+1. Modify `python/fetch_wrapper.py` to add the new fetch and write, e.g.,
+   `orders_pending.json`.
+2. Add `'orders_pending.json'` to the whitelist in `TrService::dataPath()`.
+3. Add `'orders_pending' => 'orders_pending.json'` in
    `ApiController::data()`.
-4. Cualquier nueva vista que lo quiera consumir lo pide vía
+4. Any new view that wants it requests it via
    `dataUrl('orders_pending')`.
 
-`fetch_wrapper.py` es el único punto donde se decide qué se baja y cómo se
-estructura — todo lo demás es presentación.
+`fetch_wrapper.py` is the only place that decides what gets downloaded
+and how it's structured — everything else is presentation.

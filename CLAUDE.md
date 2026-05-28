@@ -139,6 +139,12 @@ img/app.svg                     navigation entry icon
 
 ## Recently resolved
 
+- **2026-05-28**: 'Documents' button + `POST /api/download_docs` route.
+  `TrService::runDocsDownload()` shells out to `tr-api docs download
+  --out {datadir}/<uid>/trade_republic/documents/` with HOME redirected
+  to the per-user profile dir. PDFs appear in the user's Files app
+  automatically under `trade_republic/documents/<YYYY>/<kind>/`.
+  Verbatim port from upstream commit `efd2d71`.
 - **2026-05-28**: Chart polish (gradients, smoother lines, polished
   tooltips). Mirrors upstream commit `d6af584`.
 - **2026-05-28**: Withdrawal vs Removal split — analytics now matches

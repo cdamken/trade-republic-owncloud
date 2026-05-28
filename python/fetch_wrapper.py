@@ -419,23 +419,102 @@ def _append_net_worth_history(data_dir: Path, summary: dict[str, Any]) -> None:
 # ---------------------------------------------------------------------------
 # Transactions: timeline → CSV in the schema analyze_analytics expects
 # ---------------------------------------------------------------------------
+async def _paginate_topic_on_ws(ws, topic: str, *, cutoff=None, max_pages: int = 200):
+    """Paginate a single TR timeline topic on an EXISTING WS connection.
+
+    Mirrors Trade-Republic-Dashboard/app/tr_fetch.py::_paginate_topic_on_ws.
+    Done locally (not via tr_api's per-topic fetch_all) so we can share
+    one WS across both timelineTransactions and timelineActivityLog —
+    which is what pytr does and what makes activityLog actually return
+    items for this account.
+    """
+    items: list = []
+    cursor = None
+    for _ in range(max_pages):
+        payload = {"type": topic}
+        if cursor is not None:
+            payload["after"] = cursor
+        page = await ws.fetch_one(payload)
+        page_items = page.get("items") or []
+        if cutoff is not None:
+            for it in page_items:
+                ts_raw = it.get("timestamp") or it.get("eventTime") or ""
+                if isinstance(ts_raw, str) and ts_raw.endswith("Z"):
+                    ts_raw = ts_raw[:-1] + "+00:00"
+                try:
+                    ts = datetime.fromisoformat(ts_raw)
+                    if ts.tzinfo is None:
+                        ts = ts.replace(tzinfo=timezone.utc)
+                    if ts < cutoff:
+                        return items
+                except (ValueError, TypeError):
+                    pass
+                items.append(it)
+        else:
+            items.extend(page_items)
+        cursor = (page.get("cursors") or {}).get("after")
+        if cursor is None:
+            return items
+    return items
+
+
 def fetch_transactions(tr, client, data_dir: Path, force_full: bool) -> None:
+    """Fetch BOTH timelineTransactions and timelineActivityLog on a SINGLE
+    WebSocket connection (the pytr pattern).
+
+    Two separate fetch_all calls (one per topic) cause the second WS to
+    see an empty timelineActivityLog for at least Carlos's account.
+    Doing both on one WS recovers the trade/dividend history. See the
+    matching commit in Trade-Republic-Dashboard@3d93be5.
+    """
+    import asyncio
+    TrWebSocket = tr["protocol"].TrWebSocket if "protocol" in tr else None
+    if TrWebSocket is None:
+        # tr dict was assembled in _import_tr_api(); fall back to direct import
+        from tr_api.protocol import TrWebSocket  # type: ignore
+
     tx_csv = data_dir / "account_transactions.csv"
     last_update_file = data_dir / "last_update.date"
 
-    if force_full or not tx_csv.exists() or not last_update_file.exists():
-        items = _safe_call(tr, lambda: tr["transactions"].fetch_all(client))
-    else:
+    if not (force_full or not tx_csv.exists() or not last_update_file.exists()):
         try:
             last_str = last_update_file.read_text(encoding="utf-8").strip().split()[0]
-            last = datetime.strptime(last_str, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+            cutoff = datetime.strptime(last_str, "%Y-%m-%d").replace(tzinfo=timezone.utc) - timedelta(days=3)
         except Exception:
-            items = _safe_call(tr, lambda: tr["transactions"].fetch_all(client))
-        else:
-            cutoff = last - timedelta(days=3)  # overlap window catches late settlements
-            items = _safe_call(tr, lambda: tr["transactions"].fetch_since(client, cutoff))
-            _merge_into_csv(tx_csv, items)
-            return
+            cutoff = None
+    else:
+        cutoff = None
+
+    async def _go():
+        async with TrWebSocket(client.session.cookies) as ws:
+            tx_items = await _paginate_topic_on_ws(ws, "timelineTransactions", cutoff=cutoff)
+            print(
+                f"  timelineTransactions: {len(tx_items)} items"
+                + (f" (since {cutoff:%Y-%m-%d})" if cutoff else ""),
+                flush=True,
+            )
+            act_items = await _paginate_topic_on_ws(ws, "timelineActivityLog", cutoff=cutoff)
+            print(
+                f"  timelineActivityLog:  {len(act_items)} items"
+                + (f" (since {cutoff:%Y-%m-%d})" if cutoff else ""),
+                flush=True,
+            )
+            return tx_items, act_items
+
+    try:
+        tx_items, act_items = asyncio.run(_go())
+    except tr["SessionExpired"]:
+        sys.stderr.write("Session expired during transactions fetch.\n")
+        sys.exit(10)
+    except tr["TrApiError"] as e:
+        sys.stderr.write(f"Transactions fetch failed: {e}\n")
+        sys.exit(20)
+
+    items = tx_items + act_items
+
+    if cutoff is not None:
+        _merge_into_csv(tx_csv, items)
+        return
 
     rows = [_row_from_tr_event(e) for e in items]
     rows = [r for r in rows if r]

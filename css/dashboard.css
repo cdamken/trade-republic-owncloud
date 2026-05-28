@@ -137,15 +137,22 @@ body.tr-app-active #content-wrapper {
 
 /* Tables — scoped under #tr-app so ownCloud's global `table { ... }` rules
    don't apply their padding/font-size and crush the layout. */
+/* Tables — auto layout so column widths come from content (same as
+ * gbm-owncloud, which renders cleanly). The previous `table-layout: fixed`
+ * + per-column percentages had two bugs: winners/losers (6 cols) summed
+ * to 80% (creating ~20% empty space on the right of the table), and
+ * all-positions (9 cols) summed to 110% (overflowing). Letting the
+ * browser size by content avoids both.
+ */
 #tr-app table {
 	width: 100%; border-collapse: collapse; background: var(--card);
 	border-radius: 12px; overflow: hidden; margin-bottom: 12px;
-	table-layout: fixed;
+	table-layout: auto;
 }
 #tr-app th, #tr-app td {
 	text-align: left; padding: 12px 16px; font-size: 14px;
 	border-bottom: 1px solid var(--border);
-	overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+	white-space: nowrap;
 }
 #tr-app th {
 	background: rgba(255,255,255,0.03); color: var(--muted);
@@ -153,14 +160,9 @@ body.tr-app-active #content-wrapper {
 }
 #tr-app th:hover { color: var(--text); }
 #tr-app tr:hover { background: rgba(255,255,255,0.02); }
-#tr-app .num { text-align: right; font-variant-numeric: tabular-nums; }
+#tr-app .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 #tr-app .pos { color: var(--green); }
 #tr-app .neg { color: var(--red); }
-
-/* Column width adjustments (positions / orders tables). */
-#tr-app th:nth-child(1), #tr-app td:nth-child(1) { width: 25%; } /* Name  */
-#tr-app th:nth-child(2), #tr-app td:nth-child(2) { width: 15%; } /* ISIN  */
-#tr-app .num { width: 10%; }
 
 #tr-app .section {
 	margin: 40px 0 16px; font-size: 18px; font-weight: 700;

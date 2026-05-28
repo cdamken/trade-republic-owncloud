@@ -649,10 +649,26 @@ def compute_analytics(data_dir: Path) -> None:
                 analytics["allocation"]["categories"]["Stocks"] += val
         analytics["allocation"]["total"] = sum(analytics["allocation"]["categories"].values())
 
+        # Lifetime P/L: when net_capital_in is non-positive (typical when the
+        # CSV is incomplete — see UPSTREAM.md, the timelineActivityLog gap),
+        # leave lifetime_pl as None so the UI shows "—" instead of a
+        # misleading €0.00 (+0.00%). Mirrors the upstream fix in
+        # Trade-Republic-Dashboard/app/analyze_analytics.py.
         cf["current_value"] = total_netvalue
         if cf["net_capital_in"] > 0:
             cf["lifetime_pl"] = total_netvalue - cf["net_capital_in"]
             cf["lifetime_pl_pct"] = cf["lifetime_pl"] / cf["net_capital_in"] * 100
+        else:
+            cf["lifetime_pl"] = None
+            cf["lifetime_pl_pct"] = None
+            cf["lifetime_pl_note"] = (
+                "Net capital in TR is non-positive — your transaction "
+                "history is likely incomplete (TR splits trades and "
+                "dividends across timelineTransactions and "
+                "timelineActivityLog; if the latter returned empty, "
+                "deposits and trade history can be missing). "
+                "Lifetime P/L can't be computed reliably."
+            )
 
     if history_file.exists():
         try:
@@ -663,10 +679,16 @@ def compute_analytics(data_dir: Path) -> None:
     (data_dir / "analytics.json").write_text(
         json.dumps(analytics, indent=2, ensure_ascii=False), encoding="utf-8"
     )
-    print(f"  analytics: deposits=€{cf['deposits']['total']:,.2f}  "
-          f"removals=€{cf['removals']['total']:,.2f}  "
-          f"current=€{cf['current_value']:,.2f}  "
-          f"lifetime P/L=€{cf['lifetime_pl']:+,.2f}")
+    if cf.get("lifetime_pl") is None:
+        print(f"  analytics: deposits=€{cf['deposits']['total']:,.2f}  "
+              f"removals=€{cf['removals']['total']:,.2f}  "
+              f"current=€{cf['current_value']:,.2f}  "
+              f"lifetime P/L=— (incomplete data)")
+    else:
+        print(f"  analytics: deposits=€{cf['deposits']['total']:,.2f}  "
+              f"removals=€{cf['removals']['total']:,.2f}  "
+              f"current=€{cf['current_value']:,.2f}  "
+              f"lifetime P/L=€{cf['lifetime_pl']:+,.2f}")
 
 
 # ---------------------------------------------------------------------------

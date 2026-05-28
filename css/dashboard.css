@@ -160,7 +160,17 @@ body.tr-app-active #content-wrapper {
 }
 #tr-app th:hover { color: var(--text); }
 #tr-app tr:hover { background: rgba(255,255,255,0.02); }
-#tr-app .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* width: 1% + white-space: nowrap = "shrink to content". With table-layout
+   auto + width: 100% on the table, this lets numeric columns hug their
+   numbers and forces the slack into the Asset/ISIN columns instead of
+   spreading equally between all columns (which produced huge whitespace
+   gaps when the numeric values were short). */
+#tr-app .num {
+	text-align: right;
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+	width: 1%;
+}
 #tr-app .pos { color: var(--green); }
 #tr-app .neg { color: var(--red); }
 

@@ -776,11 +776,43 @@ def compute_analytics(data_dir: Path) -> None:
                 "Lifetime P/L can't be computed reliably."
             )
 
-    if history_file.exists():
-        try:
-            analytics["history"] = json.loads(history_file.read_text(encoding="utf-8")) or []
-        except Exception:
-            analytics["history"] = []
+    # Net worth history — reconstruct from CSV cash flows.
+    # Same approach as Trade-Republic-Dashboard@a3d2cb5: cost-basis
+    # trajectory (deposits + tax_refunds + dividends + interest − removals)
+    # over time. Buys/sells skipped (they shift wealth between cash and
+    # positions but don't change total). Today's market value lives in
+    # its own KPI card; the chart focuses on capital injection history.
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    daily_wealth: dict[str, float] = {}
+    running = 0.0
+    if csv_path.exists():
+        with csv_path.open(encoding="utf-8") as f:
+            reader = csv.DictReader(f, delimiter=";")
+            rows = sorted(reader, key=lambda r: (r.get("Date") or ""))
+            for row in rows:
+                t_type = (row.get("Type") or "").strip()
+                date = (row.get("Date") or "")[:10]
+                if not date:
+                    continue
+                try:
+                    val = float(row.get("Value") or "0")
+                except (TypeError, ValueError):
+                    continue
+                if t_type in ("Deposit", "Tax Refund", "Dividend", "Interest"):
+                    running += abs(val)
+                elif t_type == "Removal":
+                    running -= abs(val)
+                # Buy/Sell skipped — see comment above.
+                daily_wealth[date] = round(running, 2)
+
+    history = [{"date": d, "value": daily_wealth[d]} for d in sorted(daily_wealth.keys())]
+    if history and history[-1]["date"] != today:
+        history.append({"date": today, "value": history[-1]["value"]})
+    elif not history:
+        history.append({"date": today, "value": 0.0})
+    history = history[-365:]  # keep up to ~1 year
+    history_file.write_text(json.dumps(history, indent=2, ensure_ascii=False), encoding="utf-8")
+    analytics["history"] = history
 
     (data_dir / "analytics.json").write_text(
         json.dumps(analytics, indent=2, ensure_ascii=False), encoding="utf-8"

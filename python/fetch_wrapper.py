@@ -41,34 +41,61 @@ from typing import Any
 CSV_COLUMNS = ["Date", "Type", "Value", "Note", "ISIN", "Shares",
                "Fees", "Taxes", "ISIN2", "Shares2"]
 
-# TR's eventType → dashboard CSV "Type" column. Verified against live TR
-# responses (May 2026). Kept in sync with TR-Dashboard's tr_fetch.py.
+# TR's eventType → dashboard CSV "Type" column.
+# Kept in sync with Trade-Republic-Dashboard/app/tr_fetch.py — see commit
+# 4997e85 there for the full rationale and the 2026-05-28 live distribution.
+# Short version: TR renamed almost every eventType during 2026. Without
+# the new names the CSV drops ~95% of returned events. Old names kept
+# under "# legacy" so pytr-era CSV rows don't downgrade on re-processing.
 EVENT_TYPE_MAP: dict[str, str] = {
     # Cash in
-    "INCOMING_TRANSFER":            "Deposit",
-    "INCOMING_TRANSFER_DELEGATION": "Deposit",
-    "PAYMENT_INBOUND":              "Deposit",
-    "PAYMENT_INBOUND_SEPA_DIRECT_DEBIT": "Deposit",
-    "card_refund":                  "Deposit",
-    "CARD_REFUND":                  "Deposit",
+    "BANK_TRANSACTION_INCOMING":           "Deposit",
+    "CARD_REFUND":                         "Deposit",
+    # legacy
+    "INCOMING_TRANSFER":                   "Deposit",
+    "INCOMING_TRANSFER_DELEGATION":        "Deposit",
+    "PAYMENT_INBOUND":                     "Deposit",
+    "PAYMENT_INBOUND_SEPA_DIRECT_DEBIT":   "Deposit",
+    "card_refund":                         "Deposit",
+
     # Cash out / card spending
-    "CARD_TRANSACTION":             "Removal",
-    "card_successful_transaction":  "Removal",
-    "OUTGOING_TRANSFER":            "Removal",
-    "OUTGOING_TRANSFER_DELEGATION": "Removal",
-    "PAYMENT_OUTBOUND":             "Removal",
+    "CARD_TRANSACTION":                    "Removal",
+    "BANK_TRANSACTION_OUTGOING":           "Removal",
+    "BANK_TRANSACTION_OUTGOING_DIRECT_DEBIT": "Removal",
+    "BANK_TRANSACTION_OUTGOING_SCHEDULED": "Removal",
+    "CRYPTO_TRANSFER_NETWORK_FEE":         "Removal",
+    # legacy
+    "card_successful_transaction":         "Removal",
+    "OUTGOING_TRANSFER":                   "Removal",
+    "OUTGOING_TRANSFER_DELEGATION":        "Removal",
+    "PAYMENT_OUTBOUND":                    "Removal",
+
     # Tax flows
-    "ssp_tax_correction_invoice":   "Tax Refund",
-    "TAX_REFUND":                   "Tax Refund",
-    # Trading (Buy vs Sell decided by _classify_trade — looks at amount sign)
-    "TRADE_INVOICE":                "Trade",
-    "ORDER_EXECUTED":               "Trade",
+    "SSP_TAX_CORRECTION":                  "Tax Refund",
+    # legacy
+    "ssp_tax_correction_invoice":          "Tax Refund",
+    "TAX_REFUND":                          "Tax Refund",
+
+    # Trading — SAVINGSPLAN / SPARE_CHANGE / SAVEBACK are always buys,
+    # so straight-map to Buy. Manual trades go through _classify_trade
+    # (amount-sign based).
+    "TRADING_SAVINGSPLAN_EXECUTED":        "Buy",
+    "SPARE_CHANGE_AGGREGATE":              "Buy",
+    "SAVEBACK_AGGREGATE":                  "Buy",
+    "TRADING_TRADE_EXECUTED":              "Trade",
+    "PRIVATE_MARKET_FUND_TRADE_EXECUTED":  "Trade",
+    # legacy
+    "TRADE_INVOICE":                       "Trade",
+    "ORDER_EXECUTED":                      "Trade",
+
     # Income
-    "CREDIT":                       "Dividend",
-    "DIVIDEND":                     "Dividend",
-    "ssp_corporate_action_invoice_cash": "Dividend",
-    "INTEREST_PAYOUT":              "Interest",
-    "INTEREST_PAYOUT_CREATED":      "Interest",
+    "SSP_CORPORATE_ACTION_CASH":           "Dividend",
+    "INTEREST_PAYOUT":                     "Interest",
+    "INTEREST_PAYOUT_CREATED":             "Interest",
+    # legacy
+    "CREDIT":                              "Dividend",
+    "DIVIDEND":                            "Dividend",
+    "ssp_corporate_action_invoice_cash":   "Dividend",
 }
 
 PENDING_LOGIN_TTL_SECONDS = 5 * 60

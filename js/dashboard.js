@@ -271,8 +271,13 @@ async function downloadDocs() {
   // Bulk-download every PDF Trade Republic has issued for this user into
   // their per-user data dir. Files appear inside ownCloud's Files app at
   // trade_republic/documents/<YYYY>/<kind>/ automatically. Idempotent on
-  // re-runs (skips files already on disk).
-  if (!confirm('Download every PDF (trades, dividends, statements, tax) into your trade_republic/documents/ folder?\n\nThis can take a few minutes on a first run. Re-runs only fetch what is missing.')) {
+  // re-runs (skips files already on disk). Server pre-checks session
+  // liveness so we fail fast with auth_required when cookies died.
+  if (!confirm(
+    'Download every PDF (trades, dividends, statements, tax) into your\n' +
+    'Files app under trade_republic/documents/<year>/<kind>/?\n\n' +
+    'First run can take a few minutes. Re-runs only fetch what is missing.'
+  )) {
     return;
   }
   const btn = document.getElementById('docs-btn');
@@ -284,23 +289,35 @@ async function downloadDocs() {
     const r = await fetch(routes.downloadDocs, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'requesttoken': OC.requestToken },
-      body: JSON.stringify({}),  // empty = full history, all kinds
+      body: JSON.stringify({}),
     });
     const data = await r.json();
     if (r.ok && data.status === 'ok') {
       const c = data.counts || {};
       const downloaded = c.downloaded || 0;
-      const skipped = c.skipped_existing || 0;
-      const errors = c.error || 0;
-      const total = c.total || 0;
-      const msg = `✓ ${downloaded} new, ${skipped} already present` +
-                  (errors ? `, ${errors} errors` : '') +
-                  ` (of ${total} total)`;
-      showStatus('ok', msg);
-      alert(msg + '\n\nYour PDFs are now in Files → trade_republic/documents/.');
+      const skipped    = c.skipped_existing || 0;
+      const errors     = c.error || 0;
+      const total      = c.total || 0;
+      const summary = `${downloaded} new, ${skipped} already present` +
+                      (errors ? `, ${errors} errors` : '') +
+                      ` (of ${total} total)`;
+      showStatus('ok', '✓ ' + summary);
+      alert(
+        '✓ Documents downloaded\n\n' +
+        summary + '\n\n' +
+        'Your PDFs are now in your Files app under:\n' +
+        '   trade_republic/documents/<year>/<kind>/'
+      );
     } else if (data.status === 'auth_required') {
-      showStatus('err', 'Your TR session expired');
-      alert('Your TR session expired. Click Update Now first to re-authenticate, then try Documents again.');
+      showStatus('err', 'Session expired');
+      const want = confirm(
+        'Your Trade Republic session expired.\n\n' +
+        'Click OK to re-authenticate now (we will open the security-code\n' +
+        'prompt — same flow as Update Now). Then try Documents again.'
+      );
+      if (want) {
+        updateData();
+      }
     } else if (data.status === 'rate_limited') {
       showStatus('err', 'Rate limited by Trade Republic');
       alert('Trade Republic rate-limited us. Wait a few minutes and try again.');

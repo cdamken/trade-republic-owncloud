@@ -36,7 +36,7 @@ $routes = $_['routes'];
     </button>
     <button id="docs-btn" class="update-btn"
             style="background:transparent; color:var(--muted); border:1px solid var(--border); font-weight:500;"
-            title="Download every PDF Trade Republic has issued for this account (trades, dividends, statements, tax docs). Files appear in your Files app under trade_republic/documents/.">
+            title="Download every PDF TR has issued (trades, dividends, statements, tax). Files appear in your Files app under trade_republic/documents/<year>/<kind>/.">
       📄 Documents
     </button>
     <button id="setup-open-btn" class="update-btn" style="background:transparent; color:var(--muted); border:1px solid var(--border); font-weight:500;"

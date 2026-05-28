@@ -251,6 +251,37 @@ class TrService {
 		}
 
 		$python = $this->config->getSystemValue('trade_republic.python_bin', 'python3');
+
+		// Pre-ping: bail out fast if the per-user TR session is dead, so the
+		// UI can show an auth-required prompt instead of letting a multi-
+		// minute walk silently fail mid-way.
+		$pingEnv = [
+			'PATH' => getenv('PATH') ?: '/usr/local/bin:/usr/bin:/bin',
+			'HOME' => $this->profileDir(),
+			'LANG' => 'C.UTF-8',
+		];
+		$ping = $this->runProcess(
+			[$python, '-m', 'tr_api.cli', '--json', 'ping', '--phone', $this->getPhone()],
+			$pingEnv, 20
+		);
+		$pingEnvelope = json_decode((string) $ping['stdout'], true);
+		$alive = is_array($pingEnvelope)
+		      && !empty($pingEnvelope['ok'])
+		      && !empty($pingEnvelope['data']['alive']);
+		if (!$alive) {
+			// Surface a stable envelope the controller can pattern-match.
+			return [
+				'exitCode' => 30,
+				'stdout'   => json_encode([
+					'ok'        => false,
+					'error'     => 'SessionExpired',
+					'exit_code' => 30,
+					'message'   => 'Your Trade Republic session expired. Click Update Now first to re-authenticate.',
+				]),
+				'stderr'   => '',
+			];
+		}
+
 		$outDir = $this->userTrDir() . '/documents';
 		if (!is_dir($outDir)) {
 			@mkdir($outDir, 0700, true);

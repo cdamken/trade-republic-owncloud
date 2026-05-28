@@ -17,7 +17,8 @@ $routes = $_['routes'];
 	data-route-data="<?php p($routes['data']); ?>"
 	data-route-config="<?php p($routes['config']); ?>"
 	data-route-update="<?php p($routes['update']); ?>"
-	data-route-reset="<?php p($routes['reset']); ?>">
+	data-route-reset="<?php p($routes['reset']); ?>"
+	data-route-download-docs="<?php p($routes['downloadDocs']); ?>">
 
 <h1>
   <div class="logo-box">📊</div>
@@ -32,6 +33,11 @@ $routes = $_['routes'];
   <div style="display:flex; gap:10px; align-items:center;">
     <button id="update-btn" class="update-btn">
       <span class="spinner"></span><span class="icon">🔄</span><span class="label">Update Now</span>
+    </button>
+    <button id="docs-btn" class="update-btn"
+            style="background:transparent; color:var(--muted); border:1px solid var(--border); font-weight:500;"
+            title="Download every PDF Trade Republic has issued for this account (trades, dividends, statements, tax docs). Files appear in your Files app under trade_republic/documents/.">
+      📄 Documents
     </button>
     <button id="setup-open-btn" class="update-btn" style="background:transparent; color:var(--muted); border:1px solid var(--border); font-weight:500;"
             title="Change phone / PIN, or switch to a different account">

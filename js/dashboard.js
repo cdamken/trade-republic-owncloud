@@ -267,6 +267,56 @@ function hideProgressOverlay() {
   _progressStartedAt = null;
 }
 
+async function downloadDocs() {
+  // Bulk-download every PDF Trade Republic has issued for this user into
+  // their per-user data dir. Files appear inside ownCloud's Files app at
+  // trade_republic/documents/<YYYY>/<kind>/ automatically. Idempotent on
+  // re-runs (skips files already on disk).
+  if (!confirm('Download every PDF (trades, dividends, statements, tax) into your trade_republic/documents/ folder?\n\nThis can take a few minutes on a first run. Re-runs only fetch what is missing.')) {
+    return;
+  }
+  const btn = document.getElementById('docs-btn');
+  const orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner" style="display:inline-block"></span> Downloading…';
+  showStatus('', 'Walking timeline + downloading PDFs…');
+  try {
+    const r = await fetch(routes.downloadDocs, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'requesttoken': OC.requestToken },
+      body: JSON.stringify({}),  // empty = full history, all kinds
+    });
+    const data = await r.json();
+    if (r.ok && data.status === 'ok') {
+      const c = data.counts || {};
+      const downloaded = c.downloaded || 0;
+      const skipped = c.skipped_existing || 0;
+      const errors = c.error || 0;
+      const total = c.total || 0;
+      const msg = `✓ ${downloaded} new, ${skipped} already present` +
+                  (errors ? `, ${errors} errors` : '') +
+                  ` (of ${total} total)`;
+      showStatus('ok', msg);
+      alert(msg + '\n\nYour PDFs are now in Files → trade_republic/documents/.');
+    } else if (data.status === 'auth_required') {
+      showStatus('err', 'Your TR session expired');
+      alert('Your TR session expired. Click Update Now first to re-authenticate, then try Documents again.');
+    } else if (data.status === 'rate_limited') {
+      showStatus('err', 'Rate limited by Trade Republic');
+      alert('Trade Republic rate-limited us. Wait a few minutes and try again.');
+    } else {
+      showStatus('err', 'Download failed');
+      alert('Download failed: ' + (data.detail || data.status || 'unknown error'));
+    }
+  } catch (e) {
+    showStatus('err', 'Network error');
+    alert('Download error: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = orig;
+  }
+}
+
 async function updateData() {
   setUpdateBtn(true, 'Updating…');
   let overlayShown = false;
@@ -496,11 +546,13 @@ document.addEventListener('DOMContentLoaded', () => {
     analytics: root.dataset.routeAnalytics,
     data:      root.dataset.routeData,
     config:    root.dataset.routeConfig,
-    update:    root.dataset.routeUpdate,
-    reset:     root.dataset.routeReset,
+    update:        root.dataset.routeUpdate,
+    reset:         root.dataset.routeReset,
+    downloadDocs:  root.dataset.routeDownloadDocs,
   };
 
   document.getElementById('update-btn').addEventListener('click', updateData);
+  document.getElementById('docs-btn').addEventListener('click', downloadDocs);
   document.getElementById('setup-open-btn').addEventListener('click', openSetupModal);
 
   document.getElementById('search').addEventListener('input', e => { state.search = e.target.value; renderAll(); });

@@ -62,6 +62,7 @@ class PageController extends Controller {
 				'config'     => $this->urlGenerator->linkToRoute('trade_republic.api.getConfig'),
 				'update'     => $this->urlGenerator->linkToRoute('trade_republic.api.update'),
 				'reset'      => $this->urlGenerator->linkToRoute('trade_republic.api.reset'),
+				'downloadDocs' => $this->urlGenerator->linkToRoute('trade_republic.api.downloadDocs'),
 			],
 		];
 

@@ -235,6 +235,48 @@ class TrService {
 		return $this->runProcess($cmd, $env, 240);
 	}
 
+	// ------------------------------------------------------------------
+	// Documents: bulk PDF download via `tr-api docs download`
+	// ------------------------------------------------------------------
+	/**
+	 * Shell out to `python -m tr_api.cli docs download` with the per-user
+	 * profile + destination. Files land in <user-dir>/documents/<YYYY>/<kind>/...
+	 * and become visible inside ownCloud's Files app automatically.
+	 *
+	 * Optional $since (YYYY-MM-DD) and $kinds (csv) tighten the run.
+	 */
+	public function runDocsDownload(?string $since = null, ?string $kinds = null): array {
+		if (!$this->isConfigured()) {
+			return ['exitCode' => self::EXIT_CONFIG_ERROR, 'stdout' => '', 'stderr' => 'credentials not configured'];
+		}
+
+		$python = $this->config->getSystemValue('trade_republic.python_bin', 'python3');
+		$outDir = $this->userTrDir() . '/documents';
+		if (!is_dir($outDir)) {
+			@mkdir($outDir, 0700, true);
+		}
+
+		$cmd = [
+			$python, '-m', 'tr_api.cli', '--json',
+			'docs', 'download',
+			'--out', $outDir,
+			'--phone', $this->getPhone(),
+		];
+		if ($since) { $cmd[] = '--since'; $cmd[] = $since; }
+		if ($kinds) { $cmd[] = '--kinds'; $cmd[] = $kinds; }
+
+		// Same HOME-redirect trick as runFetch(): make tr-api's
+		// ~/.tr-api/profiles/<phone>/ land inside the per-user profile dir.
+		$env = [
+			'PATH' => getenv('PATH') ?: '/usr/local/bin:/usr/bin:/bin',
+			'HOME' => $this->profileDir(),
+			'LANG' => 'C.UTF-8',
+		];
+
+		// 30 min ceiling — a full history with thousands of PDFs is plausible.
+		return $this->runProcess($cmd, $env, 1800);
+	}
+
 	private function runProcess(array $cmd, array $env, int $timeoutSec): array {
 		$descriptorSpec = [
 			0 => ['pipe', 'r'],

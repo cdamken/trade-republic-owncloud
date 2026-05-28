@@ -137,4 +137,44 @@ class ApiController extends Controller {
 		$this->tr->reset();
 		return new JSONResponse(['status' => 'ok']);
 	}
+
+	/**
+	 * @NoAdminRequired
+	 */
+	public function downloadDocs(?string $since = null, ?string $kinds = null): JSONResponse {
+		$result = $this->tr->runDocsDownload(
+			$since ? trim($since) : null,
+			$kinds ? trim($kinds) : null,
+		);
+
+		// The CLI emits a JSON envelope on stdout. Parse and surface a
+		// uniform shape to the JS regardless of whether tr-api succeeded.
+		$envelope = json_decode((string) $result['stdout'], true);
+		if (!is_array($envelope)) {
+			$envelope = ['ok' => false, 'message' => substr((string) $result['stderr'], -500)];
+		}
+
+		if (!empty($envelope['ok'])) {
+			$data = $envelope['data'] ?? [];
+			return new JSONResponse([
+				'status'   => 'ok',
+				'out_dir'  => $data['out_dir']  ?? null,
+				'counts'   => $data['counts']   ?? new \stdClass(),
+				'manifest' => $data['manifest'] ?? null,
+			], Http::STATUS_OK);
+		}
+
+		// Map tr-api exit codes (see tr-api/docs/cli-contract.md) to HTTP.
+		$exitCode = (int) ($envelope['exit_code'] ?? $result['exitCode']);
+		[$httpStatus, $jsonStatus] = match (true) {
+			in_array($exitCode, [20, 30], true) => [Http::STATUS_UNAUTHORIZED,        'auth_required'],
+			$exitCode === 41                    => [Http::STATUS_TOO_MANY_REQUESTS,   'rate_limited'],
+			default                             => [Http::STATUS_INTERNAL_SERVER_ERROR, 'error'],
+		};
+		return new JSONResponse([
+			'status'    => $jsonStatus,
+			'exit_code' => $exitCode,
+			'detail'    => substr((string) ($envelope['message'] ?? ''), 0, 500),
+		], $httpStatus);
+	}
 }

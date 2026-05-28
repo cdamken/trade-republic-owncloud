@@ -46,6 +46,13 @@ async function init() {
   document.getElementById('cf-refunds-count').textContent = cf.tax_refunds?.count || 0;
   document.getElementById('cf-removals').textContent = fmtEur0(cf.removals?.total || 0);
   document.getElementById('cf-removals-count').textContent = cf.removals?.count || 0;
+  // Withdrawal tile (new 2026-05-28). Guard for missing element so old
+  // cached templates don't error.
+  const wEl = document.getElementById('cf-withdrawals');
+  if (wEl) {
+    wEl.textContent = fmtEur0(cf.withdrawals?.total || 0);
+    document.getElementById('cf-withdrawals-count').textContent = cf.withdrawals?.count || 0;
+  }
   document.getElementById('cf-net').textContent = fmtEur0(cf.net_capital_in || 0);
   document.getElementById('cf-current').textContent = fmtEur0(cf.current_value || 0);
 
@@ -84,8 +91,13 @@ async function init() {
 
     const lastDepMonth = [...monthly].reverse().find(m => m.deposits > 0);
     if (lastDepMonth) {
-      document.getElementById('cf-last-deposit').textContent = fmtEur0(lastDepMonth.deposits);
-      document.getElementById('cf-last-deposit-date').textContent = lastDepMonth.month;
+      // Tile dropped in the 2026-05-28 refactor; guard against null
+      // when an older cached template lacks the element.
+      const ldEl = document.getElementById('cf-last-deposit');
+      if (ldEl) {
+        ldEl.textContent = fmtEur0(lastDepMonth.deposits);
+        document.getElementById('cf-last-deposit-date').textContent = lastDepMonth.month;
+      }
     }
 
     // Cumulative net capital (running sum of monthly net flows)
@@ -100,9 +112,10 @@ async function init() {
       data: {
         labels: monthly.map(m => m.month),
         datasets: [
-          { label: 'Deposits',      data: monthly.map(m => m.deposits),    backgroundColor: '#4ade80', borderRadius: 4, stack: 'in' },
-          { label: 'Tax refunds',   data: monthly.map(m => m.tax_refunds), backgroundColor: '#60a5fa', borderRadius: 4, stack: 'in' },
-          { label: 'Card spending', data: monthly.map(m => -m.removals),   backgroundColor: '#f87171', borderRadius: 4, stack: 'out' },
+          { label: 'Deposits',      data: monthly.map(m => m.deposits),                  backgroundColor: '#4ade80', borderRadius: 4, stack: 'in' },
+          { label: 'Tax refunds',   data: monthly.map(m => m.tax_refunds),               backgroundColor: '#60a5fa', borderRadius: 4, stack: 'in' },
+          { label: 'Withdrawals',   data: monthly.map(m => -(m.withdrawals || 0)),        backgroundColor: '#fbbf24', borderRadius: 4, stack: 'out' },
+          { label: 'Card spending', data: monthly.map(m => -m.removals),                  backgroundColor: '#f87171', borderRadius: 4, stack: 'out' },
           {
             label: 'Cumulative net capital',
             type: 'line',

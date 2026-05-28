@@ -38,17 +38,22 @@ $routes = $_['routes'];
       <div class="sub"><span id="cf-refunds-count">0</span> transactions</div>
     </div>
     <div class="cf-tile out">
-      <div class="label">Card spending (out)</div>
+      <div class="label">Withdrawals (to your bank)</div>
+      <div class="value" id="cf-withdrawals" style="color: #fbbf24;">€0</div>
+      <div class="sub"><span id="cf-withdrawals-count">0</span> transactions</div>
+    </div>
+    <div class="cf-tile out">
+      <div class="label">Card spending (consumption)</div>
       <div class="value" id="cf-removals">€0</div>
       <div class="sub"><span id="cf-removals-count">0</span> transactions</div>
     </div>
+  </div>
+  <div class="cf-grid">
     <div class="cf-tile">
       <div class="label">Net capital in TR</div>
       <div class="value" id="cf-net" style="color: var(--blue);">€0</div>
-      <div class="sub">Inflows − Outflows</div>
+      <div class="sub">Deposits + Tax refunds − Withdrawals</div>
     </div>
-  </div>
-  <div class="cf-grid">
     <div class="cf-tile">
       <div class="label">Current value (portfolio + cash)</div>
       <div class="value" id="cf-current" style="color: var(--text);">€0</div>
@@ -63,15 +68,12 @@ $routes = $_['routes'];
       <div class="value" id="cf-avg-month" style="color: var(--text); font-size: 24px;">€0</div>
       <div class="sub" id="cf-month-count">0 months</div>
     </div>
-    <div class="cf-tile">
-      <div class="label">Last deposit</div>
-      <div class="value" id="cf-last-deposit" style="color: var(--text); font-size: 20px;">—</div>
-      <div class="sub" id="cf-last-deposit-date">—</div>
-    </div>
   </div>
   <div class="cf-formula">
-    <strong>Net capital in TR</strong> = Deposits + Tax refunds − Card spending.
-    <strong>Lifetime P/L</strong> = Current value − Net capital in TR. Reflects real gains/losses on what actually remains working inside the wealth.
+    <strong>Withdrawals</strong> are money moved from TR back to your own bank (still your money, just elsewhere).
+    <strong>Card spending</strong> is lifestyle consumption funded from your TR cash balance.
+    <strong>Net capital in TR</strong> = Deposits + Tax refunds − Withdrawals (the money you've committed to TR for investing).
+    <strong>Lifetime P/L</strong> = Current value + Card spending − Net capital in TR − Investment income. Pure price appreciation on the capital you've committed.
   </div>
 
   <!-- Trading totals (raw numbers, no chart) -->

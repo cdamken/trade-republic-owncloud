@@ -58,17 +58,24 @@ EVENT_TYPE_MAP: dict[str, str] = {
     "PAYMENT_INBOUND_SEPA_DIRECT_DEBIT":   "Deposit",
     "card_refund":                         "Deposit",
 
-    # Cash out / card spending
+    # Cash out: card spending (consumption). Mirrors upstream — see
+    # Trade-Republic-Dashboard@b831205 for the split rationale.
     "CARD_TRANSACTION":                    "Removal",
-    "BANK_TRANSACTION_OUTGOING":           "Removal",
-    "BANK_TRANSACTION_OUTGOING_DIRECT_DEBIT": "Removal",
-    "BANK_TRANSACTION_OUTGOING_SCHEDULED": "Removal",
     "CRYPTO_TRANSFER_NETWORK_FEE":         "Removal",
     # legacy
     "card_successful_transaction":         "Removal",
-    "OUTGOING_TRANSFER":                   "Removal",
-    "OUTGOING_TRANSFER_DELEGATION":        "Removal",
-    "PAYMENT_OUTBOUND":                    "Removal",
+
+    # Cash out: withdrawals from TR back to a non-TR bank account.
+    # Still the user's money — tracked separately so analytics shows
+    # "money committed to TR" net of withdrawals without conflating it
+    # with day-to-day card consumption.
+    "BANK_TRANSACTION_OUTGOING":           "Withdrawal",
+    "BANK_TRANSACTION_OUTGOING_DIRECT_DEBIT": "Withdrawal",
+    "BANK_TRANSACTION_OUTGOING_SCHEDULED": "Withdrawal",
+    # legacy
+    "OUTGOING_TRANSFER":                   "Withdrawal",
+    "OUTGOING_TRANSFER_DELEGATION":        "Withdrawal",
+    "PAYMENT_OUTBOUND":                    "Withdrawal",
 
     # Tax flows
     "SSP_TAX_CORRECTION":                  "Tax Refund",
@@ -656,17 +663,20 @@ def compute_analytics(data_dir: Path) -> None:
     portfolio_json = data_dir / "portfolio.json"
     history_file = data_dir / "net_worth_history.json"
 
+    # Mirrors Trade-Republic-Dashboard@b831205 — see that commit for the
+    # full rationale on the Withdrawal vs Removal split.
     analytics: dict[str, Any] = {
         "cash_flow": {
             "deposits":    {"count": 0, "total": 0.0},
-            "removals":    {"count": 0, "total": 0.0},
             "tax_refunds": {"count": 0, "total": 0.0},
+            "removals":    {"count": 0, "total": 0.0},   # CARD spending only
+            "withdrawals": {"count": 0, "total": 0.0},   # to user's own bank
             "buys":        {"count": 0, "total": 0.0},
             "sells":       {"count": 0, "total": 0.0},
-            "net_capital_in":  0.0,
+            "net_capital_in":  0.0,  # = deposits + tax_refunds − withdrawals
             "net_traded":      0.0,
             "current_value":   0.0,
-            "lifetime_pl":     0.0,
+            "lifetime_pl":     0.0,  # = current_value + removals − net_capital_in − investment_income
             "lifetime_pl_pct": 0.0,
             "monthly": [],
         },
@@ -676,7 +686,7 @@ def compute_analytics(data_dir: Path) -> None:
     }
 
     monthly_flow: dict[str, dict[str, float]] = defaultdict(
-        lambda: {"deposits": 0.0, "removals": 0.0, "tax_refunds": 0.0}
+        lambda: {"deposits": 0.0, "removals": 0.0, "withdrawals": 0.0, "tax_refunds": 0.0}
     )
 
     if csv_path.exists():
@@ -700,6 +710,10 @@ def compute_analytics(data_dir: Path) -> None:
                     cf["removals"]["count"] += 1
                     cf["removals"]["total"] += abs_val
                     if month: monthly_flow[month]["removals"] += abs_val
+                elif t_type == "Withdrawal":
+                    cf["withdrawals"]["count"] += 1
+                    cf["withdrawals"]["total"] += abs_val
+                    if month: monthly_flow[month]["withdrawals"] += abs_val
                 elif t_type == "Tax Refund":
                     cf["tax_refunds"]["count"] += 1
                     cf["tax_refunds"]["total"] += abs_val
@@ -725,7 +739,15 @@ def compute_analytics(data_dir: Path) -> None:
         analytics["dividends"]["recent"] = analytics["dividends"]["recent"][:10]
 
     cf = analytics["cash_flow"]
-    cf["net_capital_in"] = cf["deposits"]["total"] + cf["tax_refunds"]["total"] - cf["removals"]["total"]
+    # New formula: net_capital_in subtracts ONLY Withdrawals (transfers
+    # back to user's bank), NOT Removals (card spending). Card spending
+    # is consumption funded from TR cash; it doesn't reduce the
+    # "committed to TR" capital concept.
+    cf["net_capital_in"] = (
+        cf["deposits"]["total"]
+        + cf["tax_refunds"]["total"]
+        - cf["withdrawals"]["total"]
+    )
     cf["net_traded"] = cf["buys"]["total"] - cf["sells"]["total"]
     for m in sorted(monthly_flow.keys()):
         d = monthly_flow[m]
@@ -733,8 +755,9 @@ def compute_analytics(data_dir: Path) -> None:
             "month": m,
             "deposits": round(d["deposits"], 2),
             "removals": round(d["removals"], 2),
+            "withdrawals": round(d["withdrawals"], 2),
             "tax_refunds": round(d["tax_refunds"], 2),
-            "net_flow": round(d["deposits"] + d["tax_refunds"] - d["removals"], 2),
+            "net_flow": round(d["deposits"] + d["tax_refunds"] - d["removals"] - d["withdrawals"], 2),
         })
 
     if portfolio_json.exists():
@@ -755,14 +778,23 @@ def compute_analytics(data_dir: Path) -> None:
                 analytics["allocation"]["categories"]["Stocks"] += val
         analytics["allocation"]["total"] = sum(analytics["allocation"]["categories"].values())
 
-        # Lifetime P/L: when net_capital_in is non-positive (typical when the
-        # CSV is incomplete — see UPSTREAM.md, the timelineActivityLog gap),
-        # leave lifetime_pl as None so the UI shows "—" instead of a
-        # misleading €0.00 (+0.00%). Mirrors the upstream fix in
-        # Trade-Republic-Dashboard/app/analyze_analytics.py.
+        # Lifetime P/L = price appreciation on the capital committed to TR,
+        # excluding lifestyle spending and dividend/interest income.
+        #
+        #   lifetime_pl = current_value + card_spending
+        #                 − net_capital_in − investment_income
+        #
+        # See Trade-Republic-Dashboard@b831205 for the full derivation.
+        # None when net_capital_in <= 0 (incomplete CSV).
         cf["current_value"] = total_netvalue
+        investment_income = analytics["dividends"]["total_received"] or 0.0
         if cf["net_capital_in"] > 0:
-            cf["lifetime_pl"] = total_netvalue - cf["net_capital_in"]
+            cf["lifetime_pl"] = (
+                total_netvalue
+                + cf["removals"]["total"]
+                - cf["net_capital_in"]
+                - investment_income
+            )
             cf["lifetime_pl_pct"] = cf["lifetime_pl"] / cf["net_capital_in"] * 100
         else:
             cf["lifetime_pl"] = None

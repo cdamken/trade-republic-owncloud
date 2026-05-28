@@ -300,6 +300,18 @@ def _complete_pending_or_die(tr, phone: str, pin: str, data_dir: Path, mfa_code:
 def fetch_portfolio(tr, client, data_dir: Path) -> dict[str, Any]:
     try:
         snap = tr["portfolio"].snapshot_full(client)
+        # Also pull the by-category view so we can tag each position with
+        # the TR bucket it belongs to (stocksAndETFs / cryptos / bonds /
+        # privateMarkets / others). This is what TR's mobile "Wealth"
+        # screen uses to break down the depot into separate tiles.
+        from tr_api import accounts as tr_accounts
+        pairs = tr_accounts.account_pairs(client)
+        default_pair = pairs.default_pair()
+        cat_snap: dict[str, Any] = {}
+        if default_pair is not None:
+            cat_snap = tr["portfolio"].compact_portfolio_by_type(
+                client, sec_acc_no=default_pair.securities_account_number
+            )
     except tr["SessionExpired"]:
         sys.stderr.write("Session expired during portfolio fetch.\n")
         sys.exit(10)
@@ -319,12 +331,24 @@ def fetch_portfolio(tr, client, data_dir: Path) -> dict[str, Any]:
     except Exception:
         pass
 
-    shaped = _shape_portfolio(snap)
+    # Build {isin -> TR category} from the by-type snapshot.
+    isin_to_category: dict[str, str] = {}
+    for cat in (cat_snap.get("categories") or []):
+        cat_type = str(cat.get("categoryType") or "others")
+        for pos in (cat.get("positions") or []):
+            isin = str(pos.get("isin") or "")
+            if isin:
+                isin_to_category[isin] = cat_type
+
+    shaped = _shape_portfolio(snap, isin_to_category)
     _append_net_worth_history(data_dir, shaped["summary"])
     return shaped
 
 
-def _shape_portfolio(snap: dict[str, Any]) -> dict[str, Any]:
+def _shape_portfolio(
+    snap: dict[str, Any],
+    isin_to_category: dict[str, str] | None = None,
+) -> dict[str, Any]:
     """Map tr-api's raw TR JSON into the schema the dashboard frontend expects."""
     p = (snap.get("portfolio") or {}) if isinstance(snap, dict) else {}
     cash_data = snap.get("cash") if isinstance(snap, dict) else None
@@ -359,6 +383,7 @@ def _shape_portfolio(snap: dict[str, Any]) -> dict[str, Any]:
         item = {
             "name": name[:25],
             "isin": isin,
+            "category": (isin_to_category or {}).get(isin, "others"),
             "avg_cost": round(avg_cost, 4),
             "quantity": round(qty, 6),
             "buy_cost_eur": round(buy_cost, 2),
@@ -383,6 +408,28 @@ def _shape_portfolio(snap: dict[str, Any]) -> dict[str, Any]:
     depot_pl_eur = round(depot_netvalue - depot_buycost, 2)
     depot_pl_pct = round((depot_pl_eur / depot_buycost * 100.0) if depot_buycost else 0.0, 2)
 
+    # Per-bucket totals — mirrors what TR's mobile "Wealth" screen shows
+    # as separate tiles (Brokerage / Bonds / Private Equity / etc.). The
+    # category labels come straight from compactPortfolioByType.
+    by_category: dict[str, dict[str, Any]] = {}
+    for pos in positions:
+        cat = pos.get("category") or "others"
+        bucket = by_category.setdefault(cat, {
+            "count": 0,
+            "buy_cost_eur": 0.0,
+            "net_value_eur": 0.0,
+        })
+        bucket["count"] += 1
+        bucket["buy_cost_eur"] += pos["buy_cost_eur"]
+        bucket["net_value_eur"] += pos["net_value_eur"]
+    for cat, b in by_category.items():
+        b["buy_cost_eur"] = round(b["buy_cost_eur"], 2)
+        b["net_value_eur"] = round(b["net_value_eur"], 2)
+        b["pl_eur"] = round(b["net_value_eur"] - b["buy_cost_eur"], 2)
+        b["pl_pct"] = round(
+            (b["pl_eur"] / b["buy_cost_eur"] * 100.0) if b["buy_cost_eur"] else 0.0, 2
+        )
+
     return {
         "summary": {
             "depot_buycost": round(depot_buycost, 2),
@@ -392,6 +439,7 @@ def _shape_portfolio(snap: dict[str, Any]) -> dict[str, Any]:
             "cash_eur": round(cash_eur, 2),
             "total_buycost": round(depot_buycost, 2),
             "total_netvalue": round(depot_netvalue + cash_eur, 2),
+            "by_category": by_category,
         },
         "total_positions": len(positions) + len(zero_positions),
         "positions_with_value": len(positions),

@@ -470,6 +470,10 @@ async function load() {
       <div class="delta">To be reinvested</div></div>
   `;
 
+  // Wealth breakdown by TR bucket — mirrors what the official app shows
+  // as separate tiles (Brokerage / Bonds / Private Equity / etc.).
+  renderWealthBuckets(s);
+
   if (state.data.zero_value_positions.length > 0) {
     const w = document.getElementById('warning');
     w.style.display = 'block';
@@ -517,6 +521,57 @@ function sortArray(arr, cfg) {
     if (typeof av === 'number') return (av - bv) * cfg.sortDir;
     return String(av).localeCompare(String(bv)) * cfg.sortDir;
   });
+}
+
+function renderWealthBuckets(summary) {
+  // Render one tile per TR bucket (stocksAndETFs / cryptos / bonds /
+  // privateMarkets / others) + a Cash tile. Matches TR's mobile "Wealth"
+  // screen separation. Hidden gracefully when by_category absent (e.g.
+  // pre-upgrade portfolio.json from before this feature).
+  const by = summary.by_category || {};
+  const container = document.getElementById('wealth-buckets');
+  const section = document.getElementById('wealth-buckets-section');
+  if (!container || !section) return;
+
+  const labels = {
+    stocksAndETFs:  { name: 'Brokerage (Stocks/ETFs)', icon: '📈', color: 'blue'  },
+    cryptos:        { name: 'Crypto',                  icon: '🪙', color: 'amber' },
+    bonds:          { name: 'Bonds',                   icon: '🏛',  color: ''      },
+    privateMarkets: { name: 'Private Equity',          icon: '🔒', color: ''      },
+    others:         { name: 'Others',                  icon: '·',  color: ''      },
+  };
+  const order = ['stocksAndETFs','bonds','privateMarkets','cryptos','others'];
+
+  const tiles = [];
+  for (const key of order) {
+    const b = by[key];
+    if (!b || !b.count) continue;
+    const meta = labels[key] || { name: key, icon: '·', color: '' };
+    const plClass = b.pl_eur >= 0 ? 'green' : 'red';
+    tiles.push(
+      '<div class="card">' +
+      '<div class="label">' + meta.icon + ' ' + meta.name + '</div>' +
+      '<div class="value ' + meta.color + '">' + fmtEUR(b.net_value_eur) + '</div>' +
+      '<div class="delta">' + b.count + ' position' + (b.count === 1 ? '' : 's') +
+        ' · cost ' + fmtEUR(b.buy_cost_eur) +
+        ' <span class="' + plClass + '" style="margin-left:6px">' + fmtPct(b.pl_pct) + '</span>' +
+      '</div></div>'
+    );
+  }
+  tiles.push(
+    '<div class="card">' +
+    '<div class="label">💶 Cash</div>' +
+    '<div class="value amber">' + fmtEUR(summary.cash_eur) + '</div>' +
+    '<div class="delta">Available to invest / withdraw</div>' +
+    '</div>'
+  );
+
+  container.innerHTML = '<div class="cards">' + tiles.join('') + '</div>' +
+    '<p style="color:var(--muted); font-size:0.85em; margin-top:6px;">' +
+      'Sum of all tiles above = <strong>' + fmtEUR(summary.total_netvalue) + '</strong>' +
+      ' (matches the Total Net Value card).</p>';
+  section.style.display = '';
+  container.style.display = '';
 }
 
 function renderWinners() {

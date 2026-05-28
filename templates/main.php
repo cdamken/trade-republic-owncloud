@@ -160,6 +160,14 @@ $routes = $_['routes'];
 
 <div class="cards" id="cards"></div>
 
+<div class="section" id="wealth-buckets-section" style="display:none" data-toggle="wealth-buckets">
+  <span class="toggle-icon">▼</span> 💼 Wealth by Bucket
+  <span style="color:var(--muted); font-weight:400; font-size:0.85em; margin-left:8px;">
+    matches the tiles in Trade Republic's official Wealth screen
+  </span>
+</div>
+<div id="wealth-buckets" style="display:none"></div>
+
 <div class="section" data-toggle="winners">
   <span class="toggle-icon">▼</span> 🏆 Top Winners <span class="badge" id="winners-count">0</span>
 </div>

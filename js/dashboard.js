@@ -466,7 +466,7 @@ async function load() {
       <div class="value">${state.data.positions_with_value}</div>
       <div class="delta">+ ${state.data.zero_value_positions.length} with no price</div></div>
     <div class="card"><div class="label">Available Cash</div>
-      <div class="value amber">${fmtEUR(s.cash_eur)}</div>
+      <div class="value asset-cash">${fmtEUR(s.cash_eur)}</div>
       <div class="delta">To be reinvested</div></div>
   `;
 
@@ -533,12 +533,14 @@ function renderWealthBuckets(summary) {
   const section = document.getElementById('wealth-buckets-section');
   if (!container || !section) return;
 
+  // Each asset class gets its own consistent color across the app.
+  // See css/dashboard.css :root for the palette definition.
   const labels = {
-    stocksAndETFs:  { name: 'Brokerage (Stocks/ETFs)', icon: '📈', color: 'blue'  },
-    cryptos:        { name: 'Crypto',                  icon: '🪙', color: 'amber' },
-    bonds:          { name: 'Bonds',                   icon: '🏛',  color: ''      },
-    privateMarkets: { name: 'Private Equity',          icon: '🔒', color: ''      },
-    others:         { name: 'Others',                  icon: '·',  color: ''      },
+    stocksAndETFs:  { name: 'Brokerage (Stocks/ETFs)', icon: '📈', color: 'asset-equity' },
+    bonds:          { name: 'Bonds',                   icon: '🏛',  color: 'asset-bonds'  },
+    privateMarkets: { name: 'Private Equity',          icon: '🔒', color: 'asset-pe'     },
+    cryptos:        { name: 'Crypto',                  icon: '🪙', color: 'asset-crypto' },
+    others:         { name: 'Others',                  icon: '·',  color: 'asset-other'  },
   };
   const order = ['stocksAndETFs','bonds','privateMarkets','cryptos','others'];
 
@@ -561,7 +563,7 @@ function renderWealthBuckets(summary) {
   tiles.push(
     '<div class="card">' +
     '<div class="label">💶 Cash</div>' +
-    '<div class="value amber">' + fmtEUR(summary.cash_eur) + '</div>' +
+    '<div class="value asset-cash">' + fmtEUR(summary.cash_eur) + '</div>' +
     '<div class="delta">Available to invest / withdraw</div>' +
     '</div>'
   );

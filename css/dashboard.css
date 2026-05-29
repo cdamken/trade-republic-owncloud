@@ -30,10 +30,18 @@ body.tr-app-active #content-wrapper {
 	--border: #2a3142;
 	--text: #e8eef5;
 	--muted: #7a8599;
-	--green: #4ade80;
-	--red: #f87171;
-	--amber: #fbbf24;
-	--blue: #60a5fa;
+	/* Semantic palette — see Dashboard upstream for rationale. */
+	--green: #4ade80;        /* profit / gain          */
+	--red:   #f87171;        /* loss                   */
+	--blue:  #60a5fa;        /* primary KPI / equities */
+	--amber: #fbbf24;        /* warnings only          */
+	/* Asset-class colors */
+	--asset-equity:  #60a5fa;
+	--asset-bonds:   #d4a574;
+	--asset-pe:      #a78bfa;
+	--asset-crypto:  #fb923c;
+	--asset-cash:    #94a3b8;
+	--asset-other:   #6b7280;
 
 	background: var(--bg);
 	color: var(--text);
@@ -91,6 +99,12 @@ body.tr-app-active #content-wrapper {
 #tr-app .card .value { font-size: 26px; font-weight: 700; }
 #tr-app .card .delta { font-size: 13px; margin-top: 6px; }
 
+#tr-app .asset-equity { color: var(--asset-equity); }
+#tr-app .asset-bonds  { color: var(--asset-bonds); }
+#tr-app .asset-pe     { color: var(--asset-pe); }
+#tr-app .asset-crypto { color: var(--asset-crypto); }
+#tr-app .asset-cash   { color: var(--asset-cash); }
+#tr-app .asset-other  { color: var(--asset-other); }
 #tr-app .green { color: var(--green); }
 #tr-app .red   { color: var(--red); }
 #tr-app .amber { color: var(--amber); }

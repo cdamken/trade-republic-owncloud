@@ -3,6 +3,10 @@ __pycache__/
 *.pyc
 *.pyo
 
+# Python virtualenvs (server uses a system venv; repo should never carry one)
+.venv/
+venv/
+
 # Editor / OS noise
 .DS_Store
 .vscode/

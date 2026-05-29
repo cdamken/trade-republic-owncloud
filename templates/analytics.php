@@ -77,7 +77,7 @@ $routes = $_['routes'];
   </div>
 
   <!-- Trading totals (raw numbers, no chart) -->
-  <h2 style="margin-top: 18px;">Trading totals</h2>
+  <h2 style="margin-top: 32px;">Trading totals</h2>
   <div class="cf-grid">
     <div class="cf-tile out">
       <div class="label">Total stock purchases</div>
@@ -96,7 +96,7 @@ $routes = $_['routes'];
     </div>
   </div>
 
-  <div style="height: 200px; margin-top: 14px;"><canvas id="cashFlowChart"></canvas></div>
+  <div style="height: 260px; margin-top: 24px;"><canvas id="cashFlowChart"></canvas></div>
 </div>
 
 <div class="grid-top">
@@ -143,7 +143,7 @@ $routes = $_['routes'];
 </div>
 
 <!-- 5. Full dividend ledger — every payment, searchable + filterable -->
-<div class="card" style="margin-top:16px; min-height: auto;">
+<div class="card" style="margin-top:24px;">
   <h2>Dividend &amp; Interest Ledger</h2>
   <div class="substat" id="div-ledger-substat">All recorded payments</div>
   <div style="display:flex; gap:10px; flex-wrap:wrap; margin:14px 0;">

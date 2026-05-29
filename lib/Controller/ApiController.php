@@ -165,12 +165,18 @@ class ApiController extends Controller {
 		}
 
 		// Map tr-api exit codes (see tr-api/docs/cli-contract.md) to HTTP.
+		// NB: server runs PHP 7.4, so this is if/elseif (no `match` expression).
 		$exitCode = (int) ($envelope['exit_code'] ?? $result['exitCode']);
-		[$httpStatus, $jsonStatus] = match (true) {
-			in_array($exitCode, [20, 30], true) => [Http::STATUS_UNAUTHORIZED,        'auth_required'],
-			$exitCode === 41                    => [Http::STATUS_TOO_MANY_REQUESTS,   'rate_limited'],
-			default                             => [Http::STATUS_INTERNAL_SERVER_ERROR, 'error'],
-		};
+		if (in_array($exitCode, [20, 30], true)) {
+			$httpStatus = Http::STATUS_UNAUTHORIZED;
+			$jsonStatus = 'auth_required';
+		} elseif ($exitCode === 41) {
+			$httpStatus = Http::STATUS_TOO_MANY_REQUESTS;
+			$jsonStatus = 'rate_limited';
+		} else {
+			$httpStatus = Http::STATUS_INTERNAL_SERVER_ERROR;
+			$jsonStatus = 'error';
+		}
 		return new JSONResponse([
 			'status'    => $jsonStatus,
 			'exit_code' => $exitCode,

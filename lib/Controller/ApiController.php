@@ -140,6 +140,32 @@ class ApiController extends Controller {
 
 	/**
 	 * @NoAdminRequired
+	 * @NoCSRFRequired
+	 */
+	public function getDocsFolder(): JSONResponse {
+		return new JSONResponse(['folder' => $this->tr->getDocsFolder()]);
+	}
+
+	/**
+	 * @NoAdminRequired
+	 */
+	public function setDocsFolder(string $folder = ''): JSONResponse {
+		try {
+			$this->tr->setDocsFolder($folder);
+		} catch (\InvalidArgumentException $e) {
+			return new JSONResponse(
+				['status' => 'bad_request', 'detail' => $e->getMessage()],
+				Http::STATUS_BAD_REQUEST
+			);
+		}
+		return new JSONResponse([
+			'status' => 'ok',
+			'folder' => $this->tr->getDocsFolder(),
+		]);
+	}
+
+	/**
+	 * @NoAdminRequired
 	 */
 	public function downloadDocs(?string $since = null, ?string $kinds = null): JSONResponse {
 		$result = $this->tr->runDocsDownload(

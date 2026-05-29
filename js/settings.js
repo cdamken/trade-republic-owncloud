@@ -19,6 +19,7 @@
       update:       root.dataset.routeUpdate,
       reset:        root.dataset.routeReset,
       downloadDocs: root.dataset.routeDownloadDocs,
+      docsFolder:   root.dataset.routeDocsFolder,
     };
 
     // Populate cockpit
@@ -70,6 +71,70 @@
         }
       } catch (e) {
         setStatus('account-status', 'Save failed: ' + (e && e.message ? e.message : 'network error'), 'err');
+      }
+    });
+
+    // Documents → save folder (per-user, picked from native file dialog)
+    const docsInput   = document.getElementById('setting-docs-folder');
+    const docsBrowse  = document.getElementById('docs-folder-browse-btn');
+    const docsSaveBtn = document.getElementById('docs-folder-save-btn');
+
+    // Load current value
+    try {
+      const r = await fetch(routes.docsFolder);
+      if (r.ok) {
+        const j = await r.json();
+        if (j.folder) docsInput.value = j.folder;
+      }
+    } catch (_) {}
+
+    docsBrowse.addEventListener('click', (e) => {
+      e.preventDefault();
+      // ownCloud's built-in dialog: title, callback, multiselect=false,
+      // mimetype filter (folders only), modal=true, type=CHOOSE.
+      // The picker exposes a "+ New folder" button for creating one inline.
+      if (!window.OC || !OC.dialogs || !OC.dialogs.filepicker) {
+        setStatus('docs-folder-status', 'File picker not available', 'err');
+        return;
+      }
+      OC.dialogs.filepicker(
+        'Choose folder for Trade Republic documents',
+        (path) => {
+          if (!path) return;
+          // OC returns e.g. "/Finanzas/TR" — strip leading slash so it's
+          // stored as a Files-root-relative path, matching what the backend
+          // normaliser expects.
+          docsInput.value = String(path).replace(/^\/+/, '');
+        },
+        false,
+        'httpd/unix-directory',
+        true,
+        OC.dialogs.FILEPICKER_TYPE_CHOOSE
+      );
+    });
+
+    docsSaveBtn.addEventListener('click', async () => {
+      const folder = docsInput.value.trim().replace(/^\/+|\/+$/g, '');
+      if (!folder) {
+        return setStatus('docs-folder-status', 'Pick a folder first', 'err');
+      }
+      setStatus('docs-folder-status', 'Saving…');
+      try {
+        const r = await fetch(routes.docsFolder, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'requesttoken': OC.requestToken },
+          body: JSON.stringify({ folder }),
+        });
+        const body = await r.json().catch(() => ({}));
+        if (r.ok) {
+          if (body.folder) docsInput.value = body.folder;
+          setStatus('docs-folder-status', '✓ Saved — next Documents download will use this folder', 'ok');
+        } else {
+          const detail = body.detail || body.message || ('HTTP ' + r.status);
+          setStatus('docs-folder-status', 'Save failed: ' + detail, 'err');
+        }
+      } catch (e) {
+        setStatus('docs-folder-status', 'Save failed: ' + (e && e.message ? e.message : 'network error'), 'err');
       }
     });
 

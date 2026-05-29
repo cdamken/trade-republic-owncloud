@@ -88,18 +88,88 @@ class TrService {
 	}
 
 	/**
-	 * Where PDF documents land. We write INTO the user's Files area
-	 * (`{datadir}/<uid>/files/Trade_Republic_Docs/`) so the documents
-	 * show up automatically in their ownCloud Files app — no separate
-	 * download / browse step needed. The folder name is fixed by
-	 * convention; a future setting could make it configurable.
+	 * Where PDF documents land. We write INTO the user's Files area so
+	 * documents show up automatically in the ownCloud Files app — no
+	 * separate download / browse step needed. The subfolder is per-user
+	 * configurable via `getDocsFolder()`; default `Trade_Republic_Docs`.
 	 */
 	public function userDocsDir(): string {
-		$path = $this->dataDirRoot . '/' . $this->userId() . '/files/Trade_Republic_Docs';
+		$path = $this->userFilesRoot() . '/' . $this->getDocsFolder();
 		if (!is_dir($path)) {
 			@mkdir($path, 0750, true);
 		}
 		return $path;
+	}
+
+	/**
+	 * Absolute path to the user's Files root, e.g.
+	 * `{datadir}/<uid>/files`. This is what ownCloud's WebDAV/file picker
+	 * uses as the user's virtual root.
+	 */
+	private function userFilesRoot(): string {
+		return $this->dataDirRoot . '/' . $this->userId() . '/files';
+	}
+
+	/**
+	 * The user-chosen subfolder inside their Files root where TR PDFs
+	 * are written. Stored in `oc_preferences` (key `docs_folder`).
+	 * Returned as a path RELATIVE to the Files root, with no leading or
+	 * trailing slash. Defaults to `Trade_Republic_Docs`.
+	 */
+	public function getDocsFolder(): string {
+		$raw = (string) $this->config->getUserValue(
+			$this->userId(), self::APPID, 'docs_folder', 'Trade_Republic_Docs'
+		);
+		$normalised = $this->normaliseDocsFolder($raw);
+		// Fall back rather than throwing — bad stored value shouldn't brick
+		// the dashboard. Caller (setter) is where validation should live.
+		return $normalised === '' ? 'Trade_Republic_Docs' : $normalised;
+	}
+
+	/**
+	 * Persist a new docs folder for the current user. Path is treated as
+	 * relative to the user's Files root: leading/trailing slashes are
+	 * stripped, segments are validated, and `..` is rejected. Empty input
+	 * is rejected too — pass `Trade_Republic_Docs` to restore the default.
+	 *
+	 * @throws \InvalidArgumentException on empty or unsafe input
+	 */
+	public function setDocsFolder(string $path): void {
+		$normalised = $this->normaliseDocsFolder($path);
+		if ($normalised === '') {
+			throw new \InvalidArgumentException('folder must not be empty');
+		}
+		$this->config->setUserValue(
+			$this->userId(), self::APPID, 'docs_folder', $normalised
+		);
+	}
+
+	private function normaliseDocsFolder(string $path): string {
+		$path = trim($path);
+		// Collapse Windows-style separators just in case the picker hands
+		// us one, then strip surrounding slashes.
+		$path = str_replace('\\', '/', $path);
+		$path = trim($path, '/');
+		if ($path === '') {
+			return '';
+		}
+		$segments = [];
+		foreach (explode('/', $path) as $seg) {
+			$seg = trim($seg);
+			if ($seg === '' || $seg === '.') {
+				continue;
+			}
+			if ($seg === '..') {
+				throw new \InvalidArgumentException('folder must not contain ".." segments');
+			}
+			// Block NUL and control bytes; the rest of the cleanup is up
+			// to the filesystem.
+			if (preg_match('/[\x00-\x1f]/', $seg)) {
+				throw new \InvalidArgumentException('folder contains invalid characters');
+			}
+			$segments[] = $seg;
+		}
+		return implode('/', $segments);
 	}
 
 	public function profileDir(): string {
@@ -163,6 +233,7 @@ class TrService {
 	public function reset(): void {
 		$this->config->deleteUserValue($this->userId(), self::APPID, 'phone');
 		$this->config->deleteUserValue($this->userId(), self::APPID, 'pin_enc');
+		$this->config->deleteUserValue($this->userId(), self::APPID, 'docs_folder');
 		$dir = $this->userTrDir();
 		// rm -rf $dir
 		$this->rrmdir($dir);
@@ -343,7 +414,7 @@ class TrService {
 	}
 
 	/**
-	 * Trigger an `occ files:scan` over the user's Trade_Republic_Docs/
+	 * Trigger an `occ files:scan` over the user's configured docs
 	 * subtree. Best-effort: we ignore failures, the user can also do a
 	 * manual refresh in the Files app to surface new files.
 	 */
@@ -352,7 +423,7 @@ class TrService {
 		if (!is_file($occ)) {
 			return; // dev environment or unusual install layout
 		}
-		$path = '/' . $this->userId() . '/files/Trade_Republic_Docs';
+		$path = '/' . $this->userId() . '/files/' . $this->getDocsFolder();
 		// php is already running as www-data; no sudo needed.
 		$cmd = ['php', $occ, 'files:scan', '--path=' . $path];
 		$proc = @proc_open(

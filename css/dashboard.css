@@ -472,8 +472,10 @@ body.tr-app-active #content-wrapper {
 #tr-app .section {
 	/* Tighter than the original 40/16 (2026-05-29) — sections were
 	   feeling airy when collapsed. Keep enough margin that the section
-	   header is visually separated from the previous table. */
-	margin: 24px 0 12px; font-size: 17px; font-weight: 700;
+	   header is visually separated from the previous table.
+	   `padding: 0` overrides ownCloud's core/css/apps.css `.section {
+	   padding: 30px }` which was adding 60px vertical air per header. */
+	margin: 24px 0 12px; padding: 0; font-size: 17px; font-weight: 700;
 	display: flex; align-items: center; gap: 10px;
 	cursor: pointer; user-select: none; width: 100%;
 }

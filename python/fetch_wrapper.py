@@ -728,7 +728,10 @@ def compute_analytics(data_dir: Path) -> None:
             "lifetime_pl_pct": 0.0,
             "monthly": [],
         },
-        "dividends": {"monthly": {}, "total_received": 0, "recent": []},
+        "dividends": {
+            "monthly": {}, "total_received": 0, "count": 0,
+            "recent": [], "all_payments": [], "by_issuer": {},
+        },
         "allocation": {"categories": {"Stocks": 0, "ETFs": 0, "Crypto": 0, "Cash": 0}, "total": 0},
         "history": [],
     }
@@ -774,17 +777,33 @@ def compute_analytics(data_dir: Path) -> None:
                     cf["sells"]["total"] += abs_val
 
                 if t_type in ("Dividend", "Interest"):
-                    analytics["dividends"]["monthly"][month] = \
-                        analytics["dividends"]["monthly"].get(month, 0) + abs_val
-                    analytics["dividends"]["total_received"] += abs_val
-                    analytics["dividends"]["recent"].append({
-                        "date": date_str,
-                        "name": row.get("Note", "Unknown"),
-                        "amount": abs_val,
+                    div = analytics["dividends"]
+                    div["monthly"][month] = div["monthly"].get(month, 0) + abs_val
+                    div["total_received"] += abs_val
+                    div["count"] += 1
+                    name = row.get("Note", "Unknown") or "Unknown"
+                    isin = row.get("ISIN", "") or ""
+                    div["all_payments"].append({
+                        "date": date_str, "name": name, "isin": isin,
+                        "amount": abs_val, "type": t_type,
                     })
+                    key = name
+                    bi = div["by_issuer"].setdefault(key, {
+                        "name": name, "isin": isin,
+                        "count": 0, "total": 0.0,
+                        "first_date": date_str, "last_date": date_str,
+                    })
+                    bi["count"] += 1
+                    bi["total"] += abs_val
+                    if date_str < bi["first_date"]: bi["first_date"] = date_str
+                    if date_str > bi["last_date"]:  bi["last_date"] = date_str
+                    if not bi["isin"] and isin: bi["isin"] = isin
 
-        analytics["dividends"]["recent"].sort(key=lambda x: x["date"], reverse=True)
-        analytics["dividends"]["recent"] = analytics["dividends"]["recent"][:10]
+        div = analytics["dividends"]
+        div["all_payments"].sort(key=lambda x: x["date"], reverse=True)
+        div["recent"] = div["all_payments"][:10]
+        for bi in div["by_issuer"].values():
+            bi["total"] = round(bi["total"], 2)
 
     cf = analytics["cash_flow"]
     # New formula: net_capital_in subtracts ONLY Withdrawals (transfers

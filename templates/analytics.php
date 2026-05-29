@@ -127,18 +127,49 @@ $routes = $_['routes'];
 </div>
 
 <div class="grid-bottom">
-  <!-- 3. Monthly Dividends -->
+  <!-- 3. Monthly Dividends chart -->
   <div class="card">
     <h2>Monthly Dividends</h2>
     <div class="stat" id="div-total">€0.00</div>
+    <div class="substat" id="div-substat">— payments from — issuers</div>
     <div class="chart-container"><canvas id="dividendChart"></canvas></div>
   </div>
-  <!-- 4. Recent Payments -->
+  <!-- 4. By issuer -->
   <div class="card">
-    <h2>Recent Payments</h2>
-    <div class="substat">Last 10 received items</div>
-    <table id="recent-divs"></table>
+    <h2>Top Paying Issuers</h2>
+    <div class="substat">All-time, sorted by total received</div>
+    <table id="div-by-issuer"></table>
   </div>
+</div>
+
+<!-- 5. Full dividend ledger — every payment, searchable + filterable -->
+<div class="card" style="margin-top:24px;">
+  <h2>Dividend &amp; Interest Ledger</h2>
+  <div class="substat" id="div-ledger-substat">All recorded payments</div>
+  <div style="display:flex; gap:10px; flex-wrap:wrap; margin:14px 0;">
+    <input type="text" id="div-search" placeholder="Search issuer / ISIN…"
+           style="flex:1 1 220px; min-width:180px; padding:8px 12px; background:var(--bg); border:1px solid var(--border); color:var(--text); border-radius:6px; font-size:14px;">
+    <select id="div-month-filter" style="padding:8px 12px; background:var(--bg); border:1px solid var(--border); color:var(--text); border-radius:6px; font-size:14px;">
+      <option value="">All months</option>
+    </select>
+    <select id="div-type-filter" style="padding:8px 12px; background:var(--bg); border:1px solid var(--border); color:var(--text); border-radius:6px; font-size:14px;">
+      <option value="">Dividends + Interest</option>
+      <option value="Dividend">Dividends only</option>
+      <option value="Interest">Interest only</option>
+    </select>
+  </div>
+  <table id="div-ledger" style="font-size:13px;">
+    <thead>
+      <tr>
+        <th style="text-align:left;">Date</th>
+        <th style="text-align:left;">Issuer</th>
+        <th style="text-align:left;">ISIN</th>
+        <th style="text-align:left;">Type</th>
+        <th class="num">Amount</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
 </div>
 
 </div>

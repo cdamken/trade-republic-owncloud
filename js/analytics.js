@@ -397,10 +397,97 @@ async function init() {
     });
   }
 
-  const recent = data.dividends?.recent || [];
-  document.getElementById('recent-divs').innerHTML = recent.map(d =>
-    "<tr><td class=\"date-cell\">" + d.date + "</td><td>" + d.name + "</td><td class=\"val\">+€" + d.amount.toFixed(2) + "</td></tr>"
-  ).join('');
+  // ============ Dividends — by issuer + full ledger ============
+  renderDividendsByIssuer(data.dividends || {});
+  renderDividendLedger(data.dividends || {});
+  wireDividendFilters();
+}
+
+function renderDividendsByIssuer(div) {
+  const rows = Object.values(div.by_issuer || {})
+    .sort((a, b) => b.total - a.total).slice(0, 25);
+  const total = div.total_received || 0;
+  const count = div.count || 0;
+  const issuers = Object.keys(div.by_issuer || {}).length;
+  const substat = document.getElementById('div-substat');
+  if (substat) substat.textContent = count + ' payments from ' + issuers + ' issuers';
+
+  const tbl = document.getElementById('div-by-issuer');
+  if (!tbl) return;
+  if (!rows.length) { tbl.innerHTML = '<tbody><tr><td>No dividends yet.</td></tr></tbody>'; return; }
+  tbl.innerHTML =
+    '<thead><tr>' +
+      '<th style="text-align:left;">Issuer</th>' +
+      '<th class="num">Pays</th>' +
+      '<th class="num">Total</th>' +
+      '<th class="num">% of all</th>' +
+    '</tr></thead><tbody>' +
+    rows.map(r => {
+      const pct = total > 0 ? (r.total / total * 100).toFixed(1) : '0.0';
+      return '<tr>' +
+        '<td>' + (r.name || r.isin || '—').slice(0, 30) +
+          (r.isin ? ' <code style="font-size:10px;color:var(--muted);">' + r.isin + '</code>' : '') +
+          '</td>' +
+        '<td class="num">' + r.count + '</td>' +
+        '<td class="num"><strong>' + fmtEur(r.total) + '</strong></td>' +
+        '<td class="num">' + pct + '%</td>' +
+      '</tr>';
+    }).join('') +
+    '</tbody>';
+}
+
+let _divLedgerState = { search: '', month: '', type: '', items: [] };
+
+function renderDividendLedger(div) {
+  _divLedgerState.items = div.all_payments || div.recent || [];
+  const months = [...new Set(_divLedgerState.items.map(p => (p.date || '').slice(0, 7)))]
+    .filter(m => m).sort().reverse();
+  const sel = document.getElementById('div-month-filter');
+  if (sel) {
+    sel.innerHTML = '<option value="">All months</option>' +
+      months.map(m => '<option value="' + m + '">' + m + '</option>').join('');
+  }
+  renderLedgerRows();
+}
+
+function renderLedgerRows() {
+  const s = _divLedgerState;
+  const filtered = s.items.filter(p => {
+    if (s.month && !(p.date || '').startsWith(s.month)) return false;
+    if (s.type && p.type !== s.type) return false;
+    if (s.search) {
+      const t = s.search.toLowerCase();
+      const hay = ((p.name || '') + ' ' + (p.isin || '')).toLowerCase();
+      if (!hay.includes(t)) return false;
+    }
+    return true;
+  });
+  const substat = document.getElementById('div-ledger-substat');
+  if (substat) substat.textContent =
+    filtered.length + ' of ' + s.items.length + ' payments shown · sum ' +
+    fmtEur(filtered.reduce((a, p) => a + (p.amount || 0), 0));
+  const tbody = document.querySelector('#div-ledger tbody');
+  if (!tbody) return;
+  tbody.innerHTML = filtered.slice(0, 500).map(p =>
+    '<tr>' +
+      '<td>' + (p.date || '') + '</td>' +
+      '<td>' + (p.name || '') + '</td>' +
+      '<td><code style="font-size:11px;color:var(--muted)">' + (p.isin || '—') + '</code></td>' +
+      '<td>' + (p.type || 'Dividend') + '</td>' +
+      '<td class="num">+' + fmtEur(p.amount || 0) + '</td>' +
+    '</tr>'
+  ).join('') + (filtered.length > 500
+    ? '<tr><td colspan="5" style="text-align:center;color:var(--muted);font-size:12px;">(showing first 500 — refine filters to see more)</td></tr>'
+    : '');
+}
+
+function wireDividendFilters() {
+  const s = document.getElementById('div-search');
+  const mf = document.getElementById('div-month-filter');
+  const tf = document.getElementById('div-type-filter');
+  if (s)  s.addEventListener('input',  (e) => { _divLedgerState.search = e.target.value.trim(); renderLedgerRows(); });
+  if (mf) mf.addEventListener('change',(e) => { _divLedgerState.month = e.target.value; renderLedgerRows(); });
+  if (tf) tf.addEventListener('change',(e) => { _divLedgerState.type = e.target.value; renderLedgerRows(); });
 }
 
 document.addEventListener('DOMContentLoaded', init);

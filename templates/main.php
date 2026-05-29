@@ -14,37 +14,70 @@ $routes = $_['routes'];
 <div id="tr-app"
 	data-route-index="<?php p($routes['index']); ?>"
 	data-route-analytics="<?php p($routes['analytics']); ?>"
+	data-route-settings="<?php p($routes['settings']); ?>"
+	data-route-glossary="<?php p($routes['glossary']); ?>"
 	data-route-data="<?php p($routes['data']); ?>"
 	data-route-config="<?php p($routes['config']); ?>"
 	data-route-update="<?php p($routes['update']); ?>"
 	data-route-reset="<?php p($routes['reset']); ?>"
 	data-route-download-docs="<?php p($routes['downloadDocs']); ?>">
 
-<h1>
-  <div class="logo-box">📊</div>
-  Trade Republic Portfolio
-</h1>
-
-<div class="nav" style="justify-content: space-between; align-items: center;">
-  <div style="display: flex; gap: 12px;">
+<!-- New unified top-bar + sticky cockpit (same shell on every page) -->
+<div class="top-bar">
+  <div class="brand">
+    <div class="logo-box">📊</div>
+    <h1>Trade Republic</h1>
+  </div>
+  <nav>
     <a href="<?php p($routes['index']); ?>" class="active">Portfolio</a>
     <a href="<?php p($routes['analytics']); ?>">Analytics</a>
-  </div>
-  <div style="display:flex; gap:10px; align-items:center;">
-    <button id="update-btn" class="update-btn">
-      <span class="spinner"></span><span class="icon">🔄</span><span class="label">Update Now</span>
-    </button>
-    <button id="docs-btn" class="update-btn"
-            style="background:transparent; color:var(--muted); border:1px solid var(--border); font-weight:500;"
-            title="Download every PDF TR has issued (trades, dividends, statements, tax). Files appear in your Files app under Trade_Republic_Docs/<year>/<kind>/.">
+    <a href="<?php p($routes['settings']); ?>">⚙ Settings</a>
+    <a href="<?php p($routes['glossary']); ?>">📖 Glossary</a>
+  </nav>
+  <div class="actions">
+    <button id="docs-btn" class="ghost"
+            title="Download every PDF TR has issued (trades, dividends, statements, tax). Files appear in your Files app under Trade_Republic_Docs/&lt;year&gt;/&lt;kind&gt;/.">
       📄 Documents
     </button>
-    <button id="setup-open-btn" class="update-btn" style="background:transparent; color:var(--muted); border:1px solid var(--border); font-weight:500;"
-            title="Change phone / PIN, or switch to a different account">
-      ⚙️ Account
-    </button>
-    <span id="update-status" class="update-status" style="display:none"></span>
+    <button id="update-btn">🔄 Update Now</button>
   </div>
+</div>
+
+<!-- Thin non-blocking progress bar at top of viewport -->
+<div id="progress-bar" class="progress-bar"></div>
+
+<!-- Status banner — top-center, non-blocking (replaces dim overlay) -->
+<div id="toast" class="toast">
+  <button id="toast-close-btn" class="t-close" aria-label="Close">×</button>
+  <div class="t-title"><span class="spin"></span> <span id="toast-title">Updating information…</span></div>
+  <div class="t-stage" id="toast-stage">Connecting…</div>
+</div>
+
+<!-- Sticky cockpit — 4 KPIs + 5 bucket pills (populated by dashboard.js) -->
+<div class="cockpit">
+  <div class="cockpit-row kpis">
+    <div>
+      <div class="ck-label">Total Net Wealth</div>
+      <div class="ck-value big" id="ck-total">€0.00</div>
+      <div class="ck-sub" id="ck-total-sub">—</div>
+    </div>
+    <div>
+      <div class="ck-label">Investment Cost</div>
+      <div class="ck-value" id="ck-cost">€0.00</div>
+      <div class="ck-sub">Sum of all buys</div>
+    </div>
+    <div>
+      <div class="ck-label">Total P/L</div>
+      <div class="ck-value" id="ck-pl">€0.00</div>
+      <div class="ck-sub" id="ck-pl-pct">0.00%</div>
+    </div>
+    <div>
+      <div class="ck-label">Available Cash</div>
+      <div class="ck-value asset-cash" id="ck-cash">€0.00</div>
+      <div class="ck-sub">To be reinvested</div>
+    </div>
+  </div>
+  <div class="cockpit-row buckets" id="ck-buckets"></div>
 </div>
 
 <p class="subtitle">Data extracted via <a href="https://github.com/cdamken/tr-api" target="_blank" rel="noopener" style="color:var(--muted); text-decoration:underline;">tr-api</a> (WebSocket TR). <span id="ts"></span></p>
@@ -158,7 +191,8 @@ $routes = $_['routes'];
 
 <div class="warning" id="warning" style="display:none"></div>
 
-<div class="cards" id="cards"></div>
+<!-- Old .cards (Total Net Value / Cost / P/L / etc.) moved to the cockpit above.
+     Wealth-by-Bucket strip is also in the cockpit now. -->
 
 <div id="concentration" class="concentration" style="display:none"></div>
 

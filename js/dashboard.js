@@ -242,29 +242,53 @@ const PROGRESS_STAGES_FULL = [
 let _progressStartedAt = null;
 let _progressTimer = null;
 
+// Mockup-v5: the old dim-backdrop progress overlay is replaced with a top-
+// center toast + a 2px progress bar. Same function names so the existing
+// updateData()/submitMfa()/etc. call sites stay unchanged.
+function showToast(stage, kind) {
+  const t = document.getElementById('toast');
+  if (!t) return;
+  t.classList.remove('ok', 'err');
+  if (kind) t.classList.add(kind);
+  const stageEl = document.getElementById('toast-stage');
+  if (stageEl) stageEl.textContent = stage;
+  t.classList.add('active');
+}
+function setToastTitle(title) {
+  const el = document.getElementById('toast-title');
+  if (el) el.textContent = title;
+}
+function hideToast() {
+  const t = document.getElementById('toast');
+  if (t) t.classList.remove('active');
+}
+function showProgressBar() {
+  const b = document.getElementById('progress-bar');
+  if (b) b.classList.add('active', 'indet');
+}
+function hideProgressBar() {
+  const b = document.getElementById('progress-bar');
+  if (b) b.classList.remove('active', 'indet');
+}
+
 function showProgressOverlay(opts) {
   const stages = (opts && opts.full) ? PROGRESS_STAGES_FULL : PROGRESS_STAGES_NORMAL;
-  document.getElementById('progress-overlay').classList.add('show');
-  document.getElementById('progress-title').textContent =
-    (opts && opts.full) ? 'Re-downloading everything from scratch' : 'Updating your portfolio';
-  document.getElementById('progress-stage').textContent = stages[0].text;
-  document.getElementById('progress-elapsed').textContent = '0s';
+  setToastTitle((opts && opts.full) ? 'Updating all information…' : 'Updating information…');
+  showToast(stages[0].text);
+  showProgressBar();
   _progressStartedAt = Date.now();
   _progressTimer = setInterval(() => {
     const elapsed = (Date.now() - _progressStartedAt) / 1000;
     const stage = stages.find(s => elapsed < s.until) || stages[stages.length - 1];
-    const stageEl = document.getElementById('progress-stage');
-    if (stageEl.textContent !== stage.text) stageEl.textContent = stage.text;
-    document.getElementById('progress-elapsed').textContent =
-      elapsed < 60 ? `${Math.floor(elapsed)}s`
-                   : `${Math.floor(elapsed / 60)}m ${Math.floor(elapsed) % 60}s`;
+    showToast(stage.text);
   }, 500);
 }
 
 function hideProgressOverlay() {
-  document.getElementById('progress-overlay').classList.remove('show');
   if (_progressTimer) { clearInterval(_progressTimer); _progressTimer = null; }
   _progressStartedAt = null;
+  hideProgressBar();
+  hideToast();
 }
 
 async function downloadDocs() {
@@ -452,27 +476,10 @@ async function load() {
   state.data = await res.json();
   document.getElementById('ts').textContent = 'Last update: ' + new Date().toLocaleString();
 
+  // Populate the sticky cockpit (KPIs + bucket pills). Replaces the old
+  // .cards section that used to live below the nav.
   const s = state.data.summary;
-  document.getElementById('cards').innerHTML = `
-    <div class="card"><div class="label">Total Net Value</div>
-      <div class="value blue">${fmtEUR(s.total_netvalue)}</div>
-      <div class="delta">Depot ${fmtEUR(s.depot_netvalue)} + Cash ${fmtEUR(s.cash_eur)}</div></div>
-    <div class="card"><div class="label">Total Investment Cost</div>
-      <div class="value">${fmtEUR(s.depot_buycost)}</div>
-      <div class="delta">Sum of all buys</div></div>
-    <div class="card"><div class="label">Total P/L</div>
-      <div class="value">${fmtEUR(s.depot_pl_eur)}</div>
-      <div class="delta">${fmtPct(s.depot_pl_pct)}</div></div>
-    <div class="card"><div class="label">Active Positions</div>
-      <div class="value">${state.data.positions_with_value}</div>
-      <div class="delta">+ ${state.data.zero_value_positions.length} with no price</div></div>
-    <div class="card"><div class="label">Available Cash</div>
-      <div class="value asset-cash">${fmtEUR(s.cash_eur)}</div>
-      <div class="delta">To be reinvested</div></div>
-  `;
-
-  // Wealth breakdown by TR bucket — mirrors what the official app shows
-  // as separate tiles (Brokerage / Bonds / Private Equity / etc.).
+  renderCockpit(s, state.data);
   renderWealthBuckets(s);
 
   // Concentration warnings (purely informational; thresholds are heuristic).
@@ -631,18 +638,24 @@ function renderConcentrationWarnings(data) {
   container.style.display = '';
 }
 
-function renderWealthBuckets(summary) {
-  // Render one tile per TR bucket (stocksAndETFs / cryptos / bonds /
-  // privateMarkets / others) + a Cash tile. Matches TR's mobile "Wealth"
-  // screen separation. Hidden gracefully when by_category absent (e.g.
-  // pre-upgrade portfolio.json from before this feature).
-  const by = summary.by_category || {};
-  const container = document.getElementById('wealth-buckets');
-  const section = document.getElementById('wealth-buckets-section');
-  if (!container || !section) return;
+function renderCockpit(summary, data) {
+  // 4 KPIs at the top of the sticky cockpit.
+  document.getElementById('ck-total').textContent = fmtEUR(summary.total_netvalue);
+  document.getElementById('ck-total-sub').textContent =
+    'Depot ' + fmtEUR(summary.depot_netvalue) +
+    ' + Cash ' + fmtEUR(summary.cash_eur) +
+    ' · ' + data.positions_with_value + ' positions';
+  document.getElementById('ck-cost').textContent = fmtEUR(summary.depot_buycost);
+  document.getElementById('ck-pl').textContent = fmtEUR(summary.depot_pl_eur);
+  document.getElementById('ck-pl-pct').textContent = fmtPct(summary.depot_pl_pct);
+  document.getElementById('ck-cash').textContent = fmtEUR(summary.cash_eur);
+}
 
-  // Each asset class gets its own consistent color across the app.
-  // See css/dashboard.css :root for the palette definition.
+function renderWealthBuckets(summary) {
+  // Bucket pills inside the sticky cockpit (replaces the old wide tiles).
+  const by = summary.by_category || {};
+  const container = document.getElementById('ck-buckets');
+  if (!container) return;
   const labels = {
     stocksAndETFs:  { name: 'Brokerage (Stocks/ETFs)', icon: '📈', color: 'asset-equity' },
     bonds:          { name: 'Bonds',                   icon: '🏛',  color: 'asset-bonds'  },
@@ -652,36 +665,27 @@ function renderWealthBuckets(summary) {
   };
   const order = ['stocksAndETFs','bonds','privateMarkets','cryptos','others'];
 
-  const tiles = [];
+  const pills = [];
   for (const key of order) {
     const b = by[key];
     if (!b || !b.count) continue;
     const meta = labels[key] || { name: key, icon: '·', color: '' };
-    // P/L: sign only (no color) — user preference 2026-05-28.
-    tiles.push(
-      '<div class="card">' +
-      '<div class="label">' + meta.icon + ' ' + meta.name + '</div>' +
-      '<div class="value ' + meta.color + '">' + fmtEUR(b.net_value_eur) + '</div>' +
-      '<div class="delta">' + b.count + ' position' + (b.count === 1 ? '' : 's') +
-        ' · cost ' + fmtEUR(b.buy_cost_eur) +
-        ' <span style="margin-left:6px">' + fmtPct(b.pl_pct) + '</span>' +
-      '</div></div>'
+    pills.push(
+      '<div class="b-pill">' +
+      '<div class="b-label">' + meta.icon + ' ' + meta.name + '</div>' +
+      '<div class="b-value ' + meta.color + '">' + fmtEUR(b.net_value_eur) + '</div>' +
+      '<div class="b-sub">' + b.count + ' pos · ' + fmtPct(b.pl_pct) + '</div>' +
+      '</div>'
     );
   }
-  tiles.push(
-    '<div class="card">' +
-    '<div class="label">💶 Cash</div>' +
-    '<div class="value asset-cash">' + fmtEUR(summary.cash_eur) + '</div>' +
-    '<div class="delta">Available to invest / withdraw</div>' +
+  pills.push(
+    '<div class="b-pill">' +
+    '<div class="b-label">💶 Cash</div>' +
+    '<div class="b-value asset-cash">' + fmtEUR(summary.cash_eur) + '</div>' +
+    '<div class="b-sub">to invest / withdraw</div>' +
     '</div>'
   );
-
-  container.innerHTML = '<div class="cards">' + tiles.join('') + '</div>' +
-    '<p style="color:var(--muted); font-size:0.85em; margin-top:6px;">' +
-      'Sum of all tiles above = <strong>' + fmtEUR(summary.total_netvalue) + '</strong>' +
-      ' (matches the Total Net Value card).</p>';
-  section.style.display = '';
-  container.style.display = '';
+  container.innerHTML = pills.join('');
 }
 
 function renderWinners() {
@@ -724,18 +728,23 @@ document.addEventListener('DOMContentLoaded', () => {
   const root = document.getElementById('tr-app');
   document.body.classList.add('tr-app-active');
   routes = {
-    index:     root.dataset.routeIndex,
-    analytics: root.dataset.routeAnalytics,
-    data:      root.dataset.routeData,
-    config:    root.dataset.routeConfig,
-    update:        root.dataset.routeUpdate,
-    reset:         root.dataset.routeReset,
-    downloadDocs:  root.dataset.routeDownloadDocs,
+    index:        root.dataset.routeIndex,
+    analytics:    root.dataset.routeAnalytics,
+    settings:     root.dataset.routeSettings,
+    glossary:     root.dataset.routeGlossary,
+    data:         root.dataset.routeData,
+    config:       root.dataset.routeConfig,
+    update:       root.dataset.routeUpdate,
+    reset:        root.dataset.routeReset,
+    downloadDocs: root.dataset.routeDownloadDocs,
   };
 
   document.getElementById('update-btn').addEventListener('click', updateData);
   document.getElementById('docs-btn').addEventListener('click', downloadDocs);
-  document.getElementById('setup-open-btn').addEventListener('click', openSetupModal);
+  // Settings + Glossary are real pages now (links in the top-bar); the
+  // old setup-open-btn modal trigger has moved to the Settings page.
+  const toastClose = document.getElementById('toast-close-btn');
+  if (toastClose) toastClose.addEventListener('click', hideToast);
 
   // Position detail modal — delegated click + close handlers.
   document.addEventListener('click', (e) => {

@@ -16,6 +16,8 @@ return [
 	'routes' => [
 		['name' => 'page#index',         'url' => '/',                  'verb' => 'GET'],
 		['name' => 'page#analytics',     'url' => '/analytics',         'verb' => 'GET'],
+		['name' => 'page#settings',      'url' => '/settings',          'verb' => 'GET'],
+		['name' => 'page#glossary',      'url' => '/glossary',          'verb' => 'GET'],
 		['name' => 'api#data',           'url' => '/data/{type}',       'verb' => 'GET'],
 		['name' => 'api#getConfig',      'url' => '/api/config',        'verb' => 'GET'],
 		['name' => 'api#setConfig',      'url' => '/api/config',        'verb' => 'POST'],

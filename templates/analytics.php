@@ -15,12 +15,43 @@ $routes = $_['routes'];
 <div id="tr-app" class="analytics-page"
 	data-route-index="<?php p($routes['index']); ?>"
 	data-route-analytics="<?php p($routes['analytics']); ?>"
+	data-route-settings="<?php p($routes['settings']); ?>"
+	data-route-glossary="<?php p($routes['glossary']); ?>"
 	data-route-data="<?php p($routes['data']); ?>">
 
-<h1><div class="logo-box">📈</div> Trade Republic Analytics</h1>
-<div class="nav">
-  <a href="<?php p($routes['index']); ?>">Portfolio</a>
-  <a href="<?php p($routes['analytics']); ?>" class="active">Analytics</a>
+<!-- Same top-bar + cockpit as main.php / settings.php / glossary.php -->
+<div class="top-bar">
+  <div class="brand">
+    <div class="logo-box">📈</div>
+    <h1>Trade Republic</h1>
+  </div>
+  <nav>
+    <a href="<?php p($routes['index']); ?>">Portfolio</a>
+    <a href="<?php p($routes['analytics']); ?>" class="active">Analytics</a>
+    <a href="<?php p($routes['settings']); ?>">⚙ Settings</a>
+    <a href="<?php p($routes['glossary']); ?>">📖 Glossary</a>
+  </nav>
+  <div class="actions">
+    <a class="ghost" href="<?php p($routes['index']); ?>#docs"
+       style="text-decoration:none; display:inline-block; padding:8px 16px;
+              background:transparent; color:var(--muted); border:1px solid var(--border);
+              border-radius:8px; font-size:13px; font-weight:600;">📄 Documents</a>
+    <a href="<?php p($routes['index']); ?>#update"
+       style="text-decoration:none; display:inline-block; padding:8px 16px;
+              background:var(--blue); color:var(--bg); border-radius:8px;
+              font-size:13px; font-weight:600;">🔄 Update Now</a>
+  </div>
+</div>
+
+<!-- Sticky cockpit — read-only, pulled from portfolio.json on load -->
+<div class="cockpit">
+  <div class="cockpit-row kpis">
+    <div><div class="ck-label">Total Net Wealth</div><div class="ck-value big" id="ck-total">€0.00</div><div class="ck-sub" id="ck-total-sub">—</div></div>
+    <div><div class="ck-label">Investment Cost</div><div class="ck-value" id="ck-cost">€0.00</div><div class="ck-sub">Sum of all buys</div></div>
+    <div><div class="ck-label">Total P/L</div><div class="ck-value" id="ck-pl">€0.00</div><div class="ck-sub" id="ck-pl-pct">0.00%</div></div>
+    <div><div class="ck-label">Available Cash</div><div class="ck-value asset-cash" id="ck-cash">€0.00</div><div class="ck-sub">To be reinvested</div></div>
+  </div>
+  <div class="cockpit-row buckets" id="ck-buckets"></div>
 </div>
 
 <!-- Cash Flow (external: TR ↔ outside world) -->

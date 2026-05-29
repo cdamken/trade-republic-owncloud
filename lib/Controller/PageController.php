@@ -50,6 +50,22 @@ class PageController extends Controller {
 	}
 
 	/**
+	 * @NoAdminRequired
+	 * @NoCSRFRequired
+	 */
+	public function settings() {
+		return $this->renderTemplate('settings');
+	}
+
+	/**
+	 * @NoAdminRequired
+	 * @NoCSRFRequired
+	 */
+	public function glossary() {
+		return $this->renderTemplate('glossary');
+	}
+
+	/**
 	 * Render the page, or redirect to ownCloud login if the visitor is not
 	 * authenticated. Without this guard ownCloud sometimes returns a bare
 	 * 403 "Access forbidden" page instead of a friendly redirect to login.
@@ -74,17 +90,21 @@ class PageController extends Controller {
 		$scriptMap = [
 			'main'      => 'dashboard',
 			'analytics' => 'analytics',
+			'settings'  => 'settings',
+			'glossary'  => 'glossary',
 		];
 		\OCP\Util::addScript($this->appName, $scriptMap[$template] ?? 'dashboard');
 
 		$params = [
 			'routes' => [
-				'index'      => $this->urlGenerator->linkToRoute('trade_republic.page.index'),
-				'analytics'  => $this->urlGenerator->linkToRoute('trade_republic.page.analytics'),
-				'data'       => $this->urlGenerator->linkToRoute('trade_republic.api.data', ['type' => '__TYPE__']),
-				'config'     => $this->urlGenerator->linkToRoute('trade_republic.api.getConfig'),
-				'update'     => $this->urlGenerator->linkToRoute('trade_republic.api.update'),
-				'reset'      => $this->urlGenerator->linkToRoute('trade_republic.api.reset'),
+				'index'        => $this->urlGenerator->linkToRoute('trade_republic.page.index'),
+				'analytics'    => $this->urlGenerator->linkToRoute('trade_republic.page.analytics'),
+				'settings'     => $this->urlGenerator->linkToRoute('trade_republic.page.settings'),
+				'glossary'     => $this->urlGenerator->linkToRoute('trade_republic.page.glossary'),
+				'data'         => $this->urlGenerator->linkToRoute('trade_republic.api.data', ['type' => '__TYPE__']),
+				'config'       => $this->urlGenerator->linkToRoute('trade_republic.api.getConfig'),
+				'update'       => $this->urlGenerator->linkToRoute('trade_republic.api.update'),
+				'reset'        => $this->urlGenerator->linkToRoute('trade_republic.api.reset'),
 				'downloadDocs' => $this->urlGenerator->linkToRoute('trade_republic.api.downloadDocs'),
 			],
 		];

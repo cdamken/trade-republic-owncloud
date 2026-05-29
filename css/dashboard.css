@@ -88,6 +88,211 @@ body.tr-app-active #content-wrapper {
 	display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 	gap: 16px; margin-bottom: 32px;
 }
+
+/* ============================================================
+ * Mockup-v5 unified shell: top-bar + sticky cockpit + non-blocking sync.
+ * Same design language as Trade-Republic-Dashboard (local). All scoped
+ * under #tr-app so it doesn't leak into ownCloud's chrome.
+ * ============================================================ */
+
+#tr-app .top-bar {
+	display: flex; align-items: center; gap: 16px; justify-content: space-between;
+	padding: 14px 0 10px;
+}
+#tr-app .top-bar .brand { display: flex; align-items: center; gap: 10px; }
+#tr-app .top-bar h1 { font-size: 18px; font-weight: 700; margin: 0;
+	display: flex; align-items: center; gap: 10px; }
+#tr-app .top-bar nav { display: flex; gap: 4px; flex: 1; justify-content: center; }
+#tr-app .top-bar nav a {
+	color: var(--muted) !important;
+	text-decoration: none; font-size: 13px;
+	padding: 8px 16px; border-radius: 8px; font-weight: 500;
+	border: 1px solid transparent; cursor: pointer;
+	background: transparent;
+}
+#tr-app .top-bar nav a:hover {
+	color: var(--text) !important;
+	background: rgba(255,255,255,0.03);
+}
+#tr-app .top-bar nav a.active {
+	color: var(--blue) !important;
+	background: rgba(96,165,250,0.08);
+	border-color: var(--blue);
+}
+#tr-app .top-bar .actions { display: flex; gap: 8px; align-items: center; }
+#tr-app .top-bar .actions button {
+	background: var(--blue); color: var(--bg); border: none;
+	padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600;
+	cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+}
+#tr-app .top-bar .actions button.ghost {
+	background: transparent; color: var(--muted);
+	border: 1px solid var(--border);
+}
+#tr-app .top-bar .actions button[disabled] { opacity: 0.7; cursor: progress; }
+
+/* Sticky cockpit — 4 KPIs + 5 wealth bucket pills */
+#tr-app .cockpit {
+	position: sticky; top: 0; z-index: 50;
+	background: rgba(15, 20, 25, 0.95);
+	-webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+	border-bottom: 1px solid var(--border);
+	padding: 14px 0 12px;
+	margin: 0 -24px 24px;
+	padding-left: 24px; padding-right: 24px;
+}
+#tr-app .cockpit-row { display: grid; gap: 18px; align-items: center; }
+#tr-app .cockpit-row.kpis    { grid-template-columns: 2fr 1fr 1fr 1fr; margin-bottom: 10px; }
+#tr-app .cockpit-row.buckets { grid-template-columns: repeat(5, 1fr); gap: 8px; }
+#tr-app .cockpit .ck-label {
+	color: var(--muted); font-size: 11px;
+	text-transform: uppercase; letter-spacing: 1px; font-weight: 600;
+}
+#tr-app .cockpit .ck-value { font-size: 26px; font-weight: 800; margin-top: 2px; }
+#tr-app .cockpit .ck-sub { color: var(--muted); font-size: 12px; margin-top: 1px; }
+#tr-app .cockpit .ck-value.big { font-size: 32px; }
+#tr-app .cockpit .b-pill {
+	background: rgba(255, 255, 255, 0.02);
+	border: 1px solid var(--border);
+	border-radius: 8px; padding: 8px 12px;
+	display: flex; flex-direction: column;
+}
+#tr-app .cockpit .b-pill .b-label {
+	font-size: 10px; color: var(--muted); font-weight: 600;
+	text-transform: uppercase; letter-spacing: 0.5px;
+}
+#tr-app .cockpit .b-pill .b-value { font-size: 16px; font-weight: 700; margin-top: 2px; }
+#tr-app .cockpit .b-pill .b-sub { font-size: 10px; color: var(--muted); margin-top: 1px; }
+@media (max-width: 1000px) {
+	#tr-app .cockpit-row.kpis    { grid-template-columns: 1fr 1fr; }
+	#tr-app .cockpit-row.buckets { grid-template-columns: repeat(2, 1fr); }
+	#tr-app .top-bar nav { flex: none; }
+}
+
+/* Spinner used inside in-flight buttons */
+#tr-app .spin {
+	display: inline-block; width: 12px; height: 12px;
+	border: 2px solid currentColor; border-right-color: transparent;
+	border-radius: 50%; animation: tr-spin 0.7s linear infinite;
+	vertical-align: -1px;
+}
+@keyframes tr-spin { to { transform: rotate(360deg); } }
+
+/* Thin progress bar pinned to the very top — non-blocking */
+#tr-app .progress-bar {
+	position: fixed; top: 0; left: 0; right: 0; height: 2px;
+	z-index: 100; pointer-events: none;
+	display: none;
+}
+#tr-app .progress-bar.active { display: block; }
+#tr-app .progress-bar.indet {
+	background: linear-gradient(90deg, transparent 0%, var(--blue) 50%, transparent 100%);
+	background-size: 50% 100%; background-repeat: no-repeat;
+	animation: tr-pb-slide 1.6s ease-in-out infinite;
+}
+@keyframes tr-pb-slide {
+	0%   { background-position: -50% 0; }
+	100% { background-position: 150% 0; }
+}
+
+/* Status banner — top-center under the cockpit, non-blocking */
+#tr-app .toast {
+	position: fixed; top: 200px; left: 50%; transform: translateX(-50%) translateY(-10px);
+	background: var(--card); border: 1px solid var(--border);
+	border-top: 3px solid var(--blue);
+	padding: 12px 20px; border-radius: 0 0 10px 10px;
+	min-width: 320px; max-width: 520px;
+	box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+	display: none; z-index: 90;
+	font-size: 14px; text-align: center;
+	opacity: 0; transition: opacity 0.18s, transform 0.18s;
+}
+#tr-app .toast.active { display: block; opacity: 1; transform: translateX(-50%) translateY(0); }
+#tr-app .toast .t-title { font-weight: 700; margin-bottom: 4px;
+	display: flex; align-items: center; justify-content: center; gap: 10px; }
+#tr-app .toast .t-stage { color: var(--muted); font-size: 12px; }
+#tr-app .toast.ok  { border-top-color: var(--green); }
+#tr-app .toast.err { border-top-color: var(--red);   }
+#tr-app .toast .t-close {
+	background: none; border: none; color: var(--muted); cursor: pointer;
+	position: absolute; top: 6px; right: 10px; font-size: 16px; padding: 0;
+}
+@media (max-width: 700px) {
+	#tr-app .toast { min-width: 80vw; max-width: 95vw; top: 230px; }
+}
+
+/* Settings page layout */
+#tr-app .settings-grid {
+	display: grid; grid-template-columns: 220px 1fr; gap: 20px; align-items: start;
+}
+@media (max-width: 900px) { #tr-app .settings-grid { grid-template-columns: 1fr; } }
+#tr-app .settings-side {
+	background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+	padding: 8px; position: sticky; top: 200px;
+}
+#tr-app .settings-side a {
+	display: block;
+	color: var(--muted) !important;
+	padding: 9px 14px; font-size: 13px;
+	border-radius: 8px; text-decoration: none; font-weight: 500;
+	margin-bottom: 2px;
+}
+#tr-app .settings-side a:hover {
+	color: var(--text) !important;
+	background: rgba(255,255,255,0.03);
+}
+#tr-app .settings-side a.active {
+	color: var(--text) !important;
+	background: rgba(96,165,250,0.08);
+	border-left: 2px solid var(--blue); padding-left: 12px;
+}
+#tr-app .settings-section {
+	background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+	padding: 22px; margin-bottom: 14px;
+}
+#tr-app .settings-section h3 { font-size: 15px; margin-bottom: 4px; }
+#tr-app .settings-section .help { color: var(--muted); font-size: 12px; margin-bottom: 16px; }
+#tr-app .form-row {
+	display: grid; grid-template-columns: 180px 1fr; gap: 14px; align-items: center;
+	margin-bottom: 12px;
+}
+@media (max-width: 700px) { #tr-app .form-row { grid-template-columns: 1fr; } }
+#tr-app .form-row label { color: var(--muted); font-size: 13px; }
+#tr-app .form-row input,
+#tr-app .form-row select {
+	padding: 8px 12px !important;
+	background: var(--bg) !important;
+	border: 1px solid var(--border) !important;
+	color: var(--text) !important;
+	border-radius: 6px !important;
+	font-size: 14px !important;
+	width: 100%;
+	height: auto !important;
+	margin: 0 !important;
+}
+#tr-app .btn {
+	padding: 8px 14px; background: var(--blue); color: var(--bg); border: none;
+	border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer;
+}
+#tr-app .btn.ghost { background: transparent; color: var(--text); border: 1px solid var(--border); }
+#tr-app .btn.danger { background: rgba(248,113,113,0.1); color: var(--red); border: 1px solid var(--red); }
+#tr-app .status-msg { font-size: 12px; margin-left: 12px; color: var(--muted); }
+#tr-app .status-msg.ok { color: var(--green); }
+#tr-app .status-msg.err { color: var(--red); }
+
+/* Glossary list */
+#tr-app .glossary { display: grid; grid-template-columns: 1fr; gap: 14px; }
+#tr-app .glossary dt {
+	font-weight: 700; color: var(--text); font-size: 14px;
+	border-bottom: 1px solid var(--border); padding-bottom: 4px;
+}
+#tr-app .glossary dd {
+	color: var(--muted); font-size: 13px; line-height: 1.6; margin-left: 0;
+}
+#tr-app .glossary dd code {
+	background: rgba(255,255,255,0.05); color: var(--text);
+	padding: 1px 6px; border-radius: 3px; font-size: 12px;
+}
 #tr-app .card {
 	background: var(--card); border: 1px solid var(--border);
 	border-radius: 12px; padding: 20px;

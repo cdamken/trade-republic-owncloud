@@ -94,8 +94,11 @@ Browsers see new URL, drop cached JS, fetch the new one
                   └─────────────────────────────────────────────────┘
 ```
 
-**Use `scripts/deploy.sh` for all three.** Manual rsync is fine for one-off
-debugging but skipping any of these pillars causes silent breakage:
+**Use `scripts/deploy.sh` for all three.** This script is the *only*
+deploy path. Carlos won't run it himself — when he asks "deploy this",
+you (the assistant) run the script with the right flags. Never substitute
+manual rsync, even "just for one file". Skipping any pillar causes silent
+breakage:
 
 | You forget                | What breaks                                                                 |
 |---------------------------|------------------------------------------------------------------------------|
@@ -104,19 +107,30 @@ debugging but skipping any of these pillars causes silent breakage:
 | The cache (version bump)  | Browser keeps cached JS forever, your JS fix doesn't reach users             |
 | `chown www-data`          | Apache 500, PHP can't read the file                                          |
 
-```bash
-# Normal deploy (app + lib + chown, no version bump)
-./scripts/deploy.sh
+### Recipe table — pick by what you actually changed
 
-# JS or CSS changed → bump so browsers fetch new files
-./scripts/deploy.sh --bump patch
+| You edited                                                | Command                                  |
+|-----------------------------------------------------------|------------------------------------------|
+| `js/*` or `css/*` (anything browser-cached)               | `./scripts/deploy.sh --bump patch`       |
+| `templates/*.php`                                         | `./scripts/deploy.sh --bump patch`       |
+| `lib/**/*.php` (PHP class, no JS)                         | `./scripts/deploy.sh --no-lib`           |
+| `python/fetch_wrapper.py` only                            | `./scripts/deploy.sh --no-lib`           |
+| `appinfo/routes.php` (new route)                          | `./scripts/deploy.sh --bump patch`       |
+| Anything in `~/damkencloud/Claude/tr-api/`                | `./scripts/deploy.sh --lib --no-app`     |
+| Mix of TR-owncloud + tr-api                               | `./scripts/deploy.sh --bump patch`       |
+| Don't know / mixed change                                 | `./scripts/deploy.sh --bump patch`       |
 
-# Pure tr-api hot-fix (no PHP/JS changes)
-./scripts/deploy.sh --lib --no-app
+The default (just `./scripts/deploy.sh`, no flags) is **app + lib, no
+bump**. Use that when you're 100% sure no JS/CSS/templates changed
+since the last deploy with a bump. When in doubt, `--bump patch` is
+always safe — worst case the version goes up by one for no behavioural
+reason.
 
-# Pure PHP/template fix, lib unchanged
-./scripts/deploy.sh --no-lib
-```
+### When to use which bump level
+
+- `--bump patch` (0.1.x → 0.1.x+1): hot-fix, any browser-cached change
+- `--bump minor` (0.1.x → 0.2.0): new feature shipped to users
+- `--bump major` (0.x.y → 1.0.0): breaking change (route renamed, etc.)
 
 Script ends with a smoke-test that imports every tr-api module
 `fetch_wrapper.py` depends on. If any are missing it exits non-zero
@@ -178,6 +192,16 @@ img/app.svg                     navigation entry icon
 5. **Per-user data isolation** is the security boundary. Never accept
    a userId from request input — `TrService::userId()` resolves it
    from `IUserSession`. Don't add path-traversal-friendly helpers.
+6. **Always deploy via `./scripts/deploy.sh`, never raw rsync.** Carlos
+   does not run deploys by hand — every deploy is initiated by an
+   assistant. The script is the only sanctioned path because it
+   covers all three pillars (see "Deployment topology" below). Raw
+   rsync silently breaks one of them every time. If you find yourself
+   typing `rsync ... cloud.damken.com`, stop and use the script
+   instead. The only legitimate reason to bypass it is debugging the
+   deploy script itself, and even then only with explicit user
+   approval. See the recipe table below for which flags to pass for
+   each kind of change.
 
 ## Key files for quick reference
 

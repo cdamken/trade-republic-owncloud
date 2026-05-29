@@ -530,7 +530,7 @@ function rowHTML(p) {
   const safeName = String(p.name || '').replace(/['"]/g, '');
   return `<tr>
     <td title="${p.name}"><a href="#" class="position-link" data-isin="${safeIsin}" data-name="${safeName}">${p.name}</a></td>
-    <td><code style="font-size:11px;color:var(--muted)">${p.isin}</code>${externalLinks(p.isin)}</td>
+    <td><code style="font-size:13px;color:var(--muted)">${p.isin}</code>${externalLinks(p.isin)}</td>
     <td class="num">${fmt(p.quantity, 4)}</td>
     <td class="num">${fmtEUR(p.avg_cost)}</td>
     <td class="num">${fmtEUR(p.current_price)}</td>
@@ -546,7 +546,7 @@ function shortRow(p) {
   const safeName = String(p.name || '').replace(/['"]/g, '');
   return `<tr>
     <td title="${p.name}"><a href="#" class="position-link" data-isin="${safeIsin}" data-name="${safeName}">${p.name}</a></td>
-    <td><code style="font-size:11px;color:var(--muted)">${p.isin}</code>${externalLinks(p.isin)}</td>
+    <td><code style="font-size:13px;color:var(--muted)">${p.isin}</code>${externalLinks(p.isin)}</td>
     <td class="num">${fmt(p.quantity, 4)}</td>
     <td class="num"><strong>${fmtEUR(p.net_value_eur)}</strong></td>
     <td class="num">${fmtEUR(p.pl_eur)}</td>

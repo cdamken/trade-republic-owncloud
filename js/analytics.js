@@ -248,8 +248,7 @@ async function init() {
     });
   }
 
-  // ============ Dividends & Allocation ============
-  document.getElementById('div-total').textContent = '€' + (data.dividends?.total_received || 0).toLocaleString(undefined,{minimumFractionDigits:2});
+  // ============ Allocation (dividends moved to dividends.php, 2026-05-29) ============
   document.getElementById('alloc-total').textContent = '€' + (data.allocation?.total || 0).toLocaleString(undefined,{maximumFractionDigits:0});
 
   // 1. Allocation Chart — thinner ring + card-bg borders for separation.
@@ -400,138 +399,15 @@ async function init() {
     });
   }
 
-  // 3. Dividend Chart
-  const divMonths = Object.keys(data.dividends?.monthly || {}).sort();
-  if (divMonths.length > 0) {
-    new Chart(document.getElementById('dividendChart'), {
-      type: 'bar',
-      data: {
-        labels: divMonths,
-        datasets: [{
-          data: divMonths.map(m => data.dividends.monthly[m]),
-          backgroundColor: (c) => vGradient(c.chart.ctx, c.chart.chartArea, '#4ade80'),
-          borderRadius: { topLeft: 6, topRight: 6 },
-          borderSkipped: false,
-          barPercentage: 0.65,
-          categoryPercentage: 0.85,
-        }],
-      },
-      options: {
-        maintainAspectRatio: false,
-        animation: ANIMATION,
-        plugins: {
-          legend: { display: false },
-          tooltip: { ...TOOLTIP,
-            callbacks: {
-              label: (ctx) => ' €' + ctx.parsed.y.toLocaleString(undefined, {minimumFractionDigits:2}),
-            },
-          },
-        },
-        scales: {
-          y: { ...AXIS_BASE,
-               ticks: { ...AXIS_BASE.ticks, color: '#e8eef5', font: { size: 12, weight: '600' },
-                        callback: (v) => '€' + v.toFixed(0) } },
-          x: { ...AXIS_BASE,
-               ticks: { ...AXIS_BASE.ticks, font: { size: 11, weight: '500' },
-                        maxRotation: 0, autoSkip: true },
-               grid: { display: false } },
-        },
-      },
-    });
-  }
-
-  // ============ Dividends — by issuer + full ledger ============
-  renderDividendsByIssuer(data.dividends || {});
-  renderDividendLedger(data.dividends || {});
-  wireDividendFilters();
+  // 3. Dividend Chart + 4. By-issuer table + 5. Full ledger moved to
+  // templates/dividends.php (2026-05-29). renderDividendsByIssuer,
+  // renderDividendLedger, renderLedgerRows, wireDividendFilters and the
+  // _divLedgerState helper were removed with them.
 }
 
-function renderDividendsByIssuer(div) {
-  const rows = Object.values(div.by_issuer || {})
-    .sort((a, b) => b.total - a.total).slice(0, 25);
-  const total = div.total_received || 0;
-  const count = div.count || 0;
-  const issuers = Object.keys(div.by_issuer || {}).length;
-  const substat = document.getElementById('div-substat');
-  if (substat) substat.textContent = count + ' payments from ' + issuers + ' issuers';
-
-  const tbl = document.getElementById('div-by-issuer');
-  if (!tbl) return;
-  if (!rows.length) { tbl.innerHTML = '<tbody><tr><td>No dividends yet.</td></tr></tbody>'; return; }
-  tbl.innerHTML =
-    '<thead><tr>' +
-      '<th style="text-align:left;">Issuer</th>' +
-      '<th class="num">Pays</th>' +
-      '<th class="num">Total</th>' +
-      '<th class="num">% of all</th>' +
-    '</tr></thead><tbody>' +
-    rows.map(r => {
-      const pct = total > 0 ? (r.total / total * 100).toFixed(1) : '0.0';
-      return '<tr>' +
-        '<td>' + (r.name || r.isin || '—').slice(0, 30) +
-          (r.isin ? ' <code style="font-size:10px;color:var(--muted);">' + r.isin + '</code>' : '') +
-          '</td>' +
-        '<td class="num">' + r.count + '</td>' +
-        '<td class="num"><strong>' + fmtEur(r.total) + '</strong></td>' +
-        '<td class="num">' + pct + '%</td>' +
-      '</tr>';
-    }).join('') +
-    '</tbody>';
-}
-
-let _divLedgerState = { search: '', month: '', type: '', items: [] };
-
-function renderDividendLedger(div) {
-  _divLedgerState.items = div.all_payments || div.recent || [];
-  const months = [...new Set(_divLedgerState.items.map(p => (p.date || '').slice(0, 7)))]
-    .filter(m => m).sort().reverse();
-  const sel = document.getElementById('div-month-filter');
-  if (sel) {
-    sel.innerHTML = '<option value="">All months</option>' +
-      months.map(m => '<option value="' + m + '">' + m + '</option>').join('');
-  }
-  renderLedgerRows();
-}
-
-function renderLedgerRows() {
-  const s = _divLedgerState;
-  const filtered = s.items.filter(p => {
-    if (s.month && !(p.date || '').startsWith(s.month)) return false;
-    if (s.type && p.type !== s.type) return false;
-    if (s.search) {
-      const t = s.search.toLowerCase();
-      const hay = ((p.name || '') + ' ' + (p.isin || '')).toLowerCase();
-      if (!hay.includes(t)) return false;
-    }
-    return true;
-  });
-  const substat = document.getElementById('div-ledger-substat');
-  if (substat) substat.textContent =
-    filtered.length + ' of ' + s.items.length + ' payments shown · sum ' +
-    fmtEur(filtered.reduce((a, p) => a + (p.amount || 0), 0));
-  const tbody = document.querySelector('#div-ledger tbody');
-  if (!tbody) return;
-  tbody.innerHTML = filtered.slice(0, 500).map(p =>
-    '<tr>' +
-      '<td>' + (p.date || '') + '</td>' +
-      '<td>' + (p.name || '') + '</td>' +
-      '<td><code style="font-size:11px;color:var(--muted)">' + (p.isin || '—') + '</code></td>' +
-      '<td>' + (p.type || 'Dividend') + '</td>' +
-      '<td class="num">+' + fmtEur(p.amount || 0) + '</td>' +
-    '</tr>'
-  ).join('') + (filtered.length > 500
-    ? '<tr><td colspan="5" style="text-align:center;color:var(--muted);font-size:12px;">(showing first 500 — refine filters to see more)</td></tr>'
-    : '');
-}
-
-function wireDividendFilters() {
-  const s = document.getElementById('div-search');
-  const mf = document.getElementById('div-month-filter');
-  const tf = document.getElementById('div-type-filter');
-  if (s)  s.addEventListener('input',  (e) => { _divLedgerState.search = e.target.value.trim(); renderLedgerRows(); });
-  if (mf) mf.addEventListener('change',(e) => { _divLedgerState.month = e.target.value; renderLedgerRows(); });
-  if (tf) tf.addEventListener('change',(e) => { _divLedgerState.type = e.target.value; renderLedgerRows(); });
-}
+// renderDividendsByIssuer / renderDividendLedger / renderLedgerRows /
+// wireDividendFilters removed 2026-05-29 — see templates/dividends.php +
+// js/dividends.js for the new GBM-style implementation.
 
 document.addEventListener('DOMContentLoaded', init);
 })();

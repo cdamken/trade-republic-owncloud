@@ -66,6 +66,14 @@ class PageController extends Controller {
 	}
 
 	/**
+	 * @NoAdminRequired
+	 * @NoCSRFRequired
+	 */
+	public function dividends() {
+		return $this->renderTemplate('dividends');
+	}
+
+	/**
 	 * Render the page, or redirect to ownCloud login if the visitor is not
 	 * authenticated. Without this guard ownCloud sometimes returns a bare
 	 * 403 "Access forbidden" page instead of a friendly redirect to login.
@@ -84,7 +92,7 @@ class PageController extends Controller {
 		// `new Chart(...)` is available when analytics.js runs.
 		// NOTE: ownCloud's JSResourceLocator auto-appends ".js"; pass the
 		// path WITHOUT the suffix or it becomes "...js.js" → 404.
-		if ($template === 'analytics') {
+		if ($template === 'analytics' || $template === 'dividends') {
 			\OCP\Util::addScript($this->appName, 'vendor/chart.umd.min');
 		}
 		$scriptMap = [
@@ -92,6 +100,7 @@ class PageController extends Controller {
 			'analytics' => 'analytics',
 			'settings'  => 'settings',
 			'glossary'  => 'glossary',
+			'dividends' => 'dividends',
 		];
 		\OCP\Util::addScript($this->appName, $scriptMap[$template] ?? 'dashboard');
 
@@ -101,11 +110,13 @@ class PageController extends Controller {
 				'analytics'    => $this->urlGenerator->linkToRoute('trade_republic.page.analytics'),
 				'settings'     => $this->urlGenerator->linkToRoute('trade_republic.page.settings'),
 				'glossary'     => $this->urlGenerator->linkToRoute('trade_republic.page.glossary'),
+				'dividends'    => $this->urlGenerator->linkToRoute('trade_republic.page.dividends'),
 				'data'         => $this->urlGenerator->linkToRoute('trade_republic.api.data', ['type' => '__TYPE__']),
 				'config'       => $this->urlGenerator->linkToRoute('trade_republic.api.getConfig'),
 				'update'       => $this->urlGenerator->linkToRoute('trade_republic.api.update'),
 				'reset'        => $this->urlGenerator->linkToRoute('trade_republic.api.reset'),
 				'downloadDocs' => $this->urlGenerator->linkToRoute('trade_republic.api.downloadDocs'),
+				'docsFolder'   => $this->urlGenerator->linkToRoute('trade_republic.api.getDocsFolder'),
 			],
 		];
 

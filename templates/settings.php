@@ -16,7 +16,8 @@ $routes = $_['routes'];
 	data-route-config="<?php p($routes['config']); ?>"
 	data-route-update="<?php p($routes['update']); ?>"
 	data-route-reset="<?php p($routes['reset']); ?>"
-	data-route-download-docs="<?php p($routes['downloadDocs']); ?>">
+	data-route-download-docs="<?php p($routes['downloadDocs']); ?>"
+	data-route-docs-folder="<?php p($routes['docsFolder']); ?>">
 
 <div class="top-bar">
   <div class="brand">
@@ -26,6 +27,7 @@ $routes = $_['routes'];
   <nav>
     <a href="<?php p($routes['index']); ?>">Portfolio</a>
     <a href="<?php p($routes['analytics']); ?>">Analytics</a>
+    <a href="<?php p($routes['dividends']); ?>">💰 Dividends</a>
     <a href="<?php p($routes['settings']); ?>" class="active">⚙ Settings</a>
     <a href="<?php p($routes['glossary']); ?>">📖 Glossary</a>
   </nav>
@@ -100,16 +102,29 @@ $routes = $_['routes'];
 
     <div class="settings-section" id="s-documents">
       <h3>📄 Documents</h3>
-      <p class="help">PDFs land in your Files app under <code>Trade_Republic_Docs/&lt;year&gt;/&lt;kind&gt;/</code>.
-        The folder name is fixed on ownCloud (per-user, inside your own data directory).</p>
+      <p class="help">PDFs land in your Files app under
+        <code>&lt;folder&gt;/&lt;year&gt;/&lt;kind&gt;/</code>. Pick any folder in your Files —
+        the picker has a <strong>+ New folder</strong> button if you need to create one.</p>
       <div class="form-row">
         <label>Save folder</label>
-        <div style="color:var(--muted); font-size:13px;"><code>Trade_Republic_Docs/</code> (in your Files)</div>
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <input type="text" id="setting-docs-folder" readonly
+                 placeholder="Trade_Republic_Docs"
+                 style="flex:1; min-width:220px;">
+          <button class="btn ghost" id="docs-folder-browse-btn">📁 Browse…</button>
+        </div>
       </div>
       <div class="form-row">
         <label></label>
         <div>
-          <a class="btn" href="<?php p($routes['index']); ?>#docs">📥 Open Portfolio → click Documents</a>
+          <button class="btn" id="docs-folder-save-btn">Save</button>
+          <span class="status-msg" id="docs-folder-status"></span>
+        </div>
+      </div>
+      <div class="form-row">
+        <label></label>
+        <div>
+          <a class="btn ghost" href="<?php p($routes['index']); ?>#docs">📥 Open Portfolio → click Documents</a>
         </div>
       </div>
     </div>

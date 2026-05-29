@@ -10,6 +10,8 @@
  *   api#update       POST /api/update          → trigger refresh, optional { mfa_code, full }
  *   api#reset        POST /api/reset           → wipe per-user credentials + data
  *   api#downloadDocs POST /api/download_docs   → bulk download PDFs to per-user documents/
+ *   api#getDocsFolder GET  /api/docs_folder    → { folder: string }   per-user docs subfolder
+ *   api#setDocsFolder POST /api/docs_folder    → save { folder } (relative to Files root)
  */
 
 return [
@@ -18,11 +20,14 @@ return [
 		['name' => 'page#analytics',     'url' => '/analytics',         'verb' => 'GET'],
 		['name' => 'page#settings',      'url' => '/settings',          'verb' => 'GET'],
 		['name' => 'page#glossary',      'url' => '/glossary',          'verb' => 'GET'],
+		['name' => 'page#dividends',     'url' => '/dividends',         'verb' => 'GET'],
 		['name' => 'api#data',           'url' => '/data/{type}',       'verb' => 'GET'],
 		['name' => 'api#getConfig',      'url' => '/api/config',        'verb' => 'GET'],
 		['name' => 'api#setConfig',      'url' => '/api/config',        'verb' => 'POST'],
 		['name' => 'api#update',         'url' => '/api/update',        'verb' => 'POST'],
 		['name' => 'api#reset',          'url' => '/api/reset',         'verb' => 'POST'],
 		['name' => 'api#downloadDocs',   'url' => '/api/download_docs', 'verb' => 'POST'],
+		['name' => 'api#getDocsFolder',  'url' => '/api/docs_folder',   'verb' => 'GET'],
+		['name' => 'api#setDocsFolder',  'url' => '/api/docs_folder',   'verb' => 'POST'],
 	],
 ];

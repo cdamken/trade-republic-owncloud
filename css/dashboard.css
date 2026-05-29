@@ -697,3 +697,108 @@ body.tr-app-active #content-wrapper {
 	padding: 12px 16px; background: rgba(96,165,250,0.06);
 	border-left: 3px solid var(--blue); border-radius: 4px; margin-top: 8px;
 }
+
+/* ============ Dividends page (2026-05-29 — GBM-style ledger) ============
+   All scoped under `#tr-app.dividends-page` so ownCloud's core.css
+   table/form styles don't leak in. */
+#tr-app.dividends-page .page-title { display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px; }
+#tr-app.dividends-page .page-title h2 { font-size: 22px; font-weight: 700; }
+#tr-app.dividends-page .page-title .meta { color: var(--muted); font-size: 13px; }
+
+#tr-app.dividends-page .summary-cards {
+	display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+	gap: 16px; margin: 16px 0 24px;
+}
+#tr-app.dividends-page .summary-card {
+	background: var(--card); border: 1px solid var(--border);
+	border-radius: 12px; padding: 18px;
+}
+#tr-app.dividends-page .summary-card .label {
+	color: var(--muted); font-size: 11px; text-transform: uppercase;
+	letter-spacing: 0.8px; margin-bottom: 8px; font-weight: 600;
+}
+#tr-app.dividends-page .summary-card .value { font-size: 26px; font-weight: 700; }
+#tr-app.dividends-page .summary-card .delta { font-size: 12px; margin-top: 4px; color: var(--muted); }
+#tr-app.dividends-page .green  { color: var(--green); }
+#tr-app.dividends-page .purple { color: #c084fc; }
+
+#tr-app.dividends-page .dividends-note {
+	background: rgba(96,165,250,0.08); border-left: 3px solid var(--blue);
+	padding: 12px 16px; border-radius: 4px; color: var(--muted);
+	font-size: 12px; line-height: 1.6; margin: 0 0 24px;
+}
+#tr-app.dividends-page .dividends-note strong { color: var(--text); }
+
+#tr-app.dividends-page .chart-card {
+	background: var(--card); border: 1px solid var(--border);
+	border-radius: 12px; padding: 20px 24px; margin-bottom: 24px;
+}
+#tr-app.dividends-page .chart-card-header {
+	display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap;
+}
+#tr-app.dividends-page .chart-card-header h3 {
+	font-size: 14px; color: var(--muted); text-transform: uppercase;
+	letter-spacing: 1px; font-weight: 600; flex: 1; margin: 0;
+}
+#tr-app.dividends-page .range-pills { display: flex; gap: 4px; flex-wrap: wrap; }
+#tr-app.dividends-page .range-pills button {
+	background: transparent; color: var(--muted);
+	border: 1px solid var(--border); border-radius: 999px;
+	padding: 4px 12px; font-size: 11px; font-weight: 600; cursor: pointer;
+}
+#tr-app.dividends-page .range-pills button:hover { color: var(--text); border-color: var(--blue); }
+#tr-app.dividends-page .range-pills button.active {
+	background: var(--blue); color: var(--bg); border-color: var(--blue);
+}
+#tr-app.dividends-page .chart-container { height: 280px; position: relative; }
+
+#tr-app.dividends-page .div-controls {
+	display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap;
+}
+#tr-app.dividends-page .div-controls input,
+#tr-app.dividends-page .div-controls select {
+	background: var(--card) !important; border: 1px solid var(--border) !important;
+	color: var(--text) !important; padding: 10px 14px !important;
+	border-radius: 8px !important; font-size: 14px !important;
+}
+#tr-app.dividends-page .div-controls input { min-width: 220px; flex: 1 1 240px; }
+
+#tr-app.dividends-page table.dividends-table {
+	width: 100%; border-collapse: collapse; background: var(--card);
+	border-radius: 12px; overflow: hidden; margin-bottom: 12px;
+}
+#tr-app.dividends-page .dividends-table th,
+#tr-app.dividends-page .dividends-table td {
+	text-align: left; padding: 12px 14px; font-size: 13px;
+	border-bottom: 1px solid var(--border);
+}
+#tr-app.dividends-page .dividends-table th {
+	background: rgba(255,255,255,0.03); color: var(--muted);
+	font-weight: 600; cursor: pointer; user-select: none; white-space: nowrap;
+}
+#tr-app.dividends-page .dividends-table th:hover { color: var(--text); }
+#tr-app.dividends-page .dividends-table tr:hover { background: rgba(255,255,255,0.02); }
+#tr-app.dividends-page .dividends-table .num { text-align: right;
+	font-variant-numeric: tabular-nums; white-space: nowrap; }
+#tr-app.dividends-page .dividends-table .ticker { font-weight: 600; }
+#tr-app.dividends-page .dividends-table .tx-isin {
+	font-family: monospace; color: var(--muted); font-size: 12px;
+}
+#tr-app.dividends-page .dividends-table .empty {
+	text-align: center; padding: 40px; color: var(--muted); font-size: 14px;
+}
+
+/* Kind pills (Dividend / Interest / Other) */
+#tr-app.dividends-page .kind-pill {
+	display: inline-block; padding: 2px 8px; border-radius: 10px;
+	font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700;
+}
+#tr-app.dividends-page .kind-dividend { background: rgba(74, 222, 128, 0.15); color: var(--green); }
+#tr-app.dividends-page .kind-interest { background: rgba(192, 132, 252, 0.15); color: #c084fc; }
+#tr-app.dividends-page .kind-other    { background: rgba(251, 191, 36, 0.15); color: var(--amber); }
+
+#tr-app.dividends-page .dividends-disclaimer {
+	margin-top: 60px; padding-top: 20px; border-top: 1px solid var(--border);
+	color: var(--muted); font-size: 11px; line-height: 1.6;
+}
+#tr-app.dividends-page .dividends-disclaimer a { color: var(--blue); text-decoration: none; }

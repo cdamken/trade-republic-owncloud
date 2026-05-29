@@ -50,33 +50,86 @@ Anything else MUST land upstream first.
 
 ## Deployment topology
 
+The app talks to ownCloud, but it ALSO depends on a Python venv that lives
+outside the app dir. Both have to stay in lockstep — the deploy script does
+both. Three moving parts:
+
 ```
+                  ┌─────────────────────────────────────────────────┐
+                  │  1. THE APP — PHP/JS/CSS/templates              │
+                  │                                                 │
 ~/damkencloud/Claude/Trade-Republic-owncloud/    ← source repo (this; with .git)
-                  │
-                  │  rsync -a --exclude='.git/'
-                  ▼
+                  │                                                 │
+                  │  rsync -a --exclude='.git/'                     │
+                  ▼                                                 │
 ~/damkencloud/oc_Apps/trade_republic/            ← local "deploy copy"
+                  │                                                 │
+                  │  rsync over SSH (sudo on the server side)       │
+                  ▼                                                 │
+cloud.damken.com:/var/www/owncloud/apps/trade_republic/   ← live   │
+                  └─────────────────────────────────────────────────┘
+
+                  ┌─────────────────────────────────────────────────┐
+                  │  2. THE LIB — Python tr-api package             │
+                  │                                                 │
+~/damkencloud/Claude/tr-api/                     ← separate repo    │
+                  │                                                 │
+                  │  rsync over SSH                                 │
+                  ▼                                                 │
+cloud.damken.com:/opt/tr-api-src/                ← staging dir      │
+                  │                                                 │
+                  │  pip install --upgrade --force-reinstall        │
+                  ▼                                                 │
+/opt/tr-venv/lib/python3.11/site-packages/tr_api/   ← actually used│
+                  └─────────────────────────────────────────────────┘
+
+                  ┌─────────────────────────────────────────────────┐
+                  │  3. THE CACHE — ownCloud's ?v=<hash> on assets  │
+                  │                                                 │
+appinfo/info.xml <version>           ─derives→  /apps/.../dashboard.js?v=H
                   │
-                  │  rsync over SSH (sudo on the server side)
+                  │  occ app:enable trade_republic  (regenerates H)
                   ▼
-cloud.damken.com:/var/www/owncloud/apps/trade_republic/   ← live
+Browsers see new URL, drop cached JS, fetch the new one
+                  └─────────────────────────────────────────────────┘
 ```
 
-The sync commands look like (from this repo's root):
+**Use `scripts/deploy.sh` for all three.** Manual rsync is fine for one-off
+debugging but skipping any of these pillars causes silent breakage:
+
+| You forget                | What breaks                                                                 |
+|---------------------------|------------------------------------------------------------------------------|
+| The app                   | Server runs old PHP, new feature flag never reaches users                    |
+| The lib                   | `fetch_wrapper.py` crashes with `ImportError` on any new tr-api module       |
+| The cache (version bump)  | Browser keeps cached JS forever, your JS fix doesn't reach users             |
+| `chown www-data`          | Apache 500, PHP can't read the file                                          |
 
 ```bash
-rsync -a --delete --exclude='__pycache__/' --exclude='*.pyc' \
-      --exclude='.git/' --exclude='.DS_Store' --exclude='.scrapped/' \
-      ./ ~/damkencloud/oc_Apps/trade_republic/
+# Normal deploy (app + lib + chown, no version bump)
+./scripts/deploy.sh
 
-rsync -a -e "ssh -A -i ~/.ssh/id_ed25519 -p 2222" \
-      --exclude='__pycache__/' --exclude='*.pyc' --exclude='.git/' \
-      --rsync-path="sudo rsync" \
-      ./ carlos@cloud.damken.com:/var/www/owncloud/apps/trade_republic/
+# JS or CSS changed → bump so browsers fetch new files
+./scripts/deploy.sh --bump patch
 
-ssh -A -i ~/.ssh/id_ed25519 -p 2222 carlos@cloud.damken.com \
-  'sudo chown -R www-data:www-data /var/www/owncloud/apps/trade_republic'
+# Pure tr-api hot-fix (no PHP/JS changes)
+./scripts/deploy.sh --lib --no-app
+
+# Pure PHP/template fix, lib unchanged
+./scripts/deploy.sh --no-lib
 ```
+
+Script ends with a smoke-test that imports every tr-api module
+`fetch_wrapper.py` depends on. If any are missing it exits non-zero
+(so your shell prompt / CI can flag it).
+
+**Why two repos and a venv?** The local Dashboard repo has tr-api as
+`pip install -e ../tr-api` (editable), so it always sees the latest changes
+to tr-api with no reinstall. The server can't do that — `/opt/tr-venv/` is
+a STATIC install. Skip step 2 and you ship an app that imports a module
+that doesn't exist on the server. We hit exactly this on 2026-05-29 with
+`from tr_api import accounts`; `accounts.py` had been added upstream but
+the server's venv was a snapshot from before. `deploy.sh` exists to make
+that class of bug impossible.
 
 ## Architecture
 

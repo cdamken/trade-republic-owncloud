@@ -9,25 +9,35 @@
 namespace OCA\TradeRepublic\Controller;
 
 use OCP\AppFramework\Controller;
+use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\ContentSecurityPolicy;
+use OCP\AppFramework\Http\RedirectResponse;
 use OCP\AppFramework\Http\TemplateResponse;
 use OCP\IRequest;
 use OCP\IURLGenerator;
+use OCP\IUserSession;
 
 class PageController extends Controller {
 
 	private $urlGenerator;
+	private $userSession;
 
-	public function __construct(string $appName, IRequest $request, IURLGenerator $urlGenerator) {
+	public function __construct(
+		string $appName,
+		IRequest $request,
+		IURLGenerator $urlGenerator,
+		IUserSession $userSession
+	) {
 		parent::__construct($appName, $request);
 		$this->urlGenerator = $urlGenerator;
+		$this->userSession = $userSession;
 	}
 
 	/**
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 */
-	public function index(): TemplateResponse {
+	public function index() {
 		return $this->renderTemplate('main');
 	}
 
@@ -35,11 +45,24 @@ class PageController extends Controller {
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 */
-	public function analytics(): TemplateResponse {
+	public function analytics() {
 		return $this->renderTemplate('analytics');
 	}
 
-	private function renderTemplate(string $template): TemplateResponse {
+	/**
+	 * Render the page, or redirect to ownCloud login if the visitor is not
+	 * authenticated. Without this guard ownCloud sometimes returns a bare
+	 * 403 "Access forbidden" page instead of a friendly redirect to login.
+	 */
+	private function renderTemplate(string $template) {
+		if (!$this->userSession->isLoggedIn()) {
+			$here = $this->urlGenerator->linkToRoute(
+				'trade_republic.page.' . ($template === 'analytics' ? 'analytics' : 'index')
+			);
+			$login = $this->urlGenerator->linkToRoute('core.login.showLoginForm')
+			       . '?redirect_url=' . rawurlencode($here);
+			return new RedirectResponse($login);
+		}
 		\OCP\Util::addStyle($this->appName, 'dashboard');
 		// Analytics page needs Chart.js. Loaded BEFORE the page script so
 		// `new Chart(...)` is available when analytics.js runs.

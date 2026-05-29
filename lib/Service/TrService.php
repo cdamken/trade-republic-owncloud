@@ -284,17 +284,29 @@ class TrService {
 		      && !empty($pingEnvelope['ok'])
 		      && !empty($pingEnvelope['data']['alive']);
 		if (!$alive) {
-			// Surface a stable envelope the controller can pattern-match.
-			return [
-				'exitCode' => 30,
-				'stdout'   => json_encode([
-					'ok'        => false,
-					'error'     => 'SessionExpired',
-					'exit_code' => 30,
-					'message'   => 'Your Trade Republic session expired. Click Update Now first to re-authenticate.',
-				]),
-				'stderr'   => '',
-			];
+			// Try silent refresh (pytr-style — GET /auth/web/session rotates
+			// the session cookies). Revives most "expired" sessions without
+			// asking the user for a fresh MFA push.
+			$refresh = $this->runProcess(
+				[$python, '-m', 'tr_api.cli', '--json', 'auth', 'refresh', '--phone', $this->getPhone()],
+				$pingEnv, 45
+			);
+			$refreshEnvelope = json_decode((string) $refresh['stdout'], true);
+			$refreshed = is_array($refreshEnvelope)
+			          && !empty($refreshEnvelope['ok'])
+			          && !empty($refreshEnvelope['data']['ok']);
+			if (!$refreshed) {
+				return [
+					'exitCode' => 30,
+					'stdout'   => json_encode([
+						'ok'        => false,
+						'error'     => 'SessionExpired',
+						'exit_code' => 30,
+						'message'   => 'Your Trade Republic session expired and the silent refresh failed. Click Update Now to do a full re-login (MFA push), then try Documents again.',
+					]),
+					'stderr'   => '',
+				];
+			}
 		}
 
 		// Write directly into the user's Files area so the PDFs show up

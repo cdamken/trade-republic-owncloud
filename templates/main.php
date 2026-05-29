@@ -160,6 +160,8 @@ $routes = $_['routes'];
 
 <div class="cards" id="cards"></div>
 
+<div id="concentration" class="concentration" style="display:none"></div>
+
 <div class="section" id="wealth-buckets-section" style="display:none" data-toggle="wealth-buckets">
   <span class="toggle-icon">▼</span> 💼 Wealth by Bucket
   <span style="color:var(--muted); font-weight:400; font-size:0.85em; margin-left:8px;">

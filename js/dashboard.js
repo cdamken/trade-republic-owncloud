@@ -475,6 +475,9 @@ async function load() {
   // as separate tiles (Brokerage / Bonds / Private Equity / etc.).
   renderWealthBuckets(s);
 
+  // Concentration warnings (purely informational; thresholds are heuristic).
+  renderConcentrationWarnings(state.data);
+
   if (state.data.zero_value_positions.length > 0) {
     const w = document.getElementById('warning');
     w.style.display = 'block';
@@ -489,30 +492,43 @@ async function load() {
   renderAll();
 }
 
+// Build external-research links for an ISIN. TR's own instrument page,
+// Yahoo Finance, Stock Analysis — all permalink-based, no API calls.
+function externalLinks(isin) {
+  if (!isin) return '';
+  const tr = `https://app.traderepublic.com/instrument/${encodeURIComponent(isin)}`;
+  const yahoo = `https://finance.yahoo.com/lookup/?s=${encodeURIComponent(isin)}`;
+  const sa = `https://stockanalysis.com/quote/iso/${encodeURIComponent(isin)}`;
+  return `<span class="ext-links">` +
+    `<a href="${tr}" target="_blank" rel="noopener" title="Open on Trade Republic">TR</a>` +
+    `<a href="${yahoo}" target="_blank" rel="noopener" title="Look up on Yahoo Finance">Y!</a>` +
+    `<a href="${sa}" target="_blank" rel="noopener" title="Look up on Stock Analysis">SA</a>` +
+    `</span>`;
+}
+
 function rowHTML(p) {
-  const plClass = p.pl_pct >= 0 ? 'pos' : 'neg';
+  // Sign-only P/L (no green/red).
   return `<tr>
     <td title="${p.name}">${p.name}</td>
-    <td><code style="font-size:11px;color:var(--muted)">${p.isin}</code></td>
+    <td><code style="font-size:11px;color:var(--muted)">${p.isin}</code>${externalLinks(p.isin)}</td>
     <td class="num">${fmt(p.quantity, 4)}</td>
     <td class="num">${fmtEUR(p.avg_cost)}</td>
     <td class="num">${fmtEUR(p.current_price)}</td>
     <td class="num">${fmtEUR(p.buy_cost_eur)}</td>
     <td class="num"><strong>${fmtEUR(p.net_value_eur)}</strong></td>
-    <td class="num ${plClass}">${fmtEUR(p.pl_eur)}</td>
-    <td class="num ${plClass}"><strong>${fmtPct(p.pl_pct)}</strong></td>
+    <td class="num">${fmtEUR(p.pl_eur)}</td>
+    <td class="num"><strong>${fmtPct(p.pl_pct)}</strong></td>
   </tr>`;
 }
 
 function shortRow(p) {
-  const plClass = p.pl_pct >= 0 ? 'pos' : 'neg';
   return `<tr>
     <td title="${p.name}">${p.name}</td>
-    <td><code style="font-size:11px;color:var(--muted)">${p.isin}</code></td>
+    <td><code style="font-size:11px;color:var(--muted)">${p.isin}</code>${externalLinks(p.isin)}</td>
     <td class="num">${fmt(p.quantity, 4)}</td>
     <td class="num"><strong>${fmtEUR(p.net_value_eur)}</strong></td>
-    <td class="num ${plClass}">${fmtEUR(p.pl_eur)}</td>
-    <td class="num ${plClass}"><strong>${fmtPct(p.pl_pct)}</strong></td>
+    <td class="num">${fmtEUR(p.pl_eur)}</td>
+    <td class="num"><strong>${fmtPct(p.pl_pct)}</strong></td>
   </tr>`;
 }
 
@@ -522,6 +538,58 @@ function sortArray(arr, cfg) {
     if (typeof av === 'number') return (av - bv) * cfg.sortDir;
     return String(av).localeCompare(String(bv)) * cfg.sortDir;
   });
+}
+
+function renderConcentrationWarnings(data) {
+  // Surface heuristic "you might be over-concentrated in X" warnings.
+  // No external data needed; everything from the local portfolio snapshot.
+  const container = document.getElementById('concentration');
+  if (!container || !data) return;
+
+  const positions = (data.all_positions || []).filter(p => p.net_value_eur > 0);
+  if (positions.length === 0) { container.style.display = 'none'; return; }
+  const summary = data.summary || {};
+  const depot = summary.depot_netvalue || 1;
+  const warnings = [];
+
+  const top = [...positions].sort((a, b) => b.net_value_eur - a.net_value_eur)[0];
+  if (top && top.net_value_eur / depot > 0.20) {
+    const pct = (top.net_value_eur / depot * 100).toFixed(1);
+    warnings.push('<strong>' + top.name + '</strong> is <strong>' + pct + '%</strong> of your depot ' +
+                  '(' + fmtEUR(top.net_value_eur) + '). A single position above 20% means a bad week ' +
+                  'for it moves your whole portfolio noticeably.');
+  }
+
+  const top5 = [...positions].sort((a, b) => b.net_value_eur - a.net_value_eur).slice(0, 5);
+  const top5Value = top5.reduce((s, p) => s + p.net_value_eur, 0);
+  if (top5Value / depot > 0.50 && positions.length > 10) {
+    const pct = (top5Value / depot * 100).toFixed(0);
+    warnings.push('Your top 5 positions are <strong>' + pct + '%</strong> of your depot ' +
+                  '(out of ' + positions.length + ' total). Most of the risk concentrates in a few names.');
+  }
+
+  const buckets = summary.by_category || {};
+  for (const [key, b] of Object.entries(buckets)) {
+    if (!b || !b.net_value_eur) continue;
+    const share = b.net_value_eur / depot;
+    if (share > 0.90 && Object.keys(buckets).length > 1 && key !== 'others') {
+      const pct = (share * 100).toFixed(0);
+      warnings.push('<strong>' + pct + '%</strong> of your depot is in <strong>' + key + '</strong>. ' +
+                    'Cross-asset diversification (e.g. some bonds against equity) reduces drawdowns ' +
+                    'in market stress.');
+    }
+  }
+
+  const tiny = positions.filter(p => p.net_value_eur < 50).length;
+  if (tiny > 50) {
+    warnings.push('<strong>' + tiny + '</strong> positions are worth less than €50 each. ' +
+                  'Consider consolidating: tax forms and reconciliation get heavy at this scale.');
+  }
+
+  if (warnings.length === 0) { container.style.display = 'none'; return; }
+  container.innerHTML = '<span class="ttl">⚠️ Concentration insights</span>' +
+                        '<ul>' + warnings.map(w => '<li>' + w + '</li>').join('') + '</ul>';
+  container.style.display = '';
 }
 
 function renderWealthBuckets(summary) {

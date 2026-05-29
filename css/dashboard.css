@@ -188,6 +188,28 @@ body.tr-app-active #content-wrapper {
 #tr-app .pos { color: var(--green); }
 #tr-app .neg { color: var(--red); }
 
+/* External-research links next to ISIN (TR, Yahoo Finance, Stock Analysis). */
+#tr-app .ext-links { display: inline-flex; gap: 4px; margin-left: 8px; }
+#tr-app .ext-links a { font-size: 10px; font-weight: 600; letter-spacing: 0.3px;
+	color: var(--muted); padding: 1px 5px; border: 1px solid var(--border);
+	border-radius: 4px; text-decoration: none; opacity: 0.6;
+	transition: opacity 0.15s, color 0.15s, border-color 0.15s; }
+#tr-app .ext-links a:hover { opacity: 1; color: var(--text); border-color: var(--muted); }
+
+/* Concentration warnings banner. */
+#tr-app .concentration {
+	margin: 12px 0 24px;
+	padding: 12px 16px;
+	background: rgba(251, 191, 36, 0.06);
+	border-left: 3px solid var(--amber);
+	border-radius: 6px;
+	font-size: 13px;
+	color: var(--text);
+}
+#tr-app .concentration .ttl { font-weight: 600; color: var(--amber); margin-right: 8px; }
+#tr-app .concentration ul { margin: 6px 0 0 20px; padding: 0; color: var(--muted); }
+#tr-app .concentration li { margin: 2px 0; }
+
 #tr-app .section {
 	margin: 40px 0 16px; font-size: 18px; font-weight: 700;
 	display: flex; align-items: center; gap: 10px;

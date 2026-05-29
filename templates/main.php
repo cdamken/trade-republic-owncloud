@@ -93,7 +93,9 @@ $routes = $_['routes'];
       ⏱ The code expires in ~60 seconds.
     </div>
     <input type="text" id="mfa-input" inputmode="numeric" pattern="[0-9]*" maxlength="4"
-           autocomplete="one-time-code" placeholder="0000">
+           name="tr_mfa_<?php echo bin2hex(random_bytes(4)); ?>"
+           autocomplete="one-time-code"
+           data-lpignore="true" data-1p-ignore data-bwignore placeholder="0000">
     <div id="mfa-err" class="err-msg"></div>
     <label for="mfa-full-reload"
            style="display:flex; align-items:flex-start; gap:10px; cursor:pointer;
@@ -155,14 +157,25 @@ $routes = $_['routes'];
       account doesn't see stale holdings). Changing only the PIN keeps the
       data but forces a fresh login.
     </div>
+    <!-- Hidden dummy inputs absorb the browser's ownCloud-credential autofill
+         so it doesn't drop them in our TR-specific fields. Plus non-standard
+         field names + autocomplete="new-password" + data-lpignore for LastPass. -->
+    <input type="text" name="username_dummy_<?php echo bin2hex(random_bytes(4)); ?>"
+           style="display:none" tabindex="-1" autocomplete="username">
+    <input type="password" name="password_dummy_<?php echo bin2hex(random_bytes(4)); ?>"
+           style="display:none" tabindex="-1" autocomplete="new-password">
+
     <label style="display:block; color:var(--muted); font-size:12px; margin-bottom:6px; text-transform:uppercase; letter-spacing:1px; font-weight:600;">Phone (international format)</label>
     <input type="tel" id="setup-phone" placeholder="+4912345678"
+           name="tr_phone_<?php echo bin2hex(random_bytes(4)); ?>"
            style="width:100%; background:var(--bg); border:2px solid var(--border); color:var(--text); padding:14px 16px; font-size:18px; border-radius:10px; font-family:monospace; margin-bottom:16px;"
-           autocomplete="tel">
+           autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore>
     <label style="display:block; color:var(--muted); font-size:12px; margin-bottom:6px; text-transform:uppercase; letter-spacing:1px; font-weight:600;">PIN (4 digits)</label>
     <input type="password" id="setup-pin" inputmode="numeric" pattern="[0-9]*" maxlength="6"
            placeholder="••••"
-           style="width:100%; background:var(--bg); border:2px solid var(--border); color:var(--text); padding:14px 16px; font-size:24px; border-radius:10px; text-align:center; letter-spacing:8px; font-family:monospace; margin-bottom:16px;">
+           name="tr_pin_<?php echo bin2hex(random_bytes(4)); ?>"
+           style="width:100%; background:var(--bg); border:2px solid var(--border); color:var(--text); padding:14px 16px; font-size:24px; border-radius:10px; text-align:center; letter-spacing:8px; font-family:monospace; margin-bottom:16px;"
+           autocomplete="new-password" data-lpignore="true" data-1p-ignore data-bwignore>
     <div id="setup-err" class="err-msg"></div>
     <div class="modal-actions">
       <button id="setup-cancel-btn" class="btn-cancel" style="display:none;">Cancel</button>

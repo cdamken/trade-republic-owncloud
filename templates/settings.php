@@ -67,11 +67,24 @@ $routes = $_['routes'];
       <p class="help">Your Trade Republic phone and PIN. PIN is encrypted at rest using ownCloud's ICrypto.</p>
       <div class="form-row">
         <label>Phone (international)</label>
-        <input type="tel" id="setting-phone" placeholder="+4912345678" autocomplete="tel">
+        <!-- The Hidden dummy inputs above each real field "absorb" browser
+             autofill of stored ownCloud credentials (which match name="username"
+             / name="password" on the login page). Combined with autocomplete=
+             "off"/"new-password" and a non-standard name, browsers stop
+             auto-filling our TR fields. -->
+        <input type="text" name="username_dummy_<?php echo bin2hex(random_bytes(4)); ?>"
+               style="display:none" tabindex="-1" autocomplete="username">
+        <input type="tel" id="setting-phone" placeholder="+4912345678"
+               name="tr_phone_<?php echo bin2hex(random_bytes(4)); ?>"
+               autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore>
       </div>
       <div class="form-row">
         <label>PIN (4–6 digits)</label>
-        <input type="password" id="setting-pin" inputmode="numeric" maxlength="6" placeholder="••••">
+        <input type="password" name="password_dummy_<?php echo bin2hex(random_bytes(4)); ?>"
+               style="display:none" tabindex="-1" autocomplete="new-password">
+        <input type="password" id="setting-pin" inputmode="numeric" maxlength="6" placeholder="••••"
+               name="tr_pin_<?php echo bin2hex(random_bytes(4)); ?>"
+               autocomplete="new-password" data-lpignore="true" data-1p-ignore data-bwignore>
       </div>
       <div class="form-row">
         <label></label>

@@ -171,11 +171,14 @@ $routes = $_['routes'];
            style="width:100%; background:var(--bg); border:2px solid var(--border); color:var(--text); padding:14px 16px; font-size:18px; border-radius:10px; font-family:monospace; margin-bottom:16px;"
            autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore>
     <label style="display:block; color:var(--muted); font-size:12px; margin-bottom:6px; text-transform:uppercase; letter-spacing:1px; font-weight:600;">PIN (4 digits)</label>
-    <input type="password" id="setup-pin" inputmode="numeric" pattern="[0-9]*" maxlength="6"
+    <!-- type="text" + CSS mask so neither Chrome nor macOS Passwords
+         treats this as a credential and offers to save it. -->
+    <input type="text" id="setup-pin" inputmode="numeric" pattern="[0-9]*" maxlength="6"
            placeholder="••••"
+           class="pin-mask"
            name="tr_pin_<?php echo bin2hex(random_bytes(4)); ?>"
            style="width:100%; background:var(--bg); border:2px solid var(--border); color:var(--text); padding:14px 16px; font-size:24px; border-radius:10px; text-align:center; letter-spacing:8px; font-family:monospace; margin-bottom:16px;"
-           autocomplete="new-password" data-lpignore="true" data-1p-ignore data-bwignore>
+           autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore>
     <div id="setup-err" class="err-msg"></div>
     <div class="modal-actions">
       <button id="setup-cancel-btn" class="btn-cancel" style="display:none;">Cancel</button>

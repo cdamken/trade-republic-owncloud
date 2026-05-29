@@ -280,6 +280,15 @@ body.tr-app-active #content-wrapper {
 #tr-app .status-msg.ok { color: var(--green); }
 #tr-app .status-msg.err { color: var(--red); }
 
+/* PIN mask — input is type="text" so browsers don't treat it as a password
+   (no autofill prompt, no "Save Password?" dialog from macOS / Chrome /
+   1Password). Visually we render bullet glyphs instead of the real chars. */
+#tr-app .pin-mask {
+  -webkit-text-security: disc !important;
+  -moz-text-security: disc !important;
+  text-security: disc !important;
+}
+
 /* Glossary list */
 #tr-app .glossary { display: grid; grid-template-columns: 1fr; gap: 14px; }
 #tr-app .glossary dt {

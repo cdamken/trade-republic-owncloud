@@ -52,16 +52,24 @@
         return setStatus('account-status', 'PIN must be 4–6 digits', 'err');
       }
       setStatus('account-status', 'Saving…');
-      const r = await fetch(routes.config, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'requesttoken': OC.requestToken },
-        body: JSON.stringify({ phone, pin }),
-      });
-      if (r.ok) {
-        setStatus('account-status', '✓ Saved — go to Portfolio and click Update Now to authenticate', 'ok');
-        document.getElementById('setting-pin').value = '';
-      } else {
-        setStatus('account-status', 'Save failed', 'err');
+      try {
+        const r = await fetch(routes.config, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'requesttoken': OC.requestToken },
+          body: JSON.stringify({ phone, pin }),
+        });
+        const body = await r.json().catch(() => ({}));
+        if (r.ok) {
+          setStatus('account-status', '✓ Saved — go to Portfolio and click Update Now to authenticate', 'ok');
+          document.getElementById('setting-pin').value = '';
+        } else {
+          // Show whatever the backend told us (e.g. "phone must be in E.164…",
+          // "pin must be 4–6 digits", or HTTP status if no detail field).
+          const detail = body.detail || body.message || ('HTTP ' + r.status);
+          setStatus('account-status', 'Save failed: ' + detail, 'err');
+        }
+      } catch (e) {
+        setStatus('account-status', 'Save failed: ' + (e && e.message ? e.message : 'network error'), 'err');
       }
     });
 

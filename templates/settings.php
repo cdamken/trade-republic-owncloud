@@ -82,9 +82,12 @@ $routes = $_['routes'];
         <label>PIN (4–6 digits)</label>
         <input type="password" name="password_dummy_<?php echo bin2hex(random_bytes(4)); ?>"
                style="display:none" tabindex="-1" autocomplete="new-password">
-        <input type="password" id="setting-pin" inputmode="numeric" maxlength="6" placeholder="••••"
+        <!-- type="text" + CSS mask so neither Chrome nor macOS Passwords
+             treats this as a credential and offers to save it. -->
+        <input type="text" id="setting-pin" inputmode="numeric" maxlength="6" placeholder="••••"
+               class="pin-mask"
                name="tr_pin_<?php echo bin2hex(random_bytes(4)); ?>"
-               autocomplete="new-password" data-lpignore="true" data-1p-ignore data-bwignore>
+               autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore>
       </div>
       <div class="form-row">
         <label></label>

@@ -87,6 +87,21 @@ class TrService {
 		return $path;
 	}
 
+	/**
+	 * Where PDF documents land. We write INTO the user's Files area
+	 * (`{datadir}/<uid>/files/Trade_Republic_Docs/`) so the documents
+	 * show up automatically in their ownCloud Files app — no separate
+	 * download / browse step needed. The folder name is fixed by
+	 * convention; a future setting could make it configurable.
+	 */
+	public function userDocsDir(): string {
+		$path = $this->dataDirRoot . '/' . $this->userId() . '/files/Trade_Republic_Docs';
+		if (!is_dir($path)) {
+			@mkdir($path, 0750, true);
+		}
+		return $path;
+	}
+
 	public function profileDir(): string {
 		$path = $this->userTrDir() . '/profile';
 		if (!is_dir($path)) {
@@ -282,10 +297,9 @@ class TrService {
 			];
 		}
 
-		$outDir = $this->userTrDir() . '/documents';
-		if (!is_dir($outDir)) {
-			@mkdir($outDir, 0700, true);
-		}
+		// Write directly into the user's Files area so the PDFs show up
+		// in ownCloud's Files app without extra steps.
+		$outDir = $this->userDocsDir();
 
 		$cmd = [
 			$python, '-m', 'tr_api.cli', '--json',
@@ -305,7 +319,50 @@ class TrService {
 		];
 
 		// 30 min ceiling — a full history with thousands of PDFs is plausible.
-		return $this->runProcess($cmd, $env, 1800);
+		$result = $this->runProcess($cmd, $env, 1800);
+
+		// Tell ownCloud about the new files so they appear in the Files app
+		// without the user having to wait for the periodic scan. We target
+		// just the Trade_Republic_Docs/ subtree to keep the scan cheap.
+		if ($result['exitCode'] === 0) {
+			$this->scanDocsFolder();
+		}
+		return $result;
+	}
+
+	/**
+	 * Trigger an `occ files:scan` over the user's Trade_Republic_Docs/
+	 * subtree. Best-effort: we ignore failures, the user can also do a
+	 * manual refresh in the Files app to surface new files.
+	 */
+	private function scanDocsFolder(): void {
+		$occ = \OC::$SERVERROOT . '/occ';
+		if (!is_file($occ)) {
+			return; // dev environment or unusual install layout
+		}
+		$path = '/' . $this->userId() . '/files/Trade_Republic_Docs';
+		// php is already running as www-data; no sudo needed.
+		$cmd = ['php', $occ, 'files:scan', '--path=' . $path];
+		$proc = @proc_open(
+			$cmd,
+			[1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+			$pipes,
+			\OC::$SERVERROOT
+		);
+		if (is_resource($proc)) {
+			// Don't block on huge scans — give it 60s, then bail.
+			$start = microtime(true);
+			while (proc_get_status($proc)['running'] ?? false) {
+				if (microtime(true) - $start > 60) {
+					proc_terminate($proc, 9);
+					break;
+				}
+				usleep(200 * 1000);
+			}
+			@fclose($pipes[1]);
+			@fclose($pipes[2]);
+			proc_close($proc);
+		}
 	}
 
 	private function runProcess(array $cmd, array $env, int $timeoutSec): array {

@@ -275,7 +275,7 @@ async function downloadDocs() {
   // liveness so we fail fast with auth_required when cookies died.
   if (!confirm(
     'Download every PDF (trades, dividends, statements, tax) into your\n' +
-    'Files app under trade_republic/documents/<year>/<kind>/?\n\n' +
+    'Files app under Trade_Republic_Docs/<year>/<kind>/?\n\n' +
     'First run can take a few minutes. Re-runs only fetch what is missing.'
   )) {
     return;
@@ -306,7 +306,8 @@ async function downloadDocs() {
         '✓ Documents downloaded\n\n' +
         summary + '\n\n' +
         'Your PDFs are now in your Files app under:\n' +
-        '   trade_republic/documents/<year>/<kind>/'
+        '   📁 Trade_Republic_Docs/<year>/<kind>/\n\n' +
+        '(Refresh the Files page if you do not see them immediately.)'
       );
     } else if (data.status === 'auth_required') {
       showStatus('err', 'Session expired');

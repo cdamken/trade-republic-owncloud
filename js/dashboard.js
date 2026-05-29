@@ -507,9 +507,11 @@ function externalLinks(isin) {
 }
 
 function rowHTML(p) {
-  // Sign-only P/L (no green/red).
+  // Sign-only P/L (no green/red). Clicking the name opens the position detail modal.
+  const safeIsin = String(p.isin || '').replace(/['"]/g, '');
+  const safeName = String(p.name || '').replace(/['"]/g, '');
   return `<tr>
-    <td title="${p.name}">${p.name}</td>
+    <td title="${p.name}"><a href="#" class="position-link" data-isin="${safeIsin}" data-name="${safeName}">${p.name}</a></td>
     <td><code style="font-size:11px;color:var(--muted)">${p.isin}</code>${externalLinks(p.isin)}</td>
     <td class="num">${fmt(p.quantity, 4)}</td>
     <td class="num">${fmtEUR(p.avg_cost)}</td>
@@ -522,14 +524,51 @@ function rowHTML(p) {
 }
 
 function shortRow(p) {
+  const safeIsin = String(p.isin || '').replace(/['"]/g, '');
+  const safeName = String(p.name || '').replace(/['"]/g, '');
   return `<tr>
-    <td title="${p.name}">${p.name}</td>
+    <td title="${p.name}"><a href="#" class="position-link" data-isin="${safeIsin}" data-name="${safeName}">${p.name}</a></td>
     <td><code style="font-size:11px;color:var(--muted)">${p.isin}</code>${externalLinks(p.isin)}</td>
     <td class="num">${fmt(p.quantity, 4)}</td>
     <td class="num"><strong>${fmtEUR(p.net_value_eur)}</strong></td>
     <td class="num">${fmtEUR(p.pl_eur)}</td>
     <td class="num"><strong>${fmtPct(p.pl_pct)}</strong></td>
   </tr>`;
+}
+
+// ----- Position detail modal (no iframe; X-Frame-Options blocks embedding) -----
+function openPositionModal(isin, name) {
+  if (!isin || !state.data) return;
+  const pos = (state.data.all_positions || []).find(p => p.isin === isin);
+  if (!pos) return;
+  const modal = document.getElementById('position-modal');
+  document.getElementById('position-modal-title').textContent = name || pos.name || isin;
+  document.getElementById('position-modal-isin').textContent = isin;
+
+  const body = document.getElementById('position-modal-body');
+  body.innerHTML =
+    '<div class="pm-grid">' +
+      '<div class="pm-stat"><div class="pm-label">Quantity</div><div class="pm-value">' + fmt(pos.quantity, 4) + '</div></div>' +
+      '<div class="pm-stat"><div class="pm-label">Avg cost</div><div class="pm-value">' + fmtEUR(pos.avg_cost) + '</div></div>' +
+      '<div class="pm-stat"><div class="pm-label">Current price</div><div class="pm-value">' + fmtEUR(pos.current_price) + '</div></div>' +
+      '<div class="pm-stat"><div class="pm-label">Invested</div><div class="pm-value">' + fmtEUR(pos.buy_cost_eur) + '</div></div>' +
+      '<div class="pm-stat"><div class="pm-label">Net value</div><div class="pm-value"><strong>' + fmtEUR(pos.net_value_eur) + '</strong></div></div>' +
+      '<div class="pm-stat"><div class="pm-label">P/L</div><div class="pm-value">' + fmtEUR(pos.pl_eur) + ' (' + fmtPct(pos.pl_pct) + ')</div></div>' +
+    '</div>' +
+    '<div class="pm-meta">Category: <strong>' + (pos.category || 'unknown') + '</strong> · ISIN: <code>' + isin + '</code></div>' +
+    '<p class="pm-tip">Click the buttons below to open the live charts and news in a new tab — Trade Republic and Yahoo Finance both block embedding via <code>X-Frame-Options</code>.</p>';
+
+  const links = document.getElementById('position-modal-links');
+  links.innerHTML =
+    '<a href="https://app.traderepublic.com/instrument/' + encodeURIComponent(isin) + '" target="_blank" rel="noopener">📊 Trade Republic ↗</a>' +
+    '<a href="https://finance.yahoo.com/lookup/?s=' + encodeURIComponent(isin) + '" target="_blank" rel="noopener">Yahoo Finance ↗</a>' +
+    '<a href="https://stockanalysis.com/quote/iso/' + encodeURIComponent(isin) + '" target="_blank" rel="noopener">Stock Analysis ↗</a>' +
+    '<a href="https://www.google.com/search?q=' + encodeURIComponent(isin + ' stock') + '" target="_blank" rel="noopener">Google ↗</a>';
+  modal.classList.add('open');
+}
+
+function closePositionModal() {
+  document.getElementById('position-modal').classList.remove('open');
 }
 
 function sortArray(arr, cfg) {
@@ -698,6 +737,16 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('docs-btn').addEventListener('click', downloadDocs);
   document.getElementById('setup-open-btn').addEventListener('click', openSetupModal);
 
+  // Position detail modal — delegated click + close handlers.
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest && e.target.closest('a.position-link');
+    if (a) { e.preventDefault(); openPositionModal(a.dataset.isin, a.dataset.name); return; }
+    const backdrop = document.getElementById('position-modal');
+    if (backdrop && e.target === backdrop) closePositionModal();
+  });
+  const pmClose = document.getElementById('position-modal-close-btn');
+  if (pmClose) pmClose.addEventListener('click', closePositionModal);
+
   document.getElementById('search').addEventListener('input', e => { state.search = e.target.value; renderAll(); });
   document.getElementById('bucketFilter').addEventListener('change', e => { state.bucket = e.target.value; renderAll(); });
   document.getElementById('plFilter').addEventListener('change', e => { state.plFilter = e.target.value; renderAll(); });
@@ -778,6 +827,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // Global ESC handler (same priority as upstream)
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
+    const pos = document.getElementById('position-modal');
+    if (pos && pos.classList.contains('open')) { closePositionModal(); return; }
     const mfa = document.getElementById('mfa-modal');
     if (mfa && mfa.classList.contains('open')) { closeMfaModal(); return; }
     const reset = document.getElementById('reset-modal');

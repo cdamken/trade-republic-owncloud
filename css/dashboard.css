@@ -188,6 +188,51 @@ body.tr-app-active #content-wrapper {
 #tr-app .pos { color: var(--green); }
 #tr-app .neg { color: var(--red); }
 
+/* Position name as a clickable link, opens detail modal. */
+#tr-app .position-link { color: var(--text); text-decoration: none; border-bottom: 1px dotted transparent; }
+#tr-app .position-link:hover { border-bottom-color: var(--muted); color: var(--blue); }
+
+/* Position detail modal. */
+#tr-app .position-modal-backdrop {
+	display: none; position: fixed; top: 0; right: 0; bottom: 0; left: 0;
+	background: rgba(0, 0, 0, 0.6); z-index: 1000;
+	align-items: center; justify-content: flex-end;
+}
+#tr-app .position-modal-backdrop.open { display: flex; }
+#tr-app .position-modal-panel {
+	background: var(--card); width: min(540px, 100vw); height: 100vh;
+	display: flex; flex-direction: column; box-shadow: -8px 0 32px rgba(0,0,0,0.4);
+}
+#tr-app .position-modal-header {
+	padding: 16px 20px; border-bottom: 1px solid var(--border);
+	display: flex; align-items: center; gap: 12px;
+}
+#tr-app .position-modal-header h3 { font-size: 16px; flex: 1; margin: 0; }
+#tr-app .position-modal-header code { font-size: 12px; color: var(--muted); }
+#tr-app .position-modal-close {
+	background: transparent; border: 1px solid var(--border); color: var(--muted);
+	width: 32px; height: 32px; border-radius: 6px; cursor: pointer; font-size: 18px; line-height: 1;
+}
+#tr-app .position-modal-close:hover { color: var(--text); border-color: var(--text); }
+#tr-app .position-modal-body { flex: 1; overflow: auto; padding: 20px; color: var(--text); }
+#tr-app .pm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px; }
+#tr-app .pm-stat { background: var(--bg); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border); }
+#tr-app .pm-label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
+#tr-app .pm-value { font-size: 18px; margin-top: 4px; font-variant-numeric: tabular-nums; }
+#tr-app .pm-meta { color: var(--muted); font-size: 13px; margin: 12px 0; }
+#tr-app .pm-tip { color: var(--muted); font-size: 12px; line-height: 1.5; margin-top: 12px;
+	padding: 10px 12px; background: var(--bg); border-radius: 6px; border-left: 2px solid var(--border); }
+#tr-app .pm-tip code { background: rgba(255,255,255,0.05); padding: 1px 4px; border-radius: 3px; font-size: 11px; }
+#tr-app .position-modal-links {
+	padding: 12px 20px; border-top: 1px solid var(--border);
+	display: flex; gap: 12px; flex-wrap: wrap;
+}
+#tr-app .position-modal-links a {
+	color: var(--muted); font-size: 13px; text-decoration: none;
+	padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px;
+}
+#tr-app .position-modal-links a:hover { color: var(--text); border-color: var(--muted); }
+
 /* External-research links next to ISIN (TR, Yahoo Finance, Stock Analysis). */
 #tr-app .ext-links { display: inline-flex; gap: 4px; margin-left: 8px; }
 #tr-app .ext-links a { font-size: 10px; font-weight: 600; letter-spacing: 0.3px;

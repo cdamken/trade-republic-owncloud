@@ -162,6 +162,19 @@ $routes = $_['routes'];
 
 <div id="concentration" class="concentration" style="display:none"></div>
 
+<!-- Position detail modal (wired via event delegation in dashboard.js) -->
+<div id="position-modal" class="position-modal-backdrop">
+  <div class="position-modal-panel">
+    <div class="position-modal-header">
+      <h3 id="position-modal-title">—</h3>
+      <code id="position-modal-isin">—</code>
+      <button id="position-modal-close-btn" class="position-modal-close" title="Close (Esc)">✕</button>
+    </div>
+    <div id="position-modal-body" class="position-modal-body"></div>
+    <div class="position-modal-links" id="position-modal-links"></div>
+  </div>
+</div>
+
 <div class="section" id="wealth-buckets-section" style="display:none" data-toggle="wealth-buckets">
   <span class="toggle-icon">▼</span> 💼 Wealth by Bucket
   <span style="color:var(--muted); font-weight:400; font-size:0.85em; margin-left:8px;">

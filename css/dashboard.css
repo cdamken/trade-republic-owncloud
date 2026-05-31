@@ -782,7 +782,7 @@ body.tr-app-active #content-wrapper {
 	font-variant-numeric: tabular-nums; white-space: nowrap; }
 #tr-app.dividends-page .dividends-table .ticker { font-weight: 600; }
 #tr-app.dividends-page .dividends-table .tx-isin {
-	font-family: monospace; color: var(--muted); font-size: 12px;
+	font-family: monospace; color: var(--muted); font-size: 13px;
 }
 #tr-app.dividends-page .dividends-table .empty {
 	text-align: center; padding: 40px; color: var(--muted); font-size: 14px;

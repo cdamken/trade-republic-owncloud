@@ -137,48 +137,11 @@ $routes = $_['routes'];
   </div>
 </div>
 
-<!-- Top / Bottom contributors — which positions drove (or dragged) the P/L. -->
-<div class="cf-card" style="margin-top: 24px;">
-  <h2>Top contributors to P/L</h2>
-  <p style="color: var(--muted); font-size: 12px; margin-bottom: 16px;">
-    The 5 positions with the largest positive P/L and the 5 with the largest negative P/L.
-    Tells you what's actually driving the total return number.
-  </p>
-  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-    <div>
-      <h3 style="font-size: 13px; color: var(--green); text-transform: uppercase;
-                 letter-spacing: 1px; font-weight: 600; margin-bottom: 8px;">
-        🏆 Top winners
-      </h3>
-      <table id="contributors-top" style="font-size: 13px; width: 100%;">
-        <thead>
-          <tr style="color: var(--muted); font-size: 11px; text-transform: uppercase;">
-            <th style="text-align: left;">Asset</th>
-            <th class="num">P/L €</th>
-            <th class="num">P/L %</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
-    <div>
-      <h3 style="font-size: 13px; color: var(--red); text-transform: uppercase;
-                 letter-spacing: 1px; font-weight: 600; margin-bottom: 8px;">
-        💔 Top losers
-      </h3>
-      <table id="contributors-bottom" style="font-size: 13px; width: 100%;">
-        <thead>
-          <tr style="color: var(--muted); font-size: 11px; text-transform: uppercase;">
-            <th style="text-align: left;">Asset</th>
-            <th class="num">P/L €</th>
-            <th class="num">P/L %</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
-  </div>
-</div>
+<!-- Top contributors table was removed 2026-06-01 — the Portfolio tab
+     already shows Top Winners + Top Losers prominently. Repeating it here
+     was pure duplication. Keep Analytics focused on metrics Portfolio
+     doesn't show (forward income, yield on cost, benchmark overlay). -->
+
 
 <div class="grid-top">
   <!-- 1. Assets Allocation -->

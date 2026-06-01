@@ -172,8 +172,7 @@ async function init() {
   document.getElementById('cf-sells').textContent = fmtEur0(cf.sells?.total || 0);
   document.getElementById('cf-sells-count').textContent = (cf.sells?.count || 0).toLocaleString();
 
-  // Top / bottom contributors
-  renderContributors(data.contributors || {});
+  // Top/bottom contributors table removed — Portfolio tab covers it.
 
   const monthly = cf.monthly || [];
   if (monthly.length > 0) {
@@ -284,7 +283,10 @@ async function init() {
     const minV = Math.min(...values);
     const maxV = Math.max(...values);
     const padding = (maxV - minV) * 0.1 || 100;
-    const yMin = Math.max(0, Math.floor((minV - padding) / 1000) * 1000);
+    // Let yMin go negative so losses (e.g. periods where withdrawals + card
+    // spending exceeded deposits) show up below the zero line instead of
+    // being silently clamped to 0.
+    const yMin = Math.floor((minV - padding) / 1000) * 1000;
     const yMax = Math.ceil((maxV + padding) / 1000) * 1000;
 
     // Benchmark overlay — IWDA.AS (MSCI World), if backend fetched it.
@@ -394,33 +396,8 @@ async function init() {
 // wireDividendFilters removed 2026-05-29 — see templates/dividends.php +
 // js/dividends.js for the new GBM-style implementation.
 
-// ============ Top / bottom contributors (2026-06-01) ============
-function renderContributors(c) {
-  const fmtRow = (p) => {
-    const pl = p.pl_eur || 0;
-    const cls = pl >= 0 ? 'pl-pos' : 'pl-neg';
-    const eSign = pl >= 0 ? '+' : '−';
-    const ePct  = (p.pl_pct >= 0 ? '+' : '') + (p.pl_pct || 0).toFixed(1) + '%';
-    const name = (p.name || '—');
-    return '<tr><td title="' + name + '" style="max-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + name + '</td>' +
-           '<td class="num ' + cls + '">' + eSign + '€' + Math.abs(pl).toLocaleString(undefined, {maximumFractionDigits: 0}) + '</td>' +
-           '<td class="num ' + cls + '">' + ePct + '</td></tr>';
-  };
-  const top = (c.top || []).slice(0, 5);
-  const bot = (c.bottom || []).filter(p => (p.pl_eur || 0) < 0).slice(0, 5);
-  const topTbody = document.querySelector('#contributors-top tbody');
-  const botTbody = document.querySelector('#contributors-bottom tbody');
-  if (topTbody) {
-    topTbody.innerHTML = top.length
-      ? top.map(fmtRow).join('')
-      : '<tr><td colspan="3" style="text-align:center; color:var(--muted); padding:16px;">No data yet</td></tr>';
-  }
-  if (botTbody) {
-    botTbody.innerHTML = bot.length
-      ? bot.map(fmtRow).join('')
-      : '<tr><td colspan="3" style="text-align:center; color:var(--muted); padding:16px;">No losers — every position is up 🎉</td></tr>';
-  }
-}
+// renderContributors removed 2026-06-01 — Portfolio tab already has
+// Top Winners + Top Losers. Avoid duplication.
 
 document.addEventListener('DOMContentLoaded', init);
 })();

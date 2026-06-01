@@ -108,7 +108,7 @@ $routes = $_['routes'];
     <strong>Lifetime P/L</strong> = Current value + Card spending − Net capital in TR − Investment income. Pure price appreciation on the capital you've committed.
   </div>
 
-  <!-- Trading totals (raw numbers, no chart) -->
+  <!-- Trading totals (raw numbers) -->
   <h2 style="margin-top: 32px;">Trading totals</h2>
   <div class="cf-grid">
     <div class="cf-tile out">
@@ -128,7 +128,18 @@ $routes = $_['routes'];
     </div>
   </div>
 
-  <div style="height: 260px; margin-top: 24px;"><canvas id="cashFlowChart"></canvas></div>
+  <!-- Buys vs Sells by year — replaces the old stacked cash-flow chart
+       (carlos: "no me hace feliz"). Two bars per year, easier to scan. -->
+  <h3 style="margin-top: 28px; font-size: 14px; color: var(--muted);
+             text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">
+    Buys vs Sells by year
+  </h3>
+  <div style="height: 280px; margin-top: 12px;"><canvas id="buysSellsChart"></canvas></div>
+  <p id="buysSellsEmpty" style="display: none; color: var(--muted); font-size: 13px;
+                                 text-align: center; margin: 24px 0;">
+    No per-year trading data yet. Click <strong>Update Now</strong> in Portfolio
+    to recompute (the new breakdown is generated on the next fetch).
+  </p>
 </div>
 
 <div class="grid-top">
@@ -158,19 +169,9 @@ $routes = $_['routes'];
   </div>
 </div>
 
-<!-- Dividends + Interest sections moved to their own dedicated tab
-     (templates/dividends.php). 2026-05-29 — what used to be 3 cards here
-     is now richer: GBM-style summary cards, kind pills, per-issuer +
-     per-month filters, monthly evolution chart with 3/6/9/12M/All pills. -->
-<div style="background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 32px; text-align: center;">
-  <p style="font-size: 15px; color: var(--muted); margin-bottom: 12px;">
-    Dividends &amp; Interest now have their own dedicated tab with a richer ledger
-    (kind pills, per-issuer + per-month filters, monthly evolution chart).
-  </p>
-  <a href="<?php p($routes['dividends']); ?>"
-     style="display: inline-block; padding: 10px 24px; background: var(--blue); color: var(--bg); border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px;">
-    💰 Open Dividends →
-  </a>
-</div>
+<!-- Dividends + Interest are now in their own tab (templates/dividends.php).
+     The redundant "Open Dividends" banner that used to live here was removed
+     2026-06-01 — the tab is already in the top nav. -->
+
 
 </div>

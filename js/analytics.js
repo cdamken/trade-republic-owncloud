@@ -174,47 +174,33 @@ async function init() {
       }
     }
 
-    // Cumulative net capital (running sum of monthly net flows)
-    let running = 0;
-    const cumulative = monthly.map(m => {
-      running += m.net_flow;
-      return Math.round(running * 100) / 100;
-    });
+  }
 
-    const cfColors = { deposits: '#4ade80', tax: '#60a5fa', withd: '#fbbf24', card: '#f87171' };
-    new Chart(document.getElementById('cashFlowChart'), {
+  // ============ Buys vs Sells by year (replaces old stacked cash-flow chart) ============
+  // 2026-06-01 — Carlos asked for something easier to read than the stacked
+  // monthly bars + cumulative line. Two clean bars per year (buys vs sells)
+  // is exactly what GBM does and what scans best.
+  const byYear = (data.cash_flow || {}).buys_sells_by_year || {};
+  const years = Object.keys(byYear).sort();
+  const bsCanvas = document.getElementById('buysSellsChart');
+  const bsEmpty  = document.getElementById('buysSellsEmpty');
+  if (years.length === 0 && bsCanvas) {
+    bsCanvas.style.display = 'none';
+    if (bsEmpty) bsEmpty.style.display = 'block';
+  } else if (bsCanvas) {
+    new Chart(bsCanvas, {
       type: 'bar',
       data: {
-        labels: monthly.map(m => m.month),
+        labels: years,
         datasets: [
-          { label: 'Deposits',      data: monthly.map(m => m.deposits),
-            backgroundColor: (c) => vGradient(c.chart.ctx, c.chart.chartArea, cfColors.deposits),
-            borderRadius: { topLeft: 6, topRight: 6 }, borderSkipped: false, stack: 'in' },
-          { label: 'Tax refunds',   data: monthly.map(m => m.tax_refunds),
-            backgroundColor: (c) => vGradient(c.chart.ctx, c.chart.chartArea, cfColors.tax),
-            borderRadius: { topLeft: 6, topRight: 6 }, borderSkipped: false, stack: 'in' },
-          { label: 'Withdrawals',   data: monthly.map(m => -(m.withdrawals || 0)),
-            backgroundColor: (c) => vGradient(c.chart.ctx, c.chart.chartArea, cfColors.withd, 0.15, 0.85),
-            borderRadius: { bottomLeft: 6, bottomRight: 6 }, borderSkipped: false, stack: 'out' },
-          { label: 'Card spending', data: monthly.map(m => -m.removals),
-            backgroundColor: (c) => vGradient(c.chart.ctx, c.chart.chartArea, cfColors.card, 0.15, 0.85),
-            borderRadius: { bottomLeft: 6, bottomRight: 6 }, borderSkipped: false, stack: 'out' },
-          {
-            label: 'Cumulative net capital',
-            type: 'line',
-            data: cumulative,
-            borderColor: '#fbbf24',
-            backgroundColor: 'rgba(251, 191, 36, 0.08)',
-            borderWidth: 2.5,
-            tension: 0.4,
-            pointRadius: 0,
-            pointHoverRadius: 6,
-            pointBackgroundColor: '#fbbf24',
-            pointBorderColor: '#0f1419',
-            pointBorderWidth: 2,
-            fill: false,
-            yAxisID: 'y1',
-          },
+          { label: 'Buys',  data: years.map(y => byYear[y].buys),
+            backgroundColor: (c) => vGradient(c.chart.ctx, c.chart.chartArea, '#60a5fa'),
+            borderRadius: { topLeft: 6, topRight: 6 }, borderSkipped: false,
+            barPercentage: 0.7, categoryPercentage: 0.7 },
+          { label: 'Sells', data: years.map(y => byYear[y].sells),
+            backgroundColor: (c) => vGradient(c.chart.ctx, c.chart.chartArea, '#f87171'),
+            borderRadius: { topLeft: 6, topRight: 6 }, borderSkipped: false,
+            barPercentage: 0.7, categoryPercentage: 0.7 },
         ],
       },
       options: {
@@ -226,22 +212,22 @@ async function init() {
                               usePointStyle: true, pointStyle: 'rectRounded', padding: 16 } },
           tooltip: { ...TOOLTIP,
             callbacks: {
-              label: (ctx) => ' ' + ctx.dataset.label + ': €' + Math.abs(ctx.parsed.y).toLocaleString(undefined, {maximumFractionDigits:0}),
+              label: (ctx) => {
+                const y = ctx.label;
+                const isBuys = ctx.dataset.label === 'Buys';
+                const count = isBuys ? byYear[y].buys_count : byYear[y].sells_count;
+                return ' ' + ctx.dataset.label + ': €' + ctx.parsed.y.toLocaleString(undefined, {maximumFractionDigits:0}) +
+                       '  (' + count + ' order' + (count === 1 ? '' : 's') + ')';
+              },
             },
           },
         },
         scales: {
-          y: { ...AXIS_BASE, stacked: true, position: 'left',
+          y: { ...AXIS_BASE,
                ticks: { ...AXIS_BASE.ticks, color: '#e8eef5',
-                        callback: v => '€' + (v/1000).toFixed(1) + 'k' },
-               title: { display: true, text: 'Monthly flows', color: '#7a8599', font: { size: 11, weight: '600' } } },
-          y1: { ...AXIS_BASE, position: 'right',
-                ticks: { ...AXIS_BASE.ticks, color: '#fbbf24',
-                         callback: v => '€' + (v/1000).toFixed(0) + 'k' },
-                grid: { display: false },
-                title: { display: true, text: 'Cumulative', color: '#fbbf24', font: { size: 11, weight: '600' } } },
-          x: { ...AXIS_BASE, stacked: true,
-               ticks: { ...AXIS_BASE.ticks, maxRotation: 0, autoSkip: true, maxTicksLimit: 12 },
+                        callback: v => '€' + (v/1000).toFixed(0) + 'k' } },
+          x: { ...AXIS_BASE,
+               ticks: { ...AXIS_BASE.ticks, color: '#e8eef5', font: { size: 13, weight: '600' } },
                grid: { display: false } },
         },
       },

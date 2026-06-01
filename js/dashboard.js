@@ -525,32 +525,35 @@ function externalLinks(isin) {
 }
 
 function rowHTML(p) {
-  // Sign-only P/L (no green/red). Clicking the name opens the position detail modal.
+  // P/L now coloured green (positive) / red (negative). 2026-06-01 reversal
+  // of the earlier sign-only choice — Carlos found it harder to scan.
   const safeIsin = String(p.isin || '').replace(/['"]/g, '');
   const safeName = String(p.name || '').replace(/['"]/g, '');
+  const plCls = (p.pl_eur || 0) >= 0 ? 'pl-pos' : 'pl-neg';
   return `<tr>
     <td title="${p.name}"><a href="#" class="position-link" data-isin="${safeIsin}" data-name="${safeName}">${p.name}</a></td>
-    <td><code style="font-size:13px;color:var(--muted)">${p.isin}</code>${externalLinks(p.isin)}</td>
+    <td><code>${p.isin}</code>${externalLinks(p.isin)}</td>
     <td class="num">${fmt(p.quantity, 4)}</td>
     <td class="num">${fmtEUR(p.avg_cost)}</td>
     <td class="num">${fmtEUR(p.current_price)}</td>
     <td class="num">${fmtEUR(p.buy_cost_eur)}</td>
     <td class="num"><strong>${fmtEUR(p.net_value_eur)}</strong></td>
-    <td class="num">${fmtEUR(p.pl_eur)}</td>
-    <td class="num"><strong>${fmtPct(p.pl_pct)}</strong></td>
+    <td class="num ${plCls}">${fmtEUR(p.pl_eur)}</td>
+    <td class="num ${plCls}"><strong>${fmtPct(p.pl_pct)}</strong></td>
   </tr>`;
 }
 
 function shortRow(p) {
   const safeIsin = String(p.isin || '').replace(/['"]/g, '');
   const safeName = String(p.name || '').replace(/['"]/g, '');
+  const plCls = (p.pl_eur || 0) >= 0 ? 'pl-pos' : 'pl-neg';
   return `<tr>
     <td title="${p.name}"><a href="#" class="position-link" data-isin="${safeIsin}" data-name="${safeName}">${p.name}</a></td>
-    <td><code style="font-size:13px;color:var(--muted)">${p.isin}</code>${externalLinks(p.isin)}</td>
+    <td><code>${p.isin}</code>${externalLinks(p.isin)}</td>
     <td class="num">${fmt(p.quantity, 4)}</td>
     <td class="num"><strong>${fmtEUR(p.net_value_eur)}</strong></td>
-    <td class="num">${fmtEUR(p.pl_eur)}</td>
-    <td class="num"><strong>${fmtPct(p.pl_pct)}</strong></td>
+    <td class="num ${plCls}">${fmtEUR(p.pl_eur)}</td>
+    <td class="num ${plCls}"><strong>${fmtPct(p.pl_pct)}</strong></td>
   </tr>`;
 }
 
@@ -657,8 +660,14 @@ function renderCockpit(summary, data) {
     ' + Cash ' + fmtEUR(summary.cash_eur) +
     ' · ' + data.positions_with_value + ' positions';
   document.getElementById('ck-cost').textContent = fmtEUR(summary.depot_buycost);
-  document.getElementById('ck-pl').textContent = fmtEUR(summary.depot_pl_eur);
-  document.getElementById('ck-pl-pct').textContent = fmtPct(summary.depot_pl_pct);
+  const plEl = document.getElementById('ck-pl');
+  const plPctEl = document.getElementById('ck-pl-pct');
+  plEl.textContent = fmtEUR(summary.depot_pl_eur);
+  plPctEl.textContent = fmtPct(summary.depot_pl_pct);
+  // Recolour KPI cockpit P/L (green/red). Remove any previous class first.
+  const plCls = (summary.depot_pl_eur || 0) >= 0 ? 'pl-pos' : 'pl-neg';
+  plEl.classList.remove('pl-pos', 'pl-neg'); plEl.classList.add(plCls);
+  plPctEl.classList.remove('pl-pos', 'pl-neg'); plPctEl.classList.add(plCls);
   document.getElementById('ck-cash').textContent = fmtEUR(summary.cash_eur);
 }
 
@@ -681,11 +690,12 @@ function renderWealthBuckets(summary) {
     const b = by[key];
     if (!b || !b.count) continue;
     const meta = labels[key] || { name: key, icon: '·', color: '' };
+    const subCls = (b.pl_pct || 0) >= 0 ? 'pl-pos' : 'pl-neg';
     pills.push(
       '<div class="b-pill">' +
       '<div class="b-label">' + meta.icon + ' ' + meta.name + '</div>' +
       '<div class="b-value ' + meta.color + '">' + fmtEUR(b.net_value_eur) + '</div>' +
-      '<div class="b-sub">' + b.count + ' pos · ' + fmtPct(b.pl_pct) + '</div>' +
+      '<div class="b-sub">' + b.count + ' pos · <span class="' + subCls + '">' + fmtPct(b.pl_pct) + '</span></div>' +
       '</div>'
     );
   }

@@ -802,3 +802,19 @@ body.tr-app-active #content-wrapper {
 	color: var(--muted); font-size: 11px; line-height: 1.6;
 }
 #tr-app.dividends-page .dividends-disclaimer a { color: var(--blue); text-decoration: none; }
+
+/* ============ P/L colouring (2026-06-01 — green/red restored) ============
+   Applied via JS to:
+     - rowHTML/shortRow's P/L € and P/L % cells in #winners/#losers/#all
+     - cockpit's #ck-pl and #ck-pl-pct
+     - bucket pills' .b-sub percentage span
+   The earlier "sign only, no color" decision was reversed because P/L is
+   hard to scan at a glance without colour cues. */
+#tr-app .pl-pos { color: var(--green) !important; }
+#tr-app .pl-neg { color: var(--red)   !important; }
+
+/* ISIN code in tables — same colour and size as surrounding text now
+   (was muted gray 11px before). Monospace font keeps it distinguishable
+   without making it visually "smaller". */
+#tr-app td code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+                  font-size: inherit; color: inherit; }

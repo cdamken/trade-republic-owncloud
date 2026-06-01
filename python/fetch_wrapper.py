@@ -33,13 +33,163 @@ import os
 import sys
 import time
 import traceback
+import urllib.request
+import urllib.error
 from collections import defaultdict
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, date as _date_t
 from pathlib import Path
 from typing import Any
 
 CSV_COLUMNS = ["Date", "Type", "Value", "Note", "ISIN", "Shares",
                "Fees", "Taxes", "ISIN2", "Shares2"]
+
+
+# ============================================================================
+# Portfolio analytics helpers (XIRR, forward dividends, yield on cost,
+# top contributors, benchmark fetch). Mirror of Dashboard's analyze_analytics.
+# Added 2026-06-01.
+# ============================================================================
+
+def _xirr_npv(rate, days, amounts):
+    return sum(a / (1 + rate) ** (d / 365.0) for a, d in zip(amounts, days))
+
+
+def xirr(cash_flows, tol=1e-7):
+    """Annualized money-weighted return (Newton + bisection fallback). %."""
+    if not cash_flows or len(cash_flows) < 2:
+        return None
+    cash_flows = sorted(cash_flows, key=lambda x: x[0])
+    t0 = cash_flows[0][0]
+    days = [(d - t0).days for d, _ in cash_flows]
+    amounts = [float(a) for _, a in cash_flows]
+    if all(a >= 0 for a in amounts) or all(a <= 0 for a in amounts):
+        return None
+    for guess in (0.10, 0.0, -0.10, 0.30, -0.30, 0.50):
+        rate = guess
+        for _ in range(80):
+            try:
+                npv  = _xirr_npv(rate, days, amounts)
+                dnpv = sum(-d / 365.0 * a / (1 + rate) ** (d / 365.0 + 1)
+                           for a, d in zip(amounts, days))
+            except (OverflowError, ZeroDivisionError):
+                break
+            if abs(dnpv) < 1e-12:
+                break
+            new_rate = rate - npv / dnpv
+            if new_rate <= -0.999:
+                new_rate = -0.99
+            if abs(new_rate - rate) < tol:
+                return round(new_rate * 100, 2)
+            rate = new_rate
+    lo, hi = -0.95, 10.0
+    try:
+        f_lo = _xirr_npv(lo, days, amounts)
+        f_hi = _xirr_npv(hi, days, amounts)
+    except (OverflowError, ZeroDivisionError):
+        return None
+    if f_lo * f_hi > 0:
+        return None
+    for _ in range(120):
+        mid = (lo + hi) / 2
+        try:
+            f_mid = _xirr_npv(mid, days, amounts)
+        except (OverflowError, ZeroDivisionError):
+            return None
+        if abs(f_mid) < tol or abs(hi - lo) < tol:
+            return round(mid * 100, 2)
+        if f_lo * f_mid < 0:
+            hi, f_hi = mid, f_mid
+        else:
+            lo, f_lo = mid, f_mid
+    return round(((lo + hi) / 2) * 100, 2)
+
+
+def forward_dividend_income(div_payments, today):
+    """Scale last-N-days Dividend rows up to a full year. Returns (eur, days, n)."""
+    if not div_payments or not today:
+        return None, 0, 0
+    cutoff = (today - timedelta(days=365)).isoformat()
+    relevant = [p for p in div_payments
+                if p.get('date', '') >= cutoff and p.get('type') == 'Dividend']
+    if not relevant:
+        return None, 0, 0
+    dates = sorted(p['date'] for p in relevant)
+    try:
+        d_first = datetime.fromisoformat(dates[0]).date()
+        d_last  = datetime.fromisoformat(dates[-1]).date()
+    except ValueError:
+        return None, 0, 0
+    span_days = max(1, (d_last - d_first).days)
+    if span_days < 90:
+        return None, span_days, len(relevant)
+    total = sum(float(p.get('amount', 0) or 0) for p in relevant)
+    scaled = total * (365.0 / span_days) if span_days < 365 else total
+    return round(scaled, 2), span_days, len(relevant)
+
+
+def fetch_benchmark_monthly(symbol, start_date, end_date, cache_path=None):
+    """Yahoo Finance monthly closes. Cached 24h. Returns [] on any failure."""
+    if cache_path and cache_path.exists():
+        try:
+            cached = json.loads(cache_path.read_text())
+            fetched_at = datetime.fromisoformat(cached.get('fetched_at', '1970-01-01T00:00:00'))
+            if (datetime.now() - fetched_at).total_seconds() < 86400:
+                if cached.get('symbol') == symbol and cached.get('history'):
+                    return cached['history']
+        except (json.JSONDecodeError, ValueError, KeyError):
+            pass
+    try:
+        p1 = int(datetime.combine(start_date, datetime.min.time()).timestamp())
+        p2 = int(datetime.combine(end_date,   datetime.min.time()).timestamp())
+        url = (f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
+               f"?period1={p1}&period2={p2}&interval=1mo&events=history")
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+        with urllib.request.urlopen(req, timeout=10) as r:
+            payload = json.loads(r.read())
+        result = payload.get('chart', {}).get('result', [{}])[0]
+        ts = result.get('timestamp', []) or []
+        closes = result.get('indicators', {}).get('quote', [{}])[0].get('close', []) or []
+        history = []
+        for t, c in zip(ts, closes):
+            if c is None:
+                continue
+            d = datetime.utcfromtimestamp(t).date().isoformat()
+            history.append({"date": d, "close": round(float(c), 4)})
+        if cache_path and history:
+            cache_path.write_text(json.dumps({
+                "symbol":     symbol,
+                "fetched_at": datetime.now().isoformat(timespec='seconds'),
+                "history":    history,
+            }, indent=2))
+        return history
+    except (urllib.error.URLError, urllib.error.HTTPError,
+            ValueError, KeyError, TimeoutError) as e:
+        sys.stderr.write(f"[benchmark] {symbol} fetch failed: {e}\n")
+        return []
+
+
+def replay_against_benchmark(monthly_flows, bench_history):
+    """Simulate buying the benchmark with the user's net monthly cash flows."""
+    if not monthly_flows or not bench_history:
+        return []
+    bench_by_month = {h['date'][:7]: h['close'] for h in bench_history}
+    units = 0.0
+    out = []
+    for f in monthly_flows:
+        m = f['month']
+        close = bench_by_month.get(m)
+        if close is None or close <= 0:
+            if out:
+                out.append({"date": m + "-01", "value": out[-1]['value']})
+            continue
+        net = float(f.get('net_flow', 0) or 0)
+        if net != 0:
+            units += net / close
+        out.append({"date": m + "-01", "value": round(units * close, 2)})
+    if bench_history and units > 0:
+        last = bench_history[-1]
+        out.append({"date": last['date'], "value": round(units * last['close'], 2)})
+    return out
 
 # TR's eventType → dashboard CSV "Type" column.
 # Kept in sync with Trade-Republic-Dashboard/app/tr_fetch.py — see commit
@@ -721,11 +871,9 @@ def compute_analytics(data_dir: Path) -> None:
             "withdrawals": {"count": 0, "total": 0.0},   # to user's own bank
             "buys":        {"count": 0, "total": 0.0},
             "sells":       {"count": 0, "total": 0.0},
-            # Per-month breakdown for the "Capital invested over time" line.
-            # Cumulative (buys − sells) over months = how much capital
-            # you've committed to the market.
-            # Shape: {"2024-01": {"buys": X, "sells": Y}, ...}
-            "buys_sells_by_month": {},
+            # Annualized money-weighted return (XIRR), %. Computed from
+            # Deposit/Withdrawal flows + terminal value.
+            "xirr": None,
             "net_capital_in":  0.0,  # = deposits + tax_refunds − withdrawals
             "net_traded":      0.0,
             "current_value":   0.0,
@@ -736,9 +884,15 @@ def compute_analytics(data_dir: Path) -> None:
         "dividends": {
             "monthly": {}, "total_received": 0, "count": 0,
             "recent": [], "all_payments": [], "by_issuer": {},
+            "forward_12mo": None,
+            "forward_12mo_basis_days": 0,
+            "forward_12mo_payments_used": 0,
+            "yield_on_cost": None,
         },
         "allocation": {"categories": {"Stocks": 0, "ETFs": 0, "Crypto": 0, "Cash": 0}, "total": 0},
         "history": [],
+        "contributors": {"top": [], "bottom": []},
+        "benchmark": None,
     }
 
     monthly_flow: dict[str, dict[str, float]] = defaultdict(
@@ -777,15 +931,9 @@ def compute_analytics(data_dir: Path) -> None:
                 elif t_type == "Buy":
                     cf["buys"]["count"] += 1
                     cf["buys"]["total"] += abs_val
-                    if month:
-                        m = cf["buys_sells_by_month"].setdefault(month, {"buys": 0.0, "sells": 0.0})
-                        m["buys"] += abs_val
                 elif t_type == "Sell":
                     cf["sells"]["count"] += 1
                     cf["sells"]["total"] += abs_val
-                    if month:
-                        m = cf["buys_sells_by_month"].setdefault(month, {"buys": 0.0, "sells": 0.0})
-                        m["sells"] += abs_val
 
                 if t_type in ("Dividend", "Interest"):
                     div = analytics["dividends"]
@@ -856,6 +1004,22 @@ def compute_analytics(data_dir: Path) -> None:
                 analytics["allocation"]["categories"]["Stocks"] += val
         analytics["allocation"]["total"] = sum(analytics["allocation"]["categories"].values())
 
+        # Top / bottom 5 contributors by P/L €
+        valued = [pos for pos in p_data.get("all_positions", [])
+                  if (pos.get("net_value_eur") or 0) > 0]
+        valued.sort(key=lambda p: (p.get("pl_eur") or 0), reverse=True)
+        def _contrib(pos):
+            return {
+                "name":          pos.get("name", "—"),
+                "isin":          pos.get("isin", ""),
+                "category":      pos.get("category", ""),
+                "net_value_eur": round(float(pos.get("net_value_eur") or 0), 2),
+                "pl_eur":        round(float(pos.get("pl_eur") or 0), 2),
+                "pl_pct":        round(float(pos.get("pl_pct") or 0), 2),
+            }
+        analytics["contributors"]["top"]    = [_contrib(p) for p in valued[:5]]
+        analytics["contributors"]["bottom"] = [_contrib(p) for p in valued[-5:][::-1]]
+
         # Lifetime P/L = price appreciation on the capital committed to TR,
         # excluding lifestyle spending and dividend/interest income.
         #
@@ -923,6 +1087,70 @@ def compute_analytics(data_dir: Path) -> None:
     history = history[-365:]  # keep up to ~1 year
     history_file.write_text(json.dumps(history, indent=2, ensure_ascii=False), encoding="utf-8")
     analytics["history"] = history
+
+    # ========================================================================
+    # XIRR + forward dividends + yield on cost + benchmark replay
+    # Added 2026-06-01 — see Trade-Republic-Dashboard@... for full rationale.
+    # ========================================================================
+    today_d = datetime.now().date()
+
+    # XIRR: deliberately conservative (Deposit/Withdrawal + terminal only).
+    # TR hybrid usage (card spending + investment) makes a fuller XIRR
+    # mathematically unstable — see the analyze_analytics.py comment block.
+    xirr_flows = []
+    if csv_path.exists():
+        with csv_path.open(encoding="utf-8") as f:
+            for row in csv.DictReader(f, delimiter=";"):
+                t_type = (row.get("Type") or "").strip()
+                date_str = (row.get("Date") or "")[:10]
+                if not date_str:
+                    continue
+                try:
+                    val = float(row.get("Value") or "0")
+                    d   = datetime.fromisoformat(date_str).date()
+                except (TypeError, ValueError):
+                    continue
+                amt = abs(val)
+                if t_type == "Deposit":
+                    xirr_flows.append((d, -amt))
+                elif t_type == "Withdrawal":
+                    xirr_flows.append((d, +amt))
+    if cf["current_value"] > 0:
+        xirr_flows.append((today_d, +cf["current_value"]))
+    cf["xirr"] = xirr(xirr_flows)
+
+    # Forward 12-month dividend income + yield on cost.
+    fwd, basis_days, npayments = forward_dividend_income(
+        analytics["dividends"]["all_payments"], today_d
+    )
+    analytics["dividends"]["forward_12mo"] = fwd
+    analytics["dividends"]["forward_12mo_basis_days"] = basis_days
+    analytics["dividends"]["forward_12mo_payments_used"] = npayments
+    if fwd is not None and cf["buys"]["total"] > 0:
+        analytics["dividends"]["yield_on_cost"] = round(
+            fwd / cf["buys"]["total"] * 100, 2
+        )
+
+    # Benchmark replay (MSCI World UCITS, EUR-denominated).
+    if cf["monthly"]:
+        first_month = cf["monthly"][0]["month"]
+        try:
+            start_d = datetime.fromisoformat(first_month + "-01").date()
+        except ValueError:
+            start_d = today_d - timedelta(days=365)
+        cache_dir = data_dir / "benchmark_cache"
+        cache_dir.mkdir(exist_ok=True)
+        bench_cache = cache_dir / "IWDA_AS.json"
+        bench_history = fetch_benchmark_monthly(
+            "IWDA.AS", start_d, today_d, cache_path=bench_cache,
+        )
+        replayed = replay_against_benchmark(cf["monthly"], bench_history) if bench_history else []
+        if replayed:
+            analytics["benchmark"] = {
+                "symbol":   "IWDA.AS",
+                "label":    "iShares MSCI World (IWDA, EUR)",
+                "history":  replayed,
+            }
 
     (data_dir / "analytics.json").write_text(
         json.dumps(analytics, indent=2, ensure_ascii=False), encoding="utf-8"

@@ -108,41 +108,76 @@ $routes = $_['routes'];
     <strong>Lifetime P/L</strong> = Current value + Card spending − Net capital in TR − Investment income. Pure price appreciation on the capital you've committed.
   </div>
 
-  <!-- Trading totals (raw numbers) -->
-  <h2 style="margin-top: 32px;">Trading totals</h2>
+  <!-- Income forecast (Forward 12-month dividends + Yield on cost). 2026-06-01 —
+       replaces the old Trading totals tiles which just repeated buys/sells totals
+       already visible in net_traded. These two answer "what will I earn in the
+       next year?" — actionable, unlike the gross flow numbers we used to show. -->
+  <h2 style="margin-top: 32px;">Income forecast</h2>
   <div class="cf-grid">
-    <div class="cf-tile out">
+    <div class="cf-tile in">
+      <div class="label">Forward 12-mo dividends</div>
+      <div class="value" id="cf-fwd-div">—</div>
+      <div class="sub" id="cf-fwd-div-sub">Projection from last 12 months</div>
+    </div>
+    <div class="cf-tile">
+      <div class="label">Yield on cost</div>
+      <div class="value" id="cf-yoc" style="color: var(--blue);">—</div>
+      <div class="sub">Forward dividends ÷ total cost basis</div>
+    </div>
+    <div class="cf-tile">
       <div class="label">Total stock purchases</div>
       <div class="value" id="cf-buys">€0</div>
       <div class="sub"><span id="cf-buys-count">0</span> buy orders</div>
     </div>
-    <div class="cf-tile in">
+    <div class="cf-tile">
       <div class="label">Total stock sales</div>
       <div class="value" id="cf-sells">€0</div>
       <div class="sub"><span id="cf-sells-count">0</span> sell orders</div>
     </div>
-    <div class="cf-tile">
-      <div class="label">Net traded</div>
-      <div class="value" id="cf-net-traded" style="color: var(--blue);">€0</div>
-      <div class="sub">Purchases − sales (money parked in positions)</div>
+  </div>
+</div>
+
+<!-- Top / Bottom contributors — which positions drove (or dragged) the P/L. -->
+<div class="cf-card" style="margin-top: 24px;">
+  <h2>Top contributors to P/L</h2>
+  <p style="color: var(--muted); font-size: 12px; margin-bottom: 16px;">
+    The 5 positions with the largest positive P/L and the 5 with the largest negative P/L.
+    Tells you what's actually driving the total return number.
+  </p>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+    <div>
+      <h3 style="font-size: 13px; color: var(--green); text-transform: uppercase;
+                 letter-spacing: 1px; font-weight: 600; margin-bottom: 8px;">
+        🏆 Top winners
+      </h3>
+      <table id="contributors-top" style="font-size: 13px; width: 100%;">
+        <thead>
+          <tr style="color: var(--muted); font-size: 11px; text-transform: uppercase;">
+            <th style="text-align: left;">Asset</th>
+            <th class="num">P/L €</th>
+            <th class="num">P/L %</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div>
+      <h3 style="font-size: 13px; color: var(--red); text-transform: uppercase;
+                 letter-spacing: 1px; font-weight: 600; margin-bottom: 8px;">
+        💔 Top losers
+      </h3>
+      <table id="contributors-bottom" style="font-size: 13px; width: 100%;">
+        <thead>
+          <tr style="color: var(--muted); font-size: 11px; text-transform: uppercase;">
+            <th style="text-align: left;">Asset</th>
+            <th class="num">P/L €</th>
+            <th class="num">P/L %</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
     </div>
   </div>
-
-  <!-- Capital invested over time — cumulative (buys − sells) per month.
-       Shows how your committed capital grew. Single line, easy to scan. -->
-  <h3 style="margin-top: 28px; font-size: 14px; color: var(--muted);
-             text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">
-    Capital invested over time
-  </h3>
-  <p style="color: var(--muted); font-size: 12px; margin-bottom: 8px;">
-    Cumulative purchases − sales. How much of your money is parked in positions.
-  </p>
-  <div style="height: 280px; margin-top: 12px;"><canvas id="capitalInvestedChart"></canvas></div>
-  <p id="capitalInvestedEmpty" style="display: none; color: var(--muted); font-size: 13px;
-                                       text-align: center; margin: 24px 0;">
-    No per-month trading data yet. Click <strong>Update Now</strong> in Portfolio
-    to recompute (the new breakdown is generated on the next fetch).
-  </p>
 </div>
 
 <div class="grid-top">

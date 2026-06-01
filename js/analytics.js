@@ -149,12 +149,31 @@ async function init() {
     document.getElementById('cf-pl-tile').classList.add(pl >= 0 ? 'pl-pos' : 'pl-neg');
   }
 
-  // Trading totals (raw numbers)
+  // Income forecast (forward 12mo dividends + yield on cost) + trading totals
+  const div = data.dividends || {};
+  const fwd = div.forward_12mo;
+  const fwdEl = document.getElementById('cf-fwd-div');
+  const fwdSub = document.getElementById('cf-fwd-div-sub');
+  if (fwd != null) {
+    fwdEl.textContent = '€' + fwd.toLocaleString(undefined, {maximumFractionDigits: 0});
+    fwdEl.style.color = 'var(--green)';
+    fwdSub.textContent = 'From ' + (div.forward_12mo_payments_used || 0) + ' payments · ' +
+                         (div.forward_12mo_basis_days || 0) + ' days basis';
+  } else {
+    fwdEl.textContent = '—';
+    fwdSub.textContent = 'Need ≥90 days of Dividend history';
+  }
+  const yoc = div.yield_on_cost;
+  document.getElementById('cf-yoc').textContent =
+    yoc != null ? yoc.toFixed(2) + '%' : '—';
+  // Buys/Sells remain — but with less prominent positioning (they're context, not headline).
   document.getElementById('cf-buys').textContent = fmtEur0(cf.buys?.total || 0);
   document.getElementById('cf-buys-count').textContent = (cf.buys?.count || 0).toLocaleString();
   document.getElementById('cf-sells').textContent = fmtEur0(cf.sells?.total || 0);
   document.getElementById('cf-sells-count').textContent = (cf.sells?.count || 0).toLocaleString();
-  document.getElementById('cf-net-traded').textContent = fmtEur0(cf.net_traded || 0);
+
+  // Top / bottom contributors
+  renderContributors(data.contributors || {});
 
   const monthly = cf.monthly || [];
   if (monthly.length > 0) {
@@ -176,66 +195,9 @@ async function init() {
 
   }
 
-  // ============ Capital invested over time ============
-  // 2026-06-01 — single line, cumulative (buys − sells) per month.
-  // Shows the growth of committed capital, the only thing about trading
-  // history that's actually decision-relevant (the totals are in tiles
-  // above; the bar chart was redundant).
-  const byMonth = (data.cash_flow || {}).buys_sells_by_month || {};
-  const months = Object.keys(byMonth).sort();
-  const ciCanvas = document.getElementById('capitalInvestedChart');
-  const ciEmpty  = document.getElementById('capitalInvestedEmpty');
-  if (months.length === 0 && ciCanvas) {
-    ciCanvas.style.display = 'none';
-    if (ciEmpty) ciEmpty.style.display = 'block';
-  } else if (ciCanvas) {
-    let running = 0;
-    const cumulative = months.map(m => {
-      running += (byMonth[m].buys || 0) - (byMonth[m].sells || 0);
-      return Math.round(running * 100) / 100;
-    });
-    new Chart(ciCanvas, {
-      type: 'line',
-      data: {
-        labels: months,
-        datasets: [{
-          label: 'Capital invested',
-          data: cumulative,
-          borderColor: '#60a5fa',
-          backgroundColor: (c) => vGradient(c.chart.ctx, c.chart.chartArea, '#60a5fa', 0.0, 0.35),
-          borderWidth: 2.5,
-          tension: 0.35,
-          pointRadius: 0,
-          pointHoverRadius: 6,
-          pointBackgroundColor: '#60a5fa',
-          pointBorderColor: '#0f1419',
-          pointBorderWidth: 2,
-          fill: true,
-        }],
-      },
-      options: {
-        maintainAspectRatio: false,
-        animation: ANIMATION,
-        interaction: { mode: 'index', intersect: false },
-        plugins: {
-          legend: { display: false },
-          tooltip: { ...TOOLTIP,
-            callbacks: {
-              label: (ctx) => ' €' + ctx.parsed.y.toLocaleString(undefined, {maximumFractionDigits:0}),
-            },
-          },
-        },
-        scales: {
-          y: { ...AXIS_BASE,
-               ticks: { ...AXIS_BASE.ticks, color: '#e8eef5',
-                        callback: v => '€' + (v/1000).toFixed(0) + 'k' } },
-          x: { ...AXIS_BASE,
-               ticks: { ...AXIS_BASE.ticks, maxRotation: 0, autoSkip: true, maxTicksLimit: 12 },
-               grid: { display: false } },
-        },
-      },
-    });
-  }
+  // Capital invested over time chart removed 2026-06-01 — see analytics
+  // research note. Replaced by the benchmark overlay on the Net Worth chart
+  // below (much more actionable: "did I beat the index?").
 
   // ============ Allocation (dividends moved to dividends.php, 2026-05-29) ============
   document.getElementById('alloc-total').textContent = '€' + (data.allocation?.total || 0).toLocaleString(undefined,{maximumFractionDigits:0});
@@ -325,36 +287,70 @@ async function init() {
     const yMin = Math.max(0, Math.floor((minV - padding) / 1000) * 1000);
     const yMax = Math.ceil((maxV + padding) / 1000) * 1000;
 
+    // Benchmark overlay — IWDA.AS (MSCI World), if backend fetched it.
+    // Aligned by date to the user's history; missing months stay null
+    // so Chart.js skips those points instead of drawing zero.
+    const bench = (data.benchmark || {}).history || [];
+    let benchAligned = null;
+    if (bench.length) {
+      const benchByMonth = {};
+      for (const b of bench) benchByMonth[b.date.slice(0, 7)] = b.value;
+      benchAligned = hist.map(h => {
+        const v = benchByMonth[h.date.slice(0, 7)];
+        return v == null ? null : v;
+      });
+    }
+
     if (historyChartInstance) historyChartInstance.destroy();
+    const datasets = [{
+      label: 'Your portfolio',
+      data: values,
+      borderColor: '#60a5fa',
+      backgroundColor: (c) => vGradient(c.chart.ctx, c.chart.chartArea, '#60a5fa', 0.30, 0.00),
+      borderWidth: 2.5,
+      tension: 0.4,
+      fill: true,
+      pointRadius: 0,
+      pointHoverRadius: 6,
+      pointHitRadius: 16,
+      pointBackgroundColor: '#60a5fa',
+      pointBorderColor: '#0f1419',
+      pointBorderWidth: 2,
+    }];
+    if (benchAligned) {
+      datasets.push({
+        label: 'MSCI World (same cash flows)',
+        data: benchAligned,
+        borderColor: '#fbbf24',
+        backgroundColor: 'rgba(251, 191, 36, 0.05)',
+        borderWidth: 2,
+        borderDash: [5, 4],
+        tension: 0.4,
+        fill: false,
+        pointRadius: 0,
+        pointHoverRadius: 5,
+        pointBackgroundColor: '#fbbf24',
+        pointBorderColor: '#0f1419',
+        pointBorderWidth: 2,
+        spanGaps: true,
+      });
+    }
     historyChartInstance = new Chart(document.getElementById('historyChart'), {
       type: 'line',
-      data: {
-        labels: hist.map(h => h.date),
-        datasets: [{
-          data: values,
-          borderColor: '#60a5fa',
-          backgroundColor: (c) => vGradient(c.chart.ctx, c.chart.chartArea, '#60a5fa', 0.30, 0.00),
-          borderWidth: 2.5,
-          tension: 0.4,
-          fill: true,
-          pointRadius: 0,
-          pointHoverRadius: 6,
-          pointHitRadius: 16,
-          pointBackgroundColor: '#60a5fa',
-          pointBorderColor: '#0f1419',
-          pointBorderWidth: 2,
-        }],
-      },
+      data: { labels: hist.map(h => h.date), datasets },
       options: {
         maintainAspectRatio: false,
         animation: ANIMATION,
         interaction: { mode: 'index', intersect: false },
         plugins: {
-          legend: { display: false },
+          legend: { display: !!benchAligned,
+                    labels: { color: '#e8eef5', font: { size: 12, weight: '500' },
+                              usePointStyle: true, pointStyle: 'rectRounded', padding: 12 } },
           tooltip: { ...TOOLTIP,
             callbacks: {
               title: (items) => items[0]?.label || '',
-              label: (ctx) => ' €' + ctx.parsed.y.toLocaleString(undefined, {minimumFractionDigits:2}),
+              label: (ctx) => ' ' + (ctx.dataset.label || '') + ': €' +
+                              ctx.parsed.y.toLocaleString(undefined, {minimumFractionDigits:2}),
             },
           },
         },
@@ -397,6 +393,34 @@ async function init() {
 // renderDividendsByIssuer / renderDividendLedger / renderLedgerRows /
 // wireDividendFilters removed 2026-05-29 — see templates/dividends.php +
 // js/dividends.js for the new GBM-style implementation.
+
+// ============ Top / bottom contributors (2026-06-01) ============
+function renderContributors(c) {
+  const fmtRow = (p) => {
+    const pl = p.pl_eur || 0;
+    const cls = pl >= 0 ? 'pl-pos' : 'pl-neg';
+    const eSign = pl >= 0 ? '+' : '−';
+    const ePct  = (p.pl_pct >= 0 ? '+' : '') + (p.pl_pct || 0).toFixed(1) + '%';
+    const name = (p.name || '—');
+    return '<tr><td title="' + name + '" style="max-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + name + '</td>' +
+           '<td class="num ' + cls + '">' + eSign + '€' + Math.abs(pl).toLocaleString(undefined, {maximumFractionDigits: 0}) + '</td>' +
+           '<td class="num ' + cls + '">' + ePct + '</td></tr>';
+  };
+  const top = (c.top || []).slice(0, 5);
+  const bot = (c.bottom || []).filter(p => (p.pl_eur || 0) < 0).slice(0, 5);
+  const topTbody = document.querySelector('#contributors-top tbody');
+  const botTbody = document.querySelector('#contributors-bottom tbody');
+  if (topTbody) {
+    topTbody.innerHTML = top.length
+      ? top.map(fmtRow).join('')
+      : '<tr><td colspan="3" style="text-align:center; color:var(--muted); padding:16px;">No data yet</td></tr>';
+  }
+  if (botTbody) {
+    botTbody.innerHTML = bot.length
+      ? bot.map(fmtRow).join('')
+      : '<tr><td colspan="3" style="text-align:center; color:var(--muted); padding:16px;">No losers — every position is up 🎉</td></tr>';
+  }
+}
 
 document.addEventListener('DOMContentLoaded', init);
 })();

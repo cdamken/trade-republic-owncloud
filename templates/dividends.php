@@ -20,7 +20,8 @@ $routes = $_['routes'];
 	data-route-settings="<?php p($routes['settings']); ?>"
 	data-route-glossary="<?php p($routes['glossary']); ?>"
 	data-route-dividends="<?php p($routes['dividends']); ?>"
-	data-route-data="<?php p($routes['data']); ?>">
+	data-route-data="<?php p($routes['data']); ?>"
+	data-route-update="<?php p($routes['update']); ?>">
 
 <!-- Same top-bar + cockpit as main.php / analytics.php / settings.php / glossary.php -->
 <div class="top-bar">
@@ -40,10 +41,7 @@ $routes = $_['routes'];
        style="text-decoration:none; display:inline-block; padding:8px 16px;
               background:transparent; color:var(--muted); border:1px solid var(--border);
               border-radius:8px; font-size:13px; font-weight:600;">📄 Documents</a>
-    <a href="<?php p($routes['index']); ?>#update"
-       style="text-decoration:none; display:inline-block; padding:8px 16px;
-              background:var(--blue); color:var(--bg); border-radius:8px;
-              font-size:13px; font-weight:600;">🔄 Update Now</a>
+    <button id="update-btn">🔄 Update Now</button>
   </div>
 </div>
 

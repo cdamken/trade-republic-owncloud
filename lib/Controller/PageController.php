@@ -102,6 +102,12 @@ class PageController extends Controller {
 			'glossary'  => 'glossary',
 			'dividends' => 'dividends',
 		];
+		// Shared "🔄 Update Now" flow — loaded BEFORE the per-page script so the
+		// in-place update button works on every page (Analytics/Dividends/
+		// Settings/Glossary previously had a static link that bounced the user
+		// to Portfolio). Main (Portfolio) opts out via data-update-flow-owner
+		// because dashboard.js still owns the button there (verbatim port).
+		\OCP\Util::addScript($this->appName, 'update_flow');
 		\OCP\Util::addScript($this->appName, $scriptMap[$template] ?? 'dashboard');
 
 		$params = [

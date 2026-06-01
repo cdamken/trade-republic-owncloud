@@ -12,6 +12,7 @@ $routes = $_['routes'];
  */
 ?>
 <div id="tr-app"
+	data-update-flow-owner="page"
 	data-route-index="<?php p($routes['index']); ?>"
 	data-route-analytics="<?php p($routes['analytics']); ?>"
 	data-route-settings="<?php p($routes['settings']); ?>"

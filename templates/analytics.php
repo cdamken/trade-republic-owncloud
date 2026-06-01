@@ -151,11 +151,16 @@ $routes = $_['routes'];
     <div class="substat">Current capital distribution</div>
     <div class="chart-container"><canvas id="allocationChart"></canvas></div>
   </div>
-  <!-- 2. Net Worth Evolution -->
+  <!-- 2. Performance vs benchmarks (MSCI World, S&P 500, Nasdaq 100). The
+       big cumulative-cash number was removed 2026-06-01 — Carlos: "el primer
+       punto 1 euro y 7887 no me sirven para nada". What matters is the
+       trajectory and how it compares to the indices. -->
   <div class="card">
-    <h2>Net Worth Evolution</h2>
-    <div class="stat" id="history-current">€0.00</div>
-    <div class="substat" id="history-substat">Total portfolio value (positions + cash) over time</div>
+    <h2>Performance vs benchmarks</h2>
+    <div class="substat" id="history-substat">
+      Your cumulative external cash flow vs the same flows invested in
+      MSCI World / S&amp;P 500 / Nasdaq 100. Hover for exact values.
+    </div>
     <div class="range-buttons" id="history-range">
       <button data-range="1W">1W</button>
       <button data-range="1M">1M</button>

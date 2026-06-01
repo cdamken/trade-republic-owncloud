@@ -260,48 +260,33 @@ async function init() {
     const hist = filterHistory(range);
     if (hist.length === 0) return;
 
-    const lastValue = hist[hist.length - 1].value;
-    const firstValue = hist[0].value;
-    document.getElementById('history-current').textContent =
-      '€' + lastValue.toLocaleString(undefined, {minimumFractionDigits:2});
-
-    if (hist.length > 1) {
-      const delta = lastValue - firstValue;
-      const pct = (delta / firstValue) * 100;
-      const sign = delta >= 0 ? '+' : '−';
-      const color = delta >= 0 ? 'var(--green)' : 'var(--red)';
-      const rangeLabel = range === 'ALL' ? 'all-time' : range;
-      document.getElementById('history-substat').innerHTML =
-        `<span style="color:${color}">${sign}€${Math.abs(delta).toLocaleString(undefined,{maximumFractionDigits:0})} (${sign}${Math.abs(pct).toFixed(2)}%)</span>` +
-        ` over the last ${rangeLabel} · ${hist.length} daily snapshots`;
-    } else {
-      document.getElementById('history-substat').textContent =
-        'Total portfolio value (positions + cash) over time';
-    }
-
+    // Big cumulative number was here — removed 2026-06-01 (Carlos: "no me
+     //  sirve para nada"). The substat is now static descriptive text.
     const values = hist.map(h => h.value);
-    const minV = Math.min(...values);
-    const maxV = Math.max(...values);
-    const padding = (maxV - minV) * 0.1 || 100;
-    // Let yMin go negative so losses (e.g. periods where withdrawals + card
-    // spending exceeded deposits) show up below the zero line instead of
-    // being silently clamped to 0.
-    const yMin = Math.floor((minV - padding) / 1000) * 1000;
-    const yMax = Math.ceil((maxV + padding) / 1000) * 1000;
 
-    // Benchmark overlay — IWDA.AS (MSCI World), if backend fetched it.
-    // Aligned by date to the user's history; missing months stay null
-    // so Chart.js skips those points instead of drawing zero.
-    const bench = (data.benchmark || {}).history || [];
-    let benchAligned = null;
-    if (bench.length) {
-      const benchByMonth = {};
-      for (const b of bench) benchByMonth[b.date.slice(0, 7)] = b.value;
-      benchAligned = hist.map(h => {
-        const v = benchByMonth[h.date.slice(0, 7)];
+    // Align each benchmark series to the visible month range.
+    const benchmarks = data.benchmarks || (data.benchmark ? [data.benchmark] : []);
+    const benchDatasets = benchmarks.map(b => {
+      const byMonth = {};
+      for (const p of (b.history || [])) byMonth[p.date.slice(0, 7)] = p.value;
+      const aligned = hist.map(h => {
+        const v = byMonth[h.date.slice(0, 7)];
         return v == null ? null : v;
       });
+      return { aligned, label: b.label || b.symbol, color: b.color || '#fbbf24' };
+    }).filter(b => b.aligned.some(v => v != null));
+
+    // Y range considers your line AND all benchmarks.
+    let minV = Math.min(...values), maxV = Math.max(...values);
+    for (const b of benchDatasets) {
+      for (const v of b.aligned) if (v != null) {
+        if (v < minV) minV = v;
+        if (v > maxV) maxV = v;
+      }
     }
+    const padding = (maxV - minV) * 0.1 || 100;
+    const yMin = Math.floor((minV - padding) / 1000) * 1000;
+    const yMax = Math.ceil((maxV + padding) / 1000) * 1000;
 
     if (historyChartInstance) historyChartInstance.destroy();
     const datasets = [{
@@ -319,19 +304,19 @@ async function init() {
       pointBorderColor: '#0f1419',
       pointBorderWidth: 2,
     }];
-    if (benchAligned) {
+    for (const b of benchDatasets) {
       datasets.push({
-        label: 'MSCI World (same cash flows)',
-        data: benchAligned,
-        borderColor: '#fbbf24',
-        backgroundColor: 'rgba(251, 191, 36, 0.05)',
+        label: b.label,
+        data: b.aligned,
+        borderColor: b.color,
+        backgroundColor: 'transparent',
         borderWidth: 2,
         borderDash: [5, 4],
         tension: 0.4,
         fill: false,
         pointRadius: 0,
         pointHoverRadius: 5,
-        pointBackgroundColor: '#fbbf24',
+        pointBackgroundColor: b.color,
         pointBorderColor: '#0f1419',
         pointBorderWidth: 2,
         spanGaps: true,
@@ -345,7 +330,7 @@ async function init() {
         animation: ANIMATION,
         interaction: { mode: 'index', intersect: false },
         plugins: {
-          legend: { display: !!benchAligned,
+          legend: { display: datasets.length > 1,
                     labels: { color: '#e8eef5', font: { size: 12, weight: '500' },
                               usePointStyle: true, pointStyle: 'rectRounded', padding: 12 } },
           tooltip: { ...TOOLTIP,

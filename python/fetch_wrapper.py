@@ -1131,7 +1131,8 @@ def compute_analytics(data_dir: Path) -> None:
             fwd / cf["buys"]["total"] * 100, 2
         )
 
-    # Benchmark replay (MSCI World UCITS, EUR-denominated).
+    # Benchmark replays (MSCI World, S&P 500, Nasdaq 100, all EUR UCITS).
+    benchmarks_out = []
     if cf["monthly"]:
         first_month = cf["monthly"][0]["month"]
         try:
@@ -1140,17 +1141,24 @@ def compute_analytics(data_dir: Path) -> None:
             start_d = today_d - timedelta(days=365)
         cache_dir = data_dir / "benchmark_cache"
         cache_dir.mkdir(exist_ok=True)
-        bench_cache = cache_dir / "IWDA_AS.json"
-        bench_history = fetch_benchmark_monthly(
-            "IWDA.AS", start_d, today_d, cache_path=bench_cache,
-        )
-        replayed = replay_against_benchmark(cf["monthly"], bench_history) if bench_history else []
-        if replayed:
-            analytics["benchmark"] = {
-                "symbol":   "IWDA.AS",
-                "label":    "iShares MSCI World (IWDA, EUR)",
-                "history":  replayed,
-            }
+        BENCHMARKS = [
+            ("IWDA.AS", "MSCI World",  "#fbbf24"),
+            ("VUSA.AS", "S&P 500",     "#34d399"),
+            ("CNDX.AS", "Nasdaq 100",  "#c084fc"),  # iShares Nasdaq 100 UCITS
+        ]
+        for sym, label, color in BENCHMARKS:
+            cache_path = cache_dir / (sym.replace(".", "_") + ".json")
+            bench_history = fetch_benchmark_monthly(sym, start_d, today_d, cache_path=cache_path)
+            replayed = replay_against_benchmark(cf["monthly"], bench_history) if bench_history else []
+            if replayed:
+                benchmarks_out.append({
+                    "symbol":  sym,
+                    "label":   label,
+                    "color":   color,
+                    "history": replayed,
+                })
+    analytics["benchmarks"] = benchmarks_out
+    analytics["benchmark"] = benchmarks_out[0] if benchmarks_out else None
 
     (data_dir / "analytics.json").write_text(
         json.dumps(analytics, indent=2, ensure_ascii=False), encoding="utf-8"

@@ -96,8 +96,16 @@ body.tr-app-active #content-wrapper {
  * ============================================================ */
 
 #tr-app .top-bar {
+	/* Sticky 2026-06-01 — Carlos wants the nav reachable from any scroll
+	   position. Cockpit lost its sticky in the same commit (it's tall, was
+	   eating half the viewport). z-index higher than cockpit so the bar
+	   stays on top if both somehow overlap. */
+	position: sticky; top: 0; z-index: 60;
+	background: rgba(15, 20, 25, 0.95);
+	-webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
 	display: flex; align-items: center; gap: 16px; justify-content: space-between;
 	padding: 14px 0 10px;
+	margin: 0 -24px; padding-left: 24px; padding-right: 24px;
 }
 #tr-app .top-bar .brand { display: flex; align-items: center; gap: 10px; }
 #tr-app .top-bar h1 { font-size: 18px; font-weight: 700; margin: 0;
@@ -133,9 +141,9 @@ body.tr-app-active #content-wrapper {
 
 /* Sticky cockpit — 4 KPIs + 5 wealth bucket pills */
 #tr-app .cockpit {
-	position: sticky; top: 0; z-index: 50;
-	background: rgba(15, 20, 25, 0.95);
-	-webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+	/* Was sticky until 2026-06-01. Carlos: "no es necesario que esté always
+	   visible" — it eats too much viewport at this size. The top-bar now
+	   carries the sticky role instead. */
 	border-bottom: 1px solid var(--border);
 	padding: 14px 0 12px;
 	margin: 0 -24px 24px;

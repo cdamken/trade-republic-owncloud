@@ -128,16 +128,19 @@ $routes = $_['routes'];
     </div>
   </div>
 
-  <!-- Buys vs Sells by year — replaces the old stacked cash-flow chart
-       (carlos: "no me hace feliz"). Two bars per year, easier to scan. -->
+  <!-- Capital invested over time — cumulative (buys − sells) per month.
+       Shows how your committed capital grew. Single line, easy to scan. -->
   <h3 style="margin-top: 28px; font-size: 14px; color: var(--muted);
              text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">
-    Buys vs Sells by year
+    Capital invested over time
   </h3>
-  <div style="height: 280px; margin-top: 12px;"><canvas id="buysSellsChart"></canvas></div>
-  <p id="buysSellsEmpty" style="display: none; color: var(--muted); font-size: 13px;
-                                 text-align: center; margin: 24px 0;">
-    No per-year trading data yet. Click <strong>Update Now</strong> in Portfolio
+  <p style="color: var(--muted); font-size: 12px; margin-bottom: 8px;">
+    Cumulative purchases − sales. How much of your money is parked in positions.
+  </p>
+  <div style="height: 280px; margin-top: 12px;"><canvas id="capitalInvestedChart"></canvas></div>
+  <p id="capitalInvestedEmpty" style="display: none; color: var(--muted); font-size: 13px;
+                                       text-align: center; margin: 24px 0;">
+    No per-month trading data yet. Click <strong>Update Now</strong> in Portfolio
     to recompute (the new breakdown is generated on the next fetch).
   </p>
 </div>

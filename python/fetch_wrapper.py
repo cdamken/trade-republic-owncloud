@@ -721,9 +721,11 @@ def compute_analytics(data_dir: Path) -> None:
             "withdrawals": {"count": 0, "total": 0.0},   # to user's own bank
             "buys":        {"count": 0, "total": 0.0},
             "sells":       {"count": 0, "total": 0.0},
-            # Per-year breakdown for the "Buys vs Sells by year" chart.
-            # Shape: {"2024": {"buys": X, "sells": Y, "buys_count": N, "sells_count": M}, ...}
-            "buys_sells_by_year": {},
+            # Per-month breakdown for the "Capital invested over time" line.
+            # Cumulative (buys − sells) over months = how much capital
+            # you've committed to the market.
+            # Shape: {"2024-01": {"buys": X, "sells": Y}, ...}
+            "buys_sells_by_month": {},
             "net_capital_in":  0.0,  # = deposits + tax_refunds − withdrawals
             "net_traded":      0.0,
             "current_value":   0.0,
@@ -775,19 +777,15 @@ def compute_analytics(data_dir: Path) -> None:
                 elif t_type == "Buy":
                     cf["buys"]["count"] += 1
                     cf["buys"]["total"] += abs_val
-                    if date_str:
-                        y = cf["buys_sells_by_year"].setdefault(date_str[:4],
-                            {"buys": 0.0, "sells": 0.0, "buys_count": 0, "sells_count": 0})
-                        y["buys"] += abs_val
-                        y["buys_count"] += 1
+                    if month:
+                        m = cf["buys_sells_by_month"].setdefault(month, {"buys": 0.0, "sells": 0.0})
+                        m["buys"] += abs_val
                 elif t_type == "Sell":
                     cf["sells"]["count"] += 1
                     cf["sells"]["total"] += abs_val
-                    if date_str:
-                        y = cf["buys_sells_by_year"].setdefault(date_str[:4],
-                            {"buys": 0.0, "sells": 0.0, "buys_count": 0, "sells_count": 0})
-                        y["sells"] += abs_val
-                        y["sells_count"] += 1
+                    if month:
+                        m = cf["buys_sells_by_month"].setdefault(month, {"buys": 0.0, "sells": 0.0})
+                        m["sells"] += abs_val
 
                 if t_type in ("Dividend", "Interest"):
                     div = analytics["dividends"]

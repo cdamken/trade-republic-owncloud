@@ -176,49 +176,52 @@ async function init() {
 
   }
 
-  // ============ Buys vs Sells by year (replaces old stacked cash-flow chart) ============
-  // 2026-06-01 — Carlos asked for something easier to read than the stacked
-  // monthly bars + cumulative line. Two clean bars per year (buys vs sells)
-  // is exactly what GBM does and what scans best.
-  const byYear = (data.cash_flow || {}).buys_sells_by_year || {};
-  const years = Object.keys(byYear).sort();
-  const bsCanvas = document.getElementById('buysSellsChart');
-  const bsEmpty  = document.getElementById('buysSellsEmpty');
-  if (years.length === 0 && bsCanvas) {
-    bsCanvas.style.display = 'none';
-    if (bsEmpty) bsEmpty.style.display = 'block';
-  } else if (bsCanvas) {
-    new Chart(bsCanvas, {
-      type: 'bar',
+  // ============ Capital invested over time ============
+  // 2026-06-01 — single line, cumulative (buys − sells) per month.
+  // Shows the growth of committed capital, the only thing about trading
+  // history that's actually decision-relevant (the totals are in tiles
+  // above; the bar chart was redundant).
+  const byMonth = (data.cash_flow || {}).buys_sells_by_month || {};
+  const months = Object.keys(byMonth).sort();
+  const ciCanvas = document.getElementById('capitalInvestedChart');
+  const ciEmpty  = document.getElementById('capitalInvestedEmpty');
+  if (months.length === 0 && ciCanvas) {
+    ciCanvas.style.display = 'none';
+    if (ciEmpty) ciEmpty.style.display = 'block';
+  } else if (ciCanvas) {
+    let running = 0;
+    const cumulative = months.map(m => {
+      running += (byMonth[m].buys || 0) - (byMonth[m].sells || 0);
+      return Math.round(running * 100) / 100;
+    });
+    new Chart(ciCanvas, {
+      type: 'line',
       data: {
-        labels: years,
-        datasets: [
-          { label: 'Buys',  data: years.map(y => byYear[y].buys),
-            backgroundColor: (c) => vGradient(c.chart.ctx, c.chart.chartArea, '#60a5fa'),
-            borderRadius: { topLeft: 6, topRight: 6 }, borderSkipped: false,
-            barPercentage: 0.7, categoryPercentage: 0.7 },
-          { label: 'Sells', data: years.map(y => byYear[y].sells),
-            backgroundColor: (c) => vGradient(c.chart.ctx, c.chart.chartArea, '#f87171'),
-            borderRadius: { topLeft: 6, topRight: 6 }, borderSkipped: false,
-            barPercentage: 0.7, categoryPercentage: 0.7 },
-        ],
+        labels: months,
+        datasets: [{
+          label: 'Capital invested',
+          data: cumulative,
+          borderColor: '#60a5fa',
+          backgroundColor: (c) => vGradient(c.chart.ctx, c.chart.chartArea, '#60a5fa', 0.0, 0.35),
+          borderWidth: 2.5,
+          tension: 0.35,
+          pointRadius: 0,
+          pointHoverRadius: 6,
+          pointBackgroundColor: '#60a5fa',
+          pointBorderColor: '#0f1419',
+          pointBorderWidth: 2,
+          fill: true,
+        }],
       },
       options: {
         maintainAspectRatio: false,
         animation: ANIMATION,
         interaction: { mode: 'index', intersect: false },
         plugins: {
-          legend: { labels: { color: '#e8eef5', font: { size: 12, weight: '500' },
-                              usePointStyle: true, pointStyle: 'rectRounded', padding: 16 } },
+          legend: { display: false },
           tooltip: { ...TOOLTIP,
             callbacks: {
-              label: (ctx) => {
-                const y = ctx.label;
-                const isBuys = ctx.dataset.label === 'Buys';
-                const count = isBuys ? byYear[y].buys_count : byYear[y].sells_count;
-                return ' ' + ctx.dataset.label + ': €' + ctx.parsed.y.toLocaleString(undefined, {maximumFractionDigits:0}) +
-                       '  (' + count + ' order' + (count === 1 ? '' : 's') + ')';
-              },
+              label: (ctx) => ' €' + ctx.parsed.y.toLocaleString(undefined, {maximumFractionDigits:0}),
             },
           },
         },
@@ -227,7 +230,7 @@ async function init() {
                ticks: { ...AXIS_BASE.ticks, color: '#e8eef5',
                         callback: v => '€' + (v/1000).toFixed(0) + 'k' } },
           x: { ...AXIS_BASE,
-               ticks: { ...AXIS_BASE.ticks, color: '#e8eef5', font: { size: 13, weight: '600' } },
+               ticks: { ...AXIS_BASE.ticks, maxRotation: 0, autoSkip: true, maxTicksLimit: 12 },
                grid: { display: false } },
         },
       },

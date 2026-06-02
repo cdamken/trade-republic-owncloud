@@ -35,6 +35,46 @@ const fmt = (n, d=2) => n.toLocaleString('en-US', { minimumFractionDigits: d, ma
 const fmtEUR = (n) => '€' + fmt(n);
 const fmtPct = (n) => (n >= 0 ? '+' : '') + fmt(n, 1) + '%';
 
+// Quantity formatter that adapts decimal precision to the instrument
+// class (verbatim from Dashboard commit 1384e2e). Crypto needs many
+// decimals (0.029624 ETH); whole-share stocks look cleaner as integers
+// ("12" not "12.0000"); fractional stocks (savings-plan units) still
+// need up to 4 decimals.
+function fmtQty(n, category) {
+  if (n == null || isNaN(n)) return '—';
+  if (category === 'cryptos') {
+    return n.toLocaleString('en-US', {
+      minimumFractionDigits: 6, maximumFractionDigits: 8,
+    });
+  }
+  const isWhole = (n % 1 === 0);
+  return n.toLocaleString('en-US', {
+    minimumFractionDigits: isWhole ? 0 : 2,
+    maximumFractionDigits: isWhole ? 0 : 4,
+  });
+}
+
+// Staleness chip helper — same heuristic as gbm-dashboard.
+// Returns {label, severity}: fresh ≤15m, warn ≤1h, stale >1h.
+function stalenessHint(iso) {
+  if (!iso) return null;
+  const hasTz = /Z|[+-]\d{2}:?\d{2}$/.test(iso.trim());
+  const parseable = hasTz ? iso.trim() : iso.trim().replace(' ', 'T');
+  const d = new Date(parseable);
+  if (isNaN(d.getTime())) return null;
+  const mins = Math.floor((Date.now() - d.getTime()) / 60000);
+  let label;
+  if (mins < 1)       label = 'just now';
+  else if (mins < 60) label = mins + ' min ago';
+  else {
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    label = m === 0 ? h + ' h ago' : h + ' h ' + m + ' min ago';
+  }
+  const severity = mins <= 15 ? 'fresh' : mins <= 60 ? 'warn' : 'stale';
+  return { label, severity };
+}
+
 function toggleSection(id) {
   const el = document.getElementById(id);
   const section = el.previousElementSibling;
@@ -485,7 +525,31 @@ async function load() {
   const res = await fetch(routes.data.replace('__TYPE__', 'portfolio') + '?t=' + Date.now());
   if (!res.ok) return;  // no portfolio.json yet — setup wizard / first update will create it
   state.data = await res.json();
-  document.getElementById('ts').textContent = 'Last update: ' + new Date().toLocaleString();
+
+  // Real fetched-at timestamp — read the file fetch_wrapper.py writes when
+  // it finishes (full timestamp "YYYY-MM-DD HH:MM:SS" per UPSTREAM.md #11).
+  // Falls back to page-load time if the file is missing (first run).
+  let fetchedAt = null;
+  try {
+    const tsRes = await fetch(routes.data.replace('__TYPE__', 'last_update') + '?t=' + Date.now());
+    if (tsRes.ok) fetchedAt = (await tsRes.text()).trim();
+  } catch (_) { /* ignore */ }
+  const tsEl   = document.getElementById('ts');
+  const chipEl = document.getElementById('last-update-age');
+  if (fetchedAt && /\d{4}-\d{2}-\d{2}[ T]\d/.test(fetchedAt)) {
+    const parseable = fetchedAt.replace(' ', 'T');
+    const d = new Date(parseable);
+    if (tsEl) tsEl.textContent = 'Last update: ' + d.toLocaleString();
+    const stale = stalenessHint(fetchedAt);
+    if (stale && chipEl) {
+      chipEl.textContent = stale.label;
+      chipEl.className = 'staleness-chip show ' + stale.severity;
+      chipEl.title = 'Snapshot fetched ' + fetchedAt;
+    }
+  } else {
+    if (tsEl) tsEl.textContent = 'Last update: ' + new Date().toLocaleString();
+    if (chipEl) chipEl.className = 'staleness-chip';
+  }
 
   // Populate the sticky cockpit (KPIs + bucket pills). Replaces the old
   // .cards section that used to live below the nav.
@@ -533,7 +597,7 @@ function rowHTML(p) {
   return `<tr>
     <td title="${p.name}"><a href="#" class="position-link" data-isin="${safeIsin}" data-name="${safeName}">${p.name}</a></td>
     <td><code>${p.isin}</code>${externalLinks(p.isin)}</td>
-    <td class="num">${fmt(p.quantity, 4)}</td>
+    <td class="num">${fmtQty(p.quantity, p.category)}</td>
     <td class="num">${fmtEUR(p.avg_cost)}</td>
     <td class="num">${fmtEUR(p.current_price)}</td>
     <td class="num">${fmtEUR(p.buy_cost_eur)}</td>
@@ -550,7 +614,7 @@ function shortRow(p) {
   return `<tr>
     <td title="${p.name}"><a href="#" class="position-link" data-isin="${safeIsin}" data-name="${safeName}">${p.name}</a></td>
     <td><code>${p.isin}</code>${externalLinks(p.isin)}</td>
-    <td class="num">${fmt(p.quantity, 4)}</td>
+    <td class="num">${fmtQty(p.quantity, p.category)}</td>
     <td class="num"><strong>${fmtEUR(p.net_value_eur)}</strong></td>
     <td class="num ${plCls}">${fmtEUR(p.pl_eur)}</td>
     <td class="num ${plCls}"><strong>${fmtPct(p.pl_pct)}</strong></td>
@@ -569,7 +633,7 @@ function openPositionModal(isin, name) {
   const body = document.getElementById('position-modal-body');
   body.innerHTML =
     '<div class="pm-grid">' +
-      '<div class="pm-stat"><div class="pm-label">Quantity</div><div class="pm-value">' + fmt(pos.quantity, 4) + '</div></div>' +
+      '<div class="pm-stat"><div class="pm-label">Quantity</div><div class="pm-value">' + fmtQty(pos.quantity, pos.category) + '</div></div>' +
       '<div class="pm-stat"><div class="pm-label">Avg cost</div><div class="pm-value">' + fmtEUR(pos.avg_cost) + '</div></div>' +
       '<div class="pm-stat"><div class="pm-label">Current price</div><div class="pm-value">' + fmtEUR(pos.current_price) + '</div></div>' +
       '<div class="pm-stat"><div class="pm-label">Invested</div><div class="pm-value">' + fmtEUR(pos.buy_cost_eur) + '</div></div>' +

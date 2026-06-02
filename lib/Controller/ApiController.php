@@ -37,6 +37,9 @@ class ApiController extends Controller {
 			'analytics'         => ['file' => 'analytics.json',          'ct' => 'application/json'],
 			'net_worth_history' => ['file' => 'net_worth_history.json',  'ct' => 'application/json'],
 			'last_update'       => ['file' => 'last_update.date',        'ct' => 'text/plain'],
+			// Raw CSV consumed by the Orders + Ledger pages (2026-06-02).
+			// Same per-user isolation as the JSON files.
+			'transactions_csv'  => ['file' => 'account_transactions.csv', 'ct' => 'text/csv; charset=utf-8'],
 		];
 		if (!isset($allowed[$type])) {
 			return new JSONResponse(['error' => 'unknown type'], Http::STATUS_NOT_FOUND);

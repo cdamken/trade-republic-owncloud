@@ -241,6 +241,99 @@ async function init() {
     });
   }
 
+  // 1b. Geographic allocation — derived from ISIN[:2] country codes.
+  // Verbatim port from Trade-Republic-Dashboard commit cd9dfe5 (2026-06-02).
+  // analytics.json doesn't carry all_positions, so we re-fetch portfolio.json
+  // (small JSON, already cached by the browser from cockpit load above).
+  try {
+    const portfolioUrl = root.dataset.routeData.replace('__TYPE__', 'portfolio');
+    const pres = await fetch(portfolioUrl + '?t=' + Date.now());
+    if (pres.ok) {
+      const portfolioData = await pres.json();
+      const ISIN_COUNTRIES = {
+        US: 'United States', DE: 'Germany', FR: 'France', GB: 'United Kingdom',
+        IE: 'Ireland (UCITS)', LU: 'Luxembourg', NL: 'Netherlands',
+        ES: 'Spain', IT: 'Italy', CH: 'Switzerland', AT: 'Austria',
+        SE: 'Sweden', NO: 'Norway', DK: 'Denmark', FI: 'Finland',
+        BE: 'Belgium', PT: 'Portugal', GR: 'Greece', PL: 'Poland',
+        JP: 'Japan', CA: 'Canada', AU: 'Australia',
+        HK: 'Hong Kong', KR: 'South Korea', CN: 'China', TW: 'Taiwan',
+        IN: 'India', BR: 'Brazil', MX: 'Mexico', IL: 'Israel',
+        KY: 'Cayman Islands', BM: 'Bermuda', VG: 'British Virgin Islands',
+        JE: 'Jersey', GG: 'Guernsey', IM: 'Isle of Man',
+      };
+      const geoBuckets = {};
+      for (const p of (portfolioData.all_positions || [])) {
+        const isin = p.isin || '';
+        const prefix = isin.slice(0, 2).toUpperCase();
+        if (!prefix || !/^[A-Z]{2}$/.test(prefix)) continue;
+        const label = ISIN_COUNTRIES[prefix] || ('Other (' + prefix + ')');
+        const v = Number(p.net_value_eur) || 0;
+        if (v <= 0) continue;
+        geoBuckets[label] = (geoBuckets[label] || 0) + v;
+      }
+      const geoEntries = Object.entries(geoBuckets).sort((a, b) => b[1] - a[1]);
+      let geoData = geoEntries;
+      if (geoEntries.length > 12) {
+        const top = geoEntries.slice(0, 12);
+        const rest = geoEntries.slice(12);
+        const restTotal = rest.reduce((s, [, v]) => s + v, 0);
+        if (restTotal > 0) top.push(['Other (' + rest.length + ' countries)', restTotal]);
+        geoData = top;
+      }
+      const geoTotal = geoEntries.reduce((s, [, v]) => s + v, 0);
+      const geoSubstat = document.getElementById('geo-substat');
+      if (geoSubstat) {
+        geoSubstat.textContent = geoEntries.length + ' countries · €' +
+          geoTotal.toLocaleString(undefined, { maximumFractionDigits: 0 }) +
+          ' total — derived from ISIN domicile, not revenue exposure.';
+      }
+      const geoCanvas = document.getElementById('geoChart');
+      if (geoCanvas && geoData.length > 0) {
+        new Chart(geoCanvas, {
+          type: 'bar',
+          data: {
+            labels: geoData.map(([k]) => k),
+            datasets: [{
+              data: geoData.map(([, v]) => v),
+              backgroundColor: '#60a5fa',
+              borderRadius: 4,
+            }],
+          },
+          options: {
+            maintainAspectRatio: false,
+            indexAxis: 'y',
+            animation: { duration: 600, easing: 'easeOutQuart' },
+            scales: {
+              x: {
+                ticks: {
+                  color: '#7a8599', font: { size: 11 },
+                  callback: (v) => '€' + v.toLocaleString(undefined, { maximumFractionDigits: 0 }),
+                },
+                grid: { color: 'rgba(42, 49, 66, 0.5)' },
+              },
+              y: {
+                ticks: { color: '#e8eef5', font: { size: 12, weight: '500' } },
+                grid: { display: false },
+              },
+            },
+            plugins: {
+              legend: { display: false },
+              tooltip: { ...TOOLTIP,
+                callbacks: {
+                  label: (ctx) => {
+                    const pct = geoTotal > 0 ? (ctx.parsed.x / geoTotal * 100) : 0;
+                    return ' ' + fmtEur0(ctx.parsed.x) + ' (' + pct.toFixed(1) + '%)';
+                  },
+                },
+              },
+            },
+          },
+        });
+      }
+    }
+  } catch (_) { /* geo chart is best-effort — silent if portfolio missing */ }
+
   // 2. History Chart — with range selector (1W / 1M / 3M / 6M / 1Y / All)
   let historyChartInstance = null;
   const fullHistory = data.history || [];

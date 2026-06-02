@@ -29,6 +29,8 @@ $routes = $_['routes'];
   <nav>
     <a href="<?php p($routes['index']); ?>">Portfolio</a>
     <a href="<?php p($routes['analytics']); ?>" class="active">Analytics</a>
+    <a href="<?php p($routes['orders']); ?>">📋 Orders</a>
+    <a href="<?php p($routes['ledger']); ?>">📒 Ledger</a>
     <a href="<?php p($routes['dividends']); ?>">💰 Dividends</a>
     <a href="<?php p($routes['settings']); ?>">⚙ Settings</a>
     <a href="<?php p($routes['glossary']); ?>">📖 Glossary</a>
@@ -171,6 +173,15 @@ $routes = $_['routes'];
       <canvas id="historyChart"></canvas>
     </div>
   </div>
+</div>
+
+<!-- Geographic breakdown derived from ISIN country prefix. Complements
+     the by-category allocation above with a "where is my money?" view
+     across the issuer's domicile. -->
+<div class="card" style="margin-bottom: 24px;">
+  <h2>Geographic allocation (ISIN domicile)</h2>
+  <div class="substat" id="geo-substat">By the country prefix in each ISIN — not by what the company actually does or where its revenue comes from.</div>
+  <div class="chart-container" style="height: 320px;"><canvas id="geoChart"></canvas></div>
 </div>
 
 <!-- Dividends + Interest are now in their own tab (templates/dividends.php).

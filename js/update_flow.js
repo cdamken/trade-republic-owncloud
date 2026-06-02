@@ -304,6 +304,55 @@ async function submitMfa() {
   }
 }
 
+// ============ Staleness chip ============
+// Ported from Trade-Republic-Dashboard commit 2e01fec (2026-06-02).
+// Reads last_update.date via routes.data and injects a colored chip into
+// the top-bar .actions on every secondary page. Portfolio (main.php)
+// renders its own chip inside the subtitle — this script does NOT run
+// there (the page sets data-update-flow-owner="page" and we return
+// early), so no conflict.
+function stalenessHint(iso) {
+  if (!iso) return null;
+  const hasTz = /Z|[+-]\d{2}:?\d{2}$/.test(iso.trim());
+  const parseable = hasTz ? iso.trim() : iso.trim().replace(' ', 'T');
+  const d = new Date(parseable);
+  if (isNaN(d.getTime())) return null;
+  const mins = Math.floor((Date.now() - d.getTime()) / 60000);
+  let label;
+  if (mins < 1)       label = 'just now';
+  else if (mins < 60) label = mins + ' min ago';
+  else {
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    label = m === 0 ? h + ' h ago' : h + ' h ' + m + ' min ago';
+  }
+  const severity = mins <= 15 ? 'fresh' : mins <= 60 ? 'warn' : 'stale';
+  return { label, severity };
+}
+
+async function injectStalenessChip() {
+  if (!routes || !routes.data) return;
+  const actions = document.querySelector('.top-bar .actions');
+  if (!actions || document.getElementById('last-update-age')) return;
+  const chip = document.createElement('span');
+  chip.id = 'last-update-age';
+  chip.className = 'staleness-chip';
+  const upd = document.getElementById('update-btn');
+  if (upd) actions.insertBefore(chip, upd);
+  else actions.appendChild(chip);
+  try {
+    const r = await fetch(routes.data.replace('__TYPE__', 'last_update') + '?t=' + Date.now());
+    if (!r.ok) return;
+    const ts = (await r.text()).trim();
+    if (!/\d{4}-\d{2}-\d{2}[ T]\d/.test(ts)) return;
+    const s = stalenessHint(ts);
+    if (!s) return;
+    chip.textContent = s.label;
+    chip.className = 'staleness-chip show ' + s.severity;
+    chip.title = 'Snapshot fetched ' + ts;
+  } catch (_) { /* ignore — chip just stays hidden */ }
+}
+
 // ============ Init ============
 function init() {
   const root = document.getElementById('tr-app');
@@ -320,9 +369,11 @@ function init() {
   routes = {
     update: updateUrl,
     index:  root.dataset.routeIndex,
+    data:   root.dataset.routeData,
   };
 
   injectModalsIfMissing();
+  injectStalenessChip();
 
   // Wire the button. Pages may have rendered Update Now as either an <a>
   // (legacy) or a <button id="update-btn"> (current). Templates have been

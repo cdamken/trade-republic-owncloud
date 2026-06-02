@@ -27,6 +27,8 @@ $routes = $_['routes'];
   <nav>
     <a href="<?php p($routes['index']); ?>">Portfolio</a>
     <a href="<?php p($routes['analytics']); ?>">Analytics</a>
+    <a href="<?php p($routes['orders']); ?>">📋 Orders</a>
+    <a href="<?php p($routes['ledger']); ?>">📒 Ledger</a>
     <a href="<?php p($routes['dividends']); ?>">💰 Dividends</a>
     <a href="<?php p($routes['settings']); ?>" class="active">⚙ Settings</a>
     <a href="<?php p($routes['glossary']); ?>">📖 Glossary</a>

@@ -33,7 +33,7 @@ body.tr-app-active #content-wrapper {
 	/* Semantic palette — see Dashboard upstream for rationale. */
 	--green: #4ade80;        /* profit / gain          */
 	--red:   #f87171;        /* loss                   */
-	--blue:  #60a5fa;        /* primary KPI / equities */
+	--blue:  #3b82f6;        /* primary KPI / equities — brand-adjacent TR blue (2026-06-02) */
 	--amber: #fbbf24;        /* warnings only          */
 	/* Asset-class colors */
 	--asset-equity:  #60a5fa;
@@ -58,7 +58,7 @@ body.tr-app-active #content-wrapper {
 	display: flex; align-items: center; gap: 12px; font-weight: 700;
 }
 #tr-app .logo-box {
-	background: #fff; width: 40px; height: 40px; border-radius: 4px;
+	background: #f5f7fa; width: 40px; height: 40px; border-radius: 4px;
 	display: flex; align-items: center; justify-content: center; font-size: 24px;
 }
 
@@ -826,3 +826,105 @@ body.tr-app-active #content-wrapper {
    without making it visually "smaller". */
 #tr-app td code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
                   font-size: inherit; color: inherit; }
+
+/* ============ Staleness chip ============
+   Ported from Trade-Republic-Dashboard commit 2e01fec (2026-06-02).
+   Shows how old the snapshot is next to "Last update" on Portfolio,
+   and inside .top-bar .actions on every secondary page (via
+   js/update_flow.js injectStalenessChip).
+     fresh ≤15min · warn ≤1h · stale >1h */
+#tr-app .staleness-chip {
+	display: none;
+	margin-left: 6px;
+	padding: 2px 8px;
+	border-radius: 10px;
+	font-size: 11px;
+	font-weight: 600;
+	vertical-align: middle;
+}
+#tr-app .staleness-chip.show  { display: inline-block; }
+#tr-app .staleness-chip.fresh { background: rgba(74, 222, 128, 0.15); color: var(--green); }
+#tr-app .staleness-chip.warn  { background: rgba(251, 191, 36, 0.18); color: var(--amber); }
+#tr-app .staleness-chip.stale { background: rgba(248, 113, 113, 0.22); color: var(--red); }
+
+/* ============ Orders + Ledger pages (2026-06-02 port) ============
+   Verbatim style port of Trade-Republic-Dashboard/app/orders.html
+   and ledger.html (commits 7fcbe0b, a401156, 66cc26d). All selectors
+   scoped under #tr-app.orders-page / #tr-app.ledger-page so they don't
+   leak into the other pages or ownCloud chrome.
+*/
+#tr-app.orders-page .purple,
+#tr-app.ledger-page .purple { color: #c084fc; }
+
+/* shared isin / empty / disclaimer / error / warning helpers */
+#tr-app.orders-page .isin,
+#tr-app.ledger-page .isin { font-family: monospace; color: var(--muted); font-size: 11px; }
+
+#tr-app.orders-page td.isin,
+#tr-app.ledger-page td.isin { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+                              color: var(--muted); font-size: 11px; }
+
+#tr-app.orders-page .empty,
+#tr-app.ledger-page .empty { text-align: center; padding: 40px; color: var(--muted); font-size: 14px; }
+
+#tr-app.orders-page .error,
+#tr-app.ledger-page .error { background: rgba(248, 113, 113, 0.1); border-left: 4px solid var(--red);
+                             padding: 16px 20px; border-radius: 8px; margin: 20px 0; font-size: 14px; }
+
+#tr-app.orders-page .disclaimer,
+#tr-app.ledger-page .disclaimer { margin-top: 60px; padding-top: 20px;
+                                  border-top: 1px solid var(--border);
+                                  color: var(--muted); font-size: 11px; line-height: 1.6; }
+#tr-app.orders-page .disclaimer a,
+#tr-app.ledger-page .disclaimer a { color: var(--blue); text-decoration: none; }
+
+/* Generic table — orders + ledger only (other pages have their own
+   table rules). Keep dense rows so 6000+ ledger entries stay readable. */
+#tr-app.orders-page table,
+#tr-app.ledger-page table {
+	width: 100%; border-collapse: collapse; background: var(--card);
+	border-radius: 12px; overflow: hidden; margin-bottom: 12px;
+}
+#tr-app.orders-page th, #tr-app.orders-page td,
+#tr-app.ledger-page th, #tr-app.ledger-page td {
+	text-align: left; padding: 11px 14px; font-size: 13px;
+	border-bottom: 1px solid var(--border);
+}
+#tr-app.ledger-page th, #tr-app.ledger-page td { padding: 10px 14px; }
+#tr-app.orders-page th,
+#tr-app.ledger-page th { background: rgba(255,255,255,0.03); color: var(--muted);
+                         font-weight: 600; cursor: pointer; user-select: none; white-space: nowrap; }
+#tr-app.orders-page th:hover,
+#tr-app.ledger-page th:hover { color: var(--text); }
+#tr-app.orders-page tr:hover,
+#tr-app.ledger-page tr:hover { background: rgba(255,255,255,0.02); }
+#tr-app.orders-page .num,
+#tr-app.ledger-page .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* Side pill (Orders) — Buy = blue, Sell = purple */
+#tr-app.orders-page .side-pill {
+	display: inline-block; padding: 2px 8px; border-radius: 10px;
+	font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700;
+}
+#tr-app.orders-page .side-buy  { background: rgba(96, 165, 250, 0.18); color: var(--blue); }
+#tr-app.orders-page .side-sell { background: rgba(192, 132, 252, 0.18); color: #c084fc; }
+
+/* Category pills (Ledger) — colour-coded per CSV Type */
+#tr-app.ledger-page .cat-pill {
+	display: inline-block; padding: 2px 8px; border-radius: 10px;
+	font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px;
+	font-weight: 700; white-space: nowrap;
+}
+#tr-app.ledger-page .cat-buy        { background: rgba(96, 165, 250, 0.18); color: var(--blue); }
+#tr-app.ledger-page .cat-sell       { background: rgba(192, 132, 252, 0.18); color: #c084fc; }
+#tr-app.ledger-page .cat-dividend   { background: rgba(74, 222, 128, 0.18); color: var(--green); }
+#tr-app.ledger-page .cat-interest   { background: rgba(74, 222, 128, 0.12); color: var(--green); }
+#tr-app.ledger-page .cat-deposit    { background: rgba(74, 222, 128, 0.28); color: var(--green); border: 1px solid var(--green); }
+#tr-app.ledger-page .cat-withdrawal { background: rgba(248, 113, 113, 0.18); color: var(--red); }
+#tr-app.ledger-page .cat-removal    { background: rgba(248, 113, 113, 0.10); color: var(--red); }
+#tr-app.ledger-page .cat-tax-refund { background: rgba(251, 191, 36, 0.18); color: var(--amber); }
+#tr-app.ledger-page .cat-other      { background: var(--border); color: var(--muted); }
+
+/* Slim padding on cards for the Ledger (4 cards on one row stays readable) */
+#tr-app.ledger-page .card { padding: 16px 20px; }
+#tr-app.ledger-page .card .value { font-size: 22px; }

@@ -185,6 +185,33 @@ accidentally overwrite them.
   compatible if someone migrates from local to the port (the `value`
   field is present).
 
+### 13a. CSV served through the api#data route (`transactions_csv`)
+
+- **Upstream**: `orders.html` / `ledger.html` fetch the raw CSV via
+  `fetch('../DATA/account_transactions.csv')` — same static-file
+  pattern as `portfolio.json`.
+- **Port**: the JS reads `routes.data.replace('__TYPE__','transactions_csv')`
+  and `ApiController::data` whitelists the file with content-type
+  `text/csv; charset=utf-8`. `TrService::dataPath()` adds
+  `account_transactions.csv` to its allow-list.
+- **Why**: the same reason `portfolio.json` doesn't sit in a public
+  directory — per-user isolation. The route handler resolves the path
+  from the authenticated session.
+
+### 13b. `_shared.js` loaded via `Util::addScript`, not inline `<script src>`
+
+- **Upstream**: `orders.html` and `ledger.html` include
+  `<script src="_shared.js"></script>` directly before their inline
+  page script.
+- **Port**: ownCloud's CSP forbids inline `<script>` blocks, so the
+  page logic lives in `js/orders.js` / `js/ledger.js`. PageController
+  loads `js/_shared.js` first (only for the `orders` and `ledger`
+  templates) via `Util::addScript('_shared')`. Same execution order,
+  same globals exposed (`fmtEUR`, `fmtSignedEUR`, `fmtDate`, `monthKey`,
+  `monthLabel`, `parseCsv`).
+- **Why**: CSP. Identical to how `vendor/chart.umd.min.js` is loaded
+  for Analytics + Dividends.
+
 ### 13. Cookies / pending login schema
 
 - **Upstream**: `_pending_login.json` with `{phone, process_id, issued_at}`,

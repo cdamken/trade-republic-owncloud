@@ -32,6 +32,8 @@ $routes = $_['routes'];
   <nav>
     <a href="<?php p($routes['index']); ?>" class="active">Portfolio</a>
     <a href="<?php p($routes['analytics']); ?>">Analytics</a>
+    <a href="<?php p($routes['orders']); ?>">📋 Orders</a>
+    <a href="<?php p($routes['ledger']); ?>">📒 Ledger</a>
     <a href="<?php p($routes['dividends']); ?>">💰 Dividends</a>
     <a href="<?php p($routes['settings']); ?>">⚙ Settings</a>
     <a href="<?php p($routes['glossary']); ?>">📖 Glossary</a>
@@ -82,7 +84,7 @@ $routes = $_['routes'];
   <div class="cockpit-row buckets" id="ck-buckets"></div>
 </div>
 
-<p class="subtitle">Data extracted via <a href="https://github.com/cdamken/tr-api" target="_blank" rel="noopener" style="color:var(--muted); text-decoration:underline;">tr-api</a> (WebSocket TR). <span id="ts"></span></p>
+<p class="subtitle">Data extracted via <a href="https://github.com/cdamken/tr-api" target="_blank" rel="noopener" style="color:var(--muted); text-decoration:underline;">tr-api</a> (WebSocket TR). <span id="ts"></span> <span id="last-update-age" class="staleness-chip"></span></p>
 
 <!-- ============ MFA Modal ============ -->
 <div id="mfa-modal" class="modal-backdrop">

@@ -187,6 +187,8 @@ class TrService {
 			'analytics.json',
 			'net_worth_history.json',
 			'last_update.date',
+			// Raw CSV consumed by Orders + Ledger pages (2026-06-02 port).
+			'account_transactions.csv',
 		];
 		if (!in_array($name, $allowed, true)) {
 			throw new \InvalidArgumentException("unknown data file: $name");

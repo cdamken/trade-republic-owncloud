@@ -74,6 +74,22 @@ class PageController extends Controller {
 	}
 
 	/**
+	 * @NoAdminRequired
+	 * @NoCSRFRequired
+	 */
+	public function orders() {
+		return $this->renderTemplate('orders');
+	}
+
+	/**
+	 * @NoAdminRequired
+	 * @NoCSRFRequired
+	 */
+	public function ledger() {
+		return $this->renderTemplate('ledger');
+	}
+
+	/**
 	 * Render the page, or redirect to ownCloud login if the visitor is not
 	 * authenticated. Without this guard ownCloud sometimes returns a bare
 	 * 403 "Access forbidden" page instead of a friendly redirect to login.
@@ -101,7 +117,16 @@ class PageController extends Controller {
 			'settings'  => 'settings',
 			'glossary'  => 'glossary',
 			'dividends' => 'dividends',
+			'orders'    => 'orders',
+			'ledger'    => 'ledger',
 		];
+		// Orders + Ledger (added 2026-06-02) need the shared helpers
+		// (fmtEUR, fmtSignedEUR, fmtDate, monthKey/Label, parseCsv) loaded
+		// BEFORE their page script. Mirror of Trade-Republic-Dashboard's
+		// _shared.js pattern (commit 66cc26d).
+		if ($template === 'orders' || $template === 'ledger') {
+			\OCP\Util::addScript($this->appName, '_shared');
+		}
 		// Shared "🔄 Update Now" flow — loaded BEFORE the per-page script so the
 		// in-place update button works on every page (Analytics/Dividends/
 		// Settings/Glossary previously had a static link that bounced the user
@@ -117,6 +142,8 @@ class PageController extends Controller {
 				'settings'     => $this->urlGenerator->linkToRoute('trade_republic.page.settings'),
 				'glossary'     => $this->urlGenerator->linkToRoute('trade_republic.page.glossary'),
 				'dividends'    => $this->urlGenerator->linkToRoute('trade_republic.page.dividends'),
+				'orders'       => $this->urlGenerator->linkToRoute('trade_republic.page.orders'),
+				'ledger'       => $this->urlGenerator->linkToRoute('trade_republic.page.ledger'),
 				'data'         => $this->urlGenerator->linkToRoute('trade_republic.api.data', ['type' => '__TYPE__']),
 				'config'       => $this->urlGenerator->linkToRoute('trade_republic.api.getConfig'),
 				'update'       => $this->urlGenerator->linkToRoute('trade_republic.api.update'),

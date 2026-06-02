@@ -75,6 +75,58 @@ function stalenessHint(iso) {
   return { label, severity };
 }
 
+// Re-fetch last_update.date and re-render the chip + #ts line in place.
+// Used after the initial load, periodically (60s) so the label stays
+// fresh, AND after a cross-tab BroadcastChannel signal so other tabs
+// catch updates from this one.
+async function refreshStalenessChip() {
+  if (!routes || !routes.data) return;
+  const tsEl   = document.getElementById('ts');
+  const chipEl = document.getElementById('last-update-age');
+  if (!chipEl) return;
+  let fetchedAt = null;
+  try {
+    const r = await fetch(routes.data.replace('__TYPE__', 'last_update') + '?t=' + Date.now());
+    if (r.ok) fetchedAt = (await r.text()).trim();
+  } catch (_) { /* keep prior state on error */ }
+  if (fetchedAt && /\d{4}-\d{2}-\d{2}[ T]\d/.test(fetchedAt)) {
+    const parseable = fetchedAt.replace(' ', 'T');
+    const d = new Date(parseable);
+    if (tsEl) tsEl.textContent = 'Last update: ' + d.toLocaleString();
+    const s = stalenessHint(fetchedAt);
+    if (s) {
+      chipEl.textContent = s.label;
+      chipEl.className = 'staleness-chip show ' + s.severity;
+      chipEl.title = 'Snapshot fetched ' + fetchedAt;
+    }
+  } else {
+    if (tsEl) tsEl.textContent = 'Last update: ' + new Date().toLocaleString();
+    chipEl.className = 'staleness-chip';
+  }
+}
+
+// Cross-tab refresh: when an Update Now completes in another tab,
+// BroadcastChannel signals this one to refresh its chip instantly.
+let _trUpdateChannel = null;
+try {
+  _trUpdateChannel = new BroadcastChannel('tr-dashboard-update');
+  _trUpdateChannel.onmessage = (e) => {
+    if (e.data && e.data.type === 'update-complete') {
+      refreshStalenessChip();
+    }
+  };
+} catch (_) { /* old browser — fall back to the 60s poll below */ }
+
+// Poll every minute as a fallback (and to roll "5 min ago" → "6 min ago"
+// without a reload). Cheap: ~20 bytes per request.
+setInterval(refreshStalenessChip, 60_000);
+
+function broadcastUpdateComplete() {
+  if (_trUpdateChannel) {
+    try { _trUpdateChannel.postMessage({ type: 'update-complete', t: Date.now() }); } catch (_) {}
+  }
+}
+
 function toggleSection(id) {
   const el = document.getElementById(id);
   const section = el.previousElementSibling;
@@ -429,6 +481,7 @@ async function updateData() {
       }
       clearTimeout(overlayDelay);
       showStatus('ok', '✓ Updated — reloading');
+      broadcastUpdateComplete();   // tell other tabs to refresh their chip
       setTimeout(() => location.reload(), 800);
       return;
     }
@@ -487,6 +540,7 @@ async function submitMfa() {
     if (r.http === 200) {
       document.getElementById('progress-stage').textContent = '✓ Data downloaded — reloading…';
       showStatus('ok', '✓ Updated — reloading');
+      broadcastUpdateComplete();   // tell other tabs to refresh their chip
       setTimeout(() => location.reload(), 800);
       return;
     }
@@ -526,30 +580,10 @@ async function load() {
   if (!res.ok) return;  // no portfolio.json yet — setup wizard / first update will create it
   state.data = await res.json();
 
-  // Real fetched-at timestamp — read the file fetch_wrapper.py writes when
-  // it finishes (full timestamp "YYYY-MM-DD HH:MM:SS" per UPSTREAM.md #11).
-  // Falls back to page-load time if the file is missing (first run).
-  let fetchedAt = null;
-  try {
-    const tsRes = await fetch(routes.data.replace('__TYPE__', 'last_update') + '?t=' + Date.now());
-    if (tsRes.ok) fetchedAt = (await tsRes.text()).trim();
-  } catch (_) { /* ignore */ }
-  const tsEl   = document.getElementById('ts');
-  const chipEl = document.getElementById('last-update-age');
-  if (fetchedAt && /\d{4}-\d{2}-\d{2}[ T]\d/.test(fetchedAt)) {
-    const parseable = fetchedAt.replace(' ', 'T');
-    const d = new Date(parseable);
-    if (tsEl) tsEl.textContent = 'Last update: ' + d.toLocaleString();
-    const stale = stalenessHint(fetchedAt);
-    if (stale && chipEl) {
-      chipEl.textContent = stale.label;
-      chipEl.className = 'staleness-chip show ' + stale.severity;
-      chipEl.title = 'Snapshot fetched ' + fetchedAt;
-    }
-  } else {
-    if (tsEl) tsEl.textContent = 'Last update: ' + new Date().toLocaleString();
-    if (chipEl) chipEl.className = 'staleness-chip';
-  }
+  // Re-render the staleness chip in-place. Called on initial load and on
+  // any cross-tab BroadcastChannel signal / 60s poll so the label stays
+  // fresh and tabs catch updates fired from elsewhere.
+  await refreshStalenessChip();
 
   // Populate the sticky cockpit (KPIs + bucket pills). Replaces the old
   // .cards section that used to live below the nav.

@@ -34,10 +34,10 @@ $routes = $_['routes'];
     <a href="<?php p($routes['index']); ?>">Portfolio</a>
     <a href="<?php p($routes['analytics']); ?>">Analytics</a>
     <a href="<?php p($routes['orders']); ?>" class="active">📋 Orders</a>
-    <a href="<?php p($routes['ledger']); ?>">📒 Ledger</a>
     <a href="<?php p($routes['dividends']); ?>">💰 Dividends</a>
-    <a href="<?php p($routes['settings']); ?>">⚙ Settings</a>
+    <a href="<?php p($routes['ledger']); ?>">📒 Ledger</a>
     <a href="<?php p($routes['glossary']); ?>">📖 Glossary</a>
+    <a href="<?php p($routes['settings']); ?>">⚙ Settings</a>
   </nav>
   <div class="actions">
     <a class="ghost" href="<?php p($routes['index']); ?>#docs"

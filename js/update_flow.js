@@ -211,6 +211,7 @@ async function updateData() {
     if (r.http === 200) {
       clearTimeout(overlayDelay);
       showStatus('ok', '✓ Updated — reloading');
+      broadcastUpdateComplete();   // tell other tabs to refresh their chip
       setTimeout(() => location.reload(), 800);
       return;
     }
@@ -270,6 +271,7 @@ async function submitMfa() {
     const r = await postUpdate(code, { full: fullReload });
     if (r.http === 200) {
       showStatus('ok', '✓ Updated — reloading');
+      broadcastUpdateComplete();   // tell other tabs to refresh their chip
       setTimeout(() => location.reload(), 800);
       return;
     }
@@ -330,16 +332,12 @@ function stalenessHint(iso) {
   return { label, severity };
 }
 
-async function injectStalenessChip() {
+// Read last_update.date and re-render the chip in-place. Safe to call
+// repeatedly — does nothing if the chip element isn't in the DOM yet.
+async function refreshStalenessChip() {
   if (!routes || !routes.data) return;
-  const actions = document.querySelector('.top-bar .actions');
-  if (!actions || document.getElementById('last-update-age')) return;
-  const chip = document.createElement('span');
-  chip.id = 'last-update-age';
-  chip.className = 'staleness-chip';
-  const upd = document.getElementById('update-btn');
-  if (upd) actions.insertBefore(chip, upd);
-  else actions.appendChild(chip);
+  const chip = document.getElementById('last-update-age');
+  if (!chip) return;
   try {
     const r = await fetch(routes.data.replace('__TYPE__', 'last_update') + '?t=' + Date.now());
     if (!r.ok) return;
@@ -350,7 +348,42 @@ async function injectStalenessChip() {
     chip.textContent = s.label;
     chip.className = 'staleness-chip show ' + s.severity;
     chip.title = 'Snapshot fetched ' + ts;
-  } catch (_) { /* ignore — chip just stays hidden */ }
+  } catch (_) { /* keep prior state on error */ }
+}
+
+async function injectStalenessChip() {
+  if (!routes || !routes.data) return;
+  const actions = document.querySelector('.top-bar .actions');
+  if (!actions || document.getElementById('last-update-age')) return;
+  const chip = document.createElement('span');
+  chip.id = 'last-update-age';
+  chip.className = 'staleness-chip';
+  const upd = document.getElementById('update-btn');
+  if (upd) actions.insertBefore(chip, upd);
+  else actions.appendChild(chip);
+  await refreshStalenessChip();
+  // Poll every minute — keeps "2 min ago" → "3 min ago" rolling over,
+  // and catches updates triggered from OTHER tabs (where this tab's chip
+  // would otherwise stay frozen at its initial value).
+  setInterval(refreshStalenessChip, 60_000);
+}
+
+// Cross-tab refresh: when an Update Now completes in another tab,
+// BroadcastChannel signals this one to refresh its chip instantly.
+// Widely supported (Chrome/Safari/Firefox); silent fallback to 60s poll.
+let _trUpdateChannel = null;
+try {
+  _trUpdateChannel = new BroadcastChannel('tr-dashboard-update');
+  _trUpdateChannel.onmessage = (e) => {
+    if (e.data && e.data.type === 'update-complete') {
+      refreshStalenessChip();
+    }
+  };
+} catch (_) { /* old browser — fall back to the 60s poll */ }
+function broadcastUpdateComplete() {
+  if (_trUpdateChannel) {
+    try { _trUpdateChannel.postMessage({ type: 'update-complete', t: Date.now() }); } catch (_) {}
+  }
 }
 
 // ============ Init ============

@@ -1,5 +1,29 @@
 # CHANGELOG
 
+## 0.1.23 — 2026-06-03
+
+Debug: capture raw TR eventType + eventSubType in
+`account_transactions.csv`. Several TR types collapse into one CSV
+"Type" via `EVENT_TYPE_MAP` (e.g. `CREDIT` and
+`SSP_CORPORATE_ACTION_CASH` both become "Dividend"), making it
+impossible to discriminate promotional bonuses from real dividends
+once the data lands in the CSV.
+
+### Added
+
+- CSV columns `EventType` and `EventSubType` at the end of each
+  row. Backwards-compatible: `analyze_analytics.py` reads by name,
+  older consumers can ignore the new columns.
+- `_row_from_tr_event()`: extracts `eventType` + `eventSubType` (or
+  `subEventType` / `details.subType` as fallbacks) and writes them
+  into the row dict.
+
+### Notes
+
+- New columns only populate after **the next Full Reload** — the
+  incremental merge keeps existing rows as-is. To debug the Feb 2025
+  anomaly, do a Full Reload and grep the CSV for the affected dates.
+
 ## 0.1.22 — 2026-06-03
 
 Bug fix: timeline pagination was capping at ~6000 events (≈9 months

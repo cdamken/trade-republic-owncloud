@@ -40,8 +40,11 @@ from datetime import datetime, timedelta, timezone, date as _date_t
 from pathlib import Path
 from typing import Any
 
+# EventType / EventSubType: raw TR strings captured for debugging.
+# Mirrors gbm-dashboard tr_fetch.py — see comment there.
 CSV_COLUMNS = ["Date", "Type", "Value", "Note", "ISIN", "Shares",
-               "Fees", "Taxes", "ISIN2", "Shares2"]
+               "Fees", "Taxes", "ISIN2", "Shares2",
+               "EventType", "EventSubType"]
 
 
 # ============================================================================
@@ -822,6 +825,16 @@ def _row_from_tr_event(ev: dict[str, Any]) -> dict[str, Any] | None:
                 isin = piece
                 break
 
+    # Capture the raw TR eventType + subType so we can discriminate
+    # downstream when several TR types collapse into one CSV "Type"
+    # (e.g. CREDIT and SSP_CORPORATE_ACTION_CASH both → Dividend).
+    ev_subtype = (
+        ev.get("eventSubType")
+        or ev.get("subEventType")
+        or (ev.get("details") or {}).get("subType")
+        or ""
+    )
+
     return {
         "Date":   timestamp,
         "Type":   csv_type,
@@ -833,6 +846,8 @@ def _row_from_tr_event(ev: dict[str, Any]) -> dict[str, Any] | None:
         "Taxes":  "",
         "ISIN2":  "",
         "Shares2": "",
+        "EventType":    ev_type,
+        "EventSubType": ev_subtype,
     }
 
 

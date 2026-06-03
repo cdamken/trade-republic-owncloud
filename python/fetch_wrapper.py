@@ -651,8 +651,14 @@ def _append_net_worth_history(data_dir: Path, summary: dict[str, Any]) -> None:
 # ---------------------------------------------------------------------------
 # Transactions: timeline → CSV in the schema analyze_analytics expects
 # ---------------------------------------------------------------------------
-async def _paginate_topic_on_ws(ws, topic: str, *, cutoff=None, max_pages: int = 200):
+async def _paginate_topic_on_ws(ws, topic: str, *, cutoff=None, max_pages: int = 2000):
     """Paginate a single TR timeline topic on an EXISTING WS connection.
+
+    max_pages is a safety cap against infinite loops — natural
+    termination is `cursor is None`. 200 (the old value) was too low:
+    TR returns ~30 items/page, so 200 pages capped fetch at ~6000
+    events (about 9 months on an active account). 2000 handles
+    ~60,000 events, enough for 5+ years on any normal account.
 
     Mirrors Trade-Republic-Dashboard/app/tr_fetch.py::_paginate_topic_on_ws.
     Done locally (not via tr_api's per-topic fetch_all) so we can share

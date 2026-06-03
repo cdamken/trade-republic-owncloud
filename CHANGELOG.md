@@ -1,5 +1,28 @@
 # CHANGELOG
 
+## 0.1.22 — 2026-06-03
+
+Bug fix: timeline pagination was capping at ~6000 events (≈9 months
+of active account history) because `_paginate_topic_on_ws` had a
+`max_pages=200` safety limit and TR returns ~30 items/page.
+Anyone with more than ~9 months of activity was silently losing
+older transactions — they never reached the CSV, never showed up in
+Ledger, and XIRR's reconciliation window was artificially shortened.
+
+### Fixed
+
+- `python/fetch_wrapper.py::_paginate_topic_on_ws`: `max_pages` bumped
+  200 → 2000. Now handles up to ~60k events, enough for 5+ years
+  even on power-user accounts (savings plans + dividends + interest
+  + buys/sells).
+
+### To apply on existing installs
+
+- After deploying, click **⟳ Actualizar** with the **"↻ Full Reload"**
+  checkbox ticked. That re-pulls the full timeline from scratch.
+  Incremental fetches won't backfill the missing history because
+  they only pull forward from `last_update`.
+
 ## 0.1.21 — 2026-06-03
 
 Ledger page now shows **all events by default** instead of

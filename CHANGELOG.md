@@ -1,5 +1,52 @@
 # CHANGELOG
 
+## 0.1.26 — 2026-06-03
+
+Fix the SSP_CORPORATE_ACTION_CASH overload + stop silently dropping
+unknown eventTypes. Triggered by Carlos finding bond redemptions
+(€476.19 + €489.42 in Feb 2025) being counted as "Dividend", which
+inflated investment_income by €965 and understated lifetime_pl. Also
+found a US Treasury Aug 2040 coupon completely missing from the CSV
+because the fetcher silently dropped it.
+
+### Fixed
+
+- `_row_from_tr_event()` **never returns None**. Unrecognized
+  eventTypes now become Type="Unknown" rows so they're visible in
+  the CSV and can be debugged. Previously such events disappeared.
+- `SSP_CORPORATE_ACTION_CASH` is now classified by title + subtitle:
+  - Contains "Endfälligkeit" / "Fälligkeit" / "maturity" / "redemption"
+    / "Ausbuchung" → **Bond redemption** (neutral, NOT income)
+  - Contains "Zinszahlung" / "coupon" / "interest payment" /
+    "Zinsgutschrift" → **Interest**
+  - Otherwise → **Dividend** (stock dividend, default)
+- Better ISIN extraction: tries `instrumentId`, `details.isin`,
+  `details.instrumentId`, `action.isin`, etc., not just the icon URL.
+  Bond events with placeholder icons should now surface their real
+  ISIN (XS0213101073, US912810SQ22, etc.).
+- Better Note: when title is generic ("Feb 2025") and subtitle is
+  populated, surface the subtitle ("Zinszahlung", "Endfälligkeit") so
+  the row is identifiable at a glance.
+- EventSubType column now also falls back to `subtitle` from the
+  event payload, preserving the bond-document descriptor even when
+  TR doesn't expose `eventSubType` explicitly.
+
+### Behavior
+
+- After Full Reload: bond redemptions show Type="Bond redemption"
+  in the Ledger. They don't show up under "Dividends" anymore →
+  the Dividends total drops by the bond-principal amount. The
+  lifetime_pl computation no longer subtracts those as fake income,
+  so the metric goes UP.
+- Any new TR eventType we haven't mapped becomes Type="Unknown"
+  with the raw EventType visible in column 11. Grep for those to
+  discover what TR added: `awk -F';' '$2=="Unknown"'`.
+
+### Requires Full Reload
+
+Existing rows in the CSV keep their old classification (Dividend).
+Click ⟳ Update Now → ↻ Full Reload to re-fetch and re-classify.
+
 ## 0.1.25 — 2026-06-03
 
 Refine the Dividends Payment ledger cap (rolling back the over-eager

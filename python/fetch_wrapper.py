@@ -800,38 +800,90 @@ def _merge_into_csv(tx_csv: Path, new_items: list[dict[str, Any]]) -> None:
     _write_csv(tx_csv, existing_rows)
 
 
-def _row_from_tr_event(ev: dict[str, Any]) -> dict[str, Any] | None:
-    ev_type = ev.get("eventType") or ""
-    csv_type = EVENT_TYPE_MAP.get(ev_type)
-    if csv_type is None:
-        return None
+def _classify_corporate_action(title: str, subtitle: str) -> str:
+    """Decide whether SSP_CORPORATE_ACTION_CASH is a Dividend, Interest
+    (bond coupon) or Bond redemption (principal return at maturity).
+    Defaults to Dividend (stock dividend, the most common case).
+    """
+    blob = (title + " " + subtitle).lower()
+    if any(kw in blob for kw in ("endfälligkeit", "endgültige fälligkeit",
+                                  "fälligkeit", "maturity", "redemption",
+                                  "principal return", "ausbuchung")):
+        return "Bond redemption"
+    if any(kw in blob for kw in ("zinszahlung", "coupon", "interest payment",
+                                  "zinsgutschrift", "kuponzahlung")):
+        return "Interest"
+    return "Dividend"
 
+
+def _extract_isin(ev: dict[str, Any]) -> str:
+    """Best-effort ISIN extraction from a TR timeline event.
+    ISIN format: 2-letter ISO country prefix + 9 alphanum + 1 check = 12 chars.
+    """
+    def _looks_like_isin(s: str) -> bool:
+        return len(s) == 12 and s[:2].isalpha() and s[2:].isalnum()
+
+    icon = ev.get("icon") or ""
+    if "logos/" in icon:
+        for piece in icon.split("/"):
+            if _looks_like_isin(piece):
+                return piece
+
+    for key in ("instrumentId", "isin", "ISIN"):
+        v = ev.get(key)
+        if isinstance(v, str) and _looks_like_isin(v):
+            return v
+
+    for parent_key in ("details", "action", "instrument"):
+        parent = ev.get(parent_key)
+        if isinstance(parent, dict):
+            for k in ("isin", "ISIN", "instrumentId", "subtitleText", "id"):
+                v = parent.get(k)
+                if isinstance(v, str) and _looks_like_isin(v):
+                    return v
+
+    return ""
+
+
+def _row_from_tr_event(ev: dict[str, Any]) -> dict[str, Any]:
+    """Map one TR timeline event to a CSV row.
+
+    NEVER returns None — unrecognized eventTypes become Type="Unknown"
+    so the raw EventType stays visible in the CSV. Mirrors
+    Trade-Republic-Dashboard/app/tr_fetch.py.
+    """
+    ev_type = ev.get("eventType") or ""
+    title = (ev.get("title") or "").strip()
+    subtitle = (ev.get("subtitle") or "").strip()
+
+    csv_type = EVENT_TYPE_MAP.get(ev_type)
     if csv_type == "Trade":
-        csv_type = _classify_trade(ev)
-        if csv_type is None:
-            return None
+        csv_type = _classify_trade(ev) or "Unknown"
+    elif csv_type == "Dividend":
+        csv_type = _classify_corporate_action(title, subtitle)
+    elif csv_type is None:
+        csv_type = "Unknown"
 
     timestamp = ev.get("timestamp") or ev.get("eventTime") or ""
     amount = ev.get("amount") or {}
     value = amount.get("value") if isinstance(amount, dict) else amount
-    note = (ev.get("title") or ev.get("subtitle") or "").strip()
 
-    # ISIN is best-effort: TR's icon URL contains it (logos/<ISIN>/v2).
-    isin = ""
-    icon = ev.get("icon") or ""
-    if "logos/" in icon:
-        for piece in icon.split("/"):
-            if len(piece) == 12 and piece[:2].isalpha() and piece[2:].isalnum():
-                isin = piece
-                break
+    # Bond events have title="Feb 2025" (generic month) and the real
+    # descriptor in subtitle. Surface the more informative one.
+    if subtitle and (not title or title.endswith(" 2025") or
+                     title.endswith(" 2026") or title.endswith(" 2024") or
+                     title.endswith(" 2027") or title.endswith(" 2028")):
+        note = subtitle + (" — " + title if title else "")
+    else:
+        note = title or subtitle
 
-    # Capture the raw TR eventType + subType so we can discriminate
-    # downstream when several TR types collapse into one CSV "Type"
-    # (e.g. CREDIT and SSP_CORPORATE_ACTION_CASH both → Dividend).
+    isin = _extract_isin(ev)
+
     ev_subtype = (
         ev.get("eventSubType")
         or ev.get("subEventType")
         or (ev.get("details") or {}).get("subType")
+        or subtitle  # last resort — preserves bond-docs descriptor
         or ""
     )
 

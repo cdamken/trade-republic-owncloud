@@ -45,7 +45,10 @@ body.tr-app-active #content-wrapper {
 
 	background: var(--bg);
 	color: var(--text);
-	padding: 24px;
+	/* No top padding — the top-bar carries its own padding and the
+	   ownCloud chrome (red "damken cloud" navigation bar) already eats
+	   vertical space. Bottom/left/right stay at 24px for breathing room. */
+	padding: 0 24px 24px;
 	line-height: 1.5;
 	min-height: 100vh;
 	box-sizing: border-box;

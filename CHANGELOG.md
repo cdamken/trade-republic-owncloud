@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 0.1.30 — 2026-06-03
+
+UX fix: same as gbm-owncloud@0.13.4 — tighten the top spacing so
+the cockpit doesn't sit a long way below the ownCloud red nav bar.
+
+### Fixed
+
+- `css/dashboard.css`: drop the 24px top padding on `#tr-app`.
+  ownCloud's `#app-content` already pads the container; we were
+  double-padding. The top-bar's `margin: 0 -24px` already had no
+  negative-top, so no further adjustment needed here.
+
 ## 0.1.29 — 2026-06-03
 
 Fix benchmark replay granularity for the analytics page (MSCI World,

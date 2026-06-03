@@ -1,5 +1,19 @@
 # CHANGELOG
 
+## 0.1.21 — 2026-06-03
+
+Ledger page now shows **all events by default** instead of
+truncating to 500 rows. Users with 6k+ events were seeing "500 of
+5,982 (truncated)" without realizing the page-size dropdown
+existed.
+
+### Changed
+
+- `templates/ledger.php` page-size dropdown: default changes from
+  `500` to `999999` (All rows). Other options reordered to:
+  All / 200 / 500 / 1000 / 2000. The "(slow)" label removed —
+  modern browsers render 6k rows fine.
+
 ## 0.1.20 — 2026-06-03
 
 Surface XIRR (annualized return) in the cockpit, matching gbm-owncloud's

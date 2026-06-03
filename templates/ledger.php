@@ -90,10 +90,11 @@ $routes = $_['routes'];
     <option value="">All months</option>
   </select>
   <select id="page-size">
+    <option value="999999" selected>All rows</option>
     <option value="200">200 rows</option>
-    <option value="500" selected>500 rows</option>
+    <option value="500">500 rows</option>
     <option value="1000">1000 rows</option>
-    <option value="999999">All rows (slow)</option>
+    <option value="2000">2000 rows</option>
   </select>
 </div>
 

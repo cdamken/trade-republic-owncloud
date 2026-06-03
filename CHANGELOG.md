@@ -1,5 +1,31 @@
 # CHANGELOG
 
+## 0.1.27 — 2026-06-03
+
+Fix the position-row + position-modal external research links —
+Yahoo Finance and Stock Analysis URLs were silently broken because
+neither supports ISIN-based lookup (Yahoo killed the lookup
+endpoint years ago; Stock Analysis only handles tickers). The
+Trade Republic URL was also missing the `/profile/` segment.
+
+### Changed
+
+- TR URL: `app.traderepublic.com/instrument/<ISIN>` →
+  `app.traderepublic.com/profile/instrument/<ISIN>` (the correct
+  web-app pattern; works when logged in).
+- Yahoo Finance link → **Boerse Frankfurt**
+  (`boerse-frankfurt.de/equity/<ISIN>` — supports any ISIN
+  natively, covers stocks, ETFs, bonds).
+- Stock Analysis link → **Google search by ISIN** in the row,
+  + **JustETF** in the modal (best for ETF fundamentals).
+- Row chips: `TR / Y! / SA` → `TR / BF / G`.
+
+### Notes
+
+- All four modal links are now public + ISIN-friendly.
+- JustETF only renders useful info for actual ETFs; for stocks the
+  page is mostly empty — that's expected.
+
 ## 0.1.26 — 2026-06-03
 
 Fix the SSP_CORPORATE_ACTION_CASH overload + stop silently dropping

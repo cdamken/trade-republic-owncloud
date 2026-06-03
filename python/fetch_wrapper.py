@@ -248,14 +248,27 @@ EVENT_TYPE_MAP: dict[str, str] = {
     "TRADE_INVOICE":                       "Trade",
     "ORDER_EXECUTED":                      "Trade",
 
-    # Income
-    "SSP_CORPORATE_ACTION_CASH":           "Dividend",
-    "INTEREST_PAYOUT":                     "Interest",
-    "INTEREST_PAYOUT_CREATED":             "Interest",
+    # Income (dividends, interest, bond coupons). Both CORPORATE_ACTION_CASH
+    # and the _NON_DIVIDEND variant route through _classify_corporate_action
+    # (subtitle keyword inspection) so bond coupons become "Interest" and
+    # maturities become "Bond redemption".
+    "SSP_CORPORATE_ACTION_CASH":              "Dividend",
+    "SSP_CORPORATE_ACTION_CASH_NON_DIVIDEND": "Dividend",
+    "INTEREST_PAYOUT":                        "Interest",
+    "INTEREST_PAYOUT_CREATED":                "Interest",
     # legacy
-    "CREDIT":                              "Dividend",
-    "DIVIDEND":                            "Dividend",
-    "ssp_corporate_action_invoice_cash":   "Dividend",
+    "CREDIT":                                 "Dividend",
+    "DIVIDEND":                               "Dividend",
+    "ssp_corporate_action_invoice_cash":      "Dividend",
+
+    # Other cash events from pytr's catalog (real-user data).
+    "SAVINGS_PLAN_EXECUTED":                  "Buy",
+    "CRYPTO_TRANSACTION_INCOMING":            "Deposit",
+    "CRYPTO_TRANSACTION_OUTGOING":            "Withdrawal",
+    "PAYMENT_INBOUND_CREDIT_CARD":            "Deposit",
+    "GIFTER_TRANSACTION":                     "Deposit",
+    "STOCK_PERK_REFUNDED":                    "Deposit",
+    "SSP_SECURITIES_TRANSFER_OUTGOING":       "Withdrawal",
 }
 
 PENDING_LOGIN_TTL_SECONDS = 5 * 60

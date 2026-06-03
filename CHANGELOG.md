@@ -1,5 +1,46 @@
 # CHANGELOG
 
+## 0.1.28 — 2026-06-03
+
+The big eventType catch-up. Found by diff'ing pytr's `all_events.json`
+(15,051 events) vs our CSV (14,294 events). Our `EVENT_TYPE_MAP` was
+silently dropping **8 distinct cash-bearing eventTypes**, including the
+bond coupons Carlos noticed (Aug 2040 US Treasury, etc.).
+
+### Fixed
+
+The original code had:
+```
+# SSP_CORPORATE_ACTION_CASH_NON_DIVIDEND — spinoff cash with no
+#   matching position credit; revisit if a user wants it surfaced.
+```
+That was wrong. TR also uses this eventType for **bond coupons**
+(subtitle="Zinszahlung") and **bond maturities**
+(subtitle="Endgültige Fälligkeit"). 11 events in Carlos's data were
+being dropped including the entire Aug 2040 coupon stream.
+
+### Added to EVENT_TYPE_MAP
+
+- `SSP_CORPORATE_ACTION_CASH_NON_DIVIDEND` → **Dividend** (then
+  `_classify_corporate_action` routes bond coupons → Interest, bond
+  maturities → Bond redemption).
+- `SAVINGS_PLAN_EXECUTED` → **Buy** (legacy variant of
+  TRADING_SAVINGSPLAN_EXECUTED).
+- `CRYPTO_TRANSACTION_INCOMING` → **Deposit**.
+- `CRYPTO_TRANSACTION_OUTGOING` → **Withdrawal**.
+- `PAYMENT_INBOUND_CREDIT_CARD` → **Deposit**.
+- `GIFTER_TRANSACTION` → **Deposit** (gift received from another TR user).
+- `STOCK_PERK_REFUNDED` → **Deposit** (TR promo cash-back).
+- `SSP_SECURITIES_TRANSFER_OUTGOING` → **Withdrawal** (transfer-out
+  to another broker).
+
+### Expected after Full Reload
+
+- CSV row count rises from ~14.3k → ~15k+ events.
+- Aug 2040 US Treasury coupon (Feb 17 2026, €17.18) appears as Type=Interest.
+- Other bond coupons / Stock perks / Crypto-account flows all visible.
+- Lifetime P/L numbers stabilize on real data instead of misclassified rows.
+
 ## 0.1.27 — 2026-06-03
 
 Fix the position-row + position-modal external research links —

@@ -1,5 +1,30 @@
 # CHANGELOG
 
+## 0.1.25 — 2026-06-03
+
+Refine the Dividends Payment ledger cap (rolling back the over-eager
+0.1.24 fix which removed it entirely). 1150 rows on screen was
+overkill — the user only needs a glanceable view of the latest
+events plus filters to drill down.
+
+### Changed
+
+- `js/dividends.js`: cap visible rows at 50 (was: all 1150 in 0.1.24,
+  silently capped at 1000 with misleading label before that).
+- Label adapts to context:
+  - default (date desc): "showing newest 50 of 1150 — refine with filters above"
+  - sorted date asc: "showing oldest 50 of 1150 — refine with filters above"
+  - other sort: "showing top 50 of 1150 — refine with filters above"
+  - with filters: "…of 80 matching the filters — refine further"
+  - rows ≤ 50: no truncation label
+  - 0 rows: "No payments match the current filters"
+
+### Notes
+
+- Also applied to `Trade-Republic-Dashboard/app/dividends.html`
+  upstream — both apps now show the same cap and the same label
+  (unification policy).
+
 ## 0.1.24 — 2026-06-03
 
 Fix: Dividends "Payment ledger" was silently hiding older payments.

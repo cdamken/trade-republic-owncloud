@@ -282,23 +282,41 @@
     });
 
     document.getElementById('rows-count').textContent = `${rows.length} / ${state.rows.length}`;
-    // No client-side truncation — matches upstream behavior in
-    // Trade-Republic-Dashboard/app/dividends.html. The old slice(0,1000)
-    // with "showing first 1000" label was misleading: rows are sorted
-    // by date desc by default, so "first 1000" was actually the NEWEST
-    // 1000 and silently hid older dividends. Modern browsers render
-    // 1150+ rows fine.
+    // Cap the visible rows at LIMIT to keep the table glanceable.
+    // The user sees the top of whatever sort they picked (date desc by
+    // default → newest 50). The label adapts to whether filters are
+    // narrowing the result so it never says "first 50" when actually
+    // the user is looking at top-N of a sorted+filtered subset.
+    const LIMIT = 50;
+    const isFiltered = rows.length < state.rows.length;
+    const truncated = rows.length > LIMIT;
+    const visible = truncated ? rows.slice(0, LIMIT) : rows;
+
     const tbody = document.getElementById('payments-tbody');
-    tbody.innerHTML = rows.length
-      ? rows.map(p =>
-          '<tr>' +
-            '<td>' + formatDate(p.date) + '</td>' +
-            '<td class="ticker">' + (p.name || '—') + '</td>' +
-            '<td class="tx-isin">' + (p.isin || '—') + '</td>' +
-            '<td>' + kindPill(p) + '</td>' +
-            '<td class="num">' + fmtEur(p.amount || 0) + '</td>' +
-          '</tr>'
-        ).join('')
-      : '<tr><td colspan="5" class="empty">No payments match the current filters</td></tr>';
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="empty">No payments match the current filters</td></tr>';
+      return;
+    }
+    let html = visible.map(p =>
+      '<tr>' +
+        '<td>' + formatDate(p.date) + '</td>' +
+        '<td class="ticker">' + (p.name || '—') + '</td>' +
+        '<td class="tx-isin">' + (p.isin || '—') + '</td>' +
+        '<td>' + kindPill(p) + '</td>' +
+        '<td class="num">' + fmtEur(p.amount || 0) + '</td>' +
+      '</tr>'
+    ).join('');
+    if (truncated) {
+      const sortLabel = state.sortKey === 'date' && state.sortDir === 'desc'
+        ? 'newest'
+        : state.sortKey === 'date' && state.sortDir === 'asc'
+        ? 'oldest'
+        : 'top';
+      const matchHint = isFiltered ? ' matching the filters' : '';
+      html += '<tr><td colspan="5" class="empty">showing ' + sortLabel + ' ' + LIMIT
+            + ' of ' + rows.length + matchHint
+            + ' — refine ' + (isFiltered ? 'further' : 'with filters above') + '</td></tr>';
+    }
+    tbody.innerHTML = html;
   }
 })();

@@ -359,12 +359,25 @@ async function init() {
 
     // Align each benchmark series to the visible month range.
     const benchmarks = data.benchmarks || (data.benchmark ? [data.benchmark] : []);
+    // Python side returns one benchmark value per trading day
+    // (Yahoo interval=1d). Build a daily index + carry-forward for
+    // weekends/holidays so the chart doesn't gap.
     const benchDatasets = benchmarks.map(b => {
-      const byMonth = {};
-      for (const p of (b.history || [])) byMonth[p.date.slice(0, 7)] = p.value;
+      const byDay = {};
+      for (const p of (b.history || [])) byDay[p.date] = p.value;
+      const benchDatesSorted = Object.keys(byDay).sort();
+      let last = null;
       const aligned = hist.map(h => {
-        const v = byMonth[h.date.slice(0, 7)];
-        return v == null ? null : v;
+        const d = h.date;
+        if (byDay[d] != null) {
+          last = byDay[d];
+        } else if (last == null) {
+          for (const bd of benchDatesSorted) {
+            if (bd <= d) last = byDay[bd];
+            else break;
+          }
+        }
+        return last;
       });
       return { aligned, label: b.label || b.symbol, color: b.color || '#fbbf24' };
     }).filter(b => b.aligned.some(v => v != null));

@@ -1,5 +1,24 @@
 # CHANGELOG
 
+## 0.1.29 — 2026-06-03
+
+Fix benchmark replay granularity for the analytics page (MSCI World,
+S&P 500, Nasdaq 100 overlays). Same root cause as the GBM port:
+Yahoo was being asked for `interval=1mo` and the JS was aggregating
+by month, producing step-shaped lines.
+
+### Fixed
+
+- `python/fetch_wrapper.py`: Yahoo URL uses `interval=1d`.
+- `js/analytics.js`: benchmark alignment iterates by day instead of
+  by month-key. Carries forward the last known close on
+  weekends/holidays.
+
+### Notes
+
+- Run a Full Reload after deploy so analytics.json is rebuilt with
+  daily benchmark data (the old monthly data won't auto-refresh).
+
 ## 0.1.28 — 2026-06-03
 
 The big eventType catch-up. Found by diff'ing pytr's `all_events.json`

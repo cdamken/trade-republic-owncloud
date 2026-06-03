@@ -282,9 +282,15 @@
     });
 
     document.getElementById('rows-count').textContent = `${rows.length} / ${state.rows.length}`;
+    // No client-side truncation — matches upstream behavior in
+    // Trade-Republic-Dashboard/app/dividends.html. The old slice(0,1000)
+    // with "showing first 1000" label was misleading: rows are sorted
+    // by date desc by default, so "first 1000" was actually the NEWEST
+    // 1000 and silently hid older dividends. Modern browsers render
+    // 1150+ rows fine.
     const tbody = document.getElementById('payments-tbody');
     tbody.innerHTML = rows.length
-      ? rows.slice(0, 1000).map(p =>
+      ? rows.map(p =>
           '<tr>' +
             '<td>' + formatDate(p.date) + '</td>' +
             '<td class="ticker">' + (p.name || '—') + '</td>' +
@@ -292,9 +298,7 @@
             '<td>' + kindPill(p) + '</td>' +
             '<td class="num">' + fmtEur(p.amount || 0) + '</td>' +
           '</tr>'
-        ).join('') + (rows.length > 1000
-          ? '<tr><td colspan="5" class="empty">(showing first 1000 — refine filters)</td></tr>'
-          : '')
+        ).join('')
       : '<tr><td colspan="5" class="empty">No payments match the current filters</td></tr>';
   }
 })();

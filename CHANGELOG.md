@@ -1,5 +1,20 @@
 # CHANGELOG
 
+## 0.1.24 — 2026-06-03
+
+Fix: Dividends "Payment ledger" was silently hiding older payments.
+The table sorts by date desc (newest first) and then sliced to 1000
+rows, with the misleading label "showing first 1000 — refine filters".
+Reported by Carlos: he had 1150 dividends; the oldest 150 were not
+visible and no warning hinted that re-sorting by date asc would
+also hide the newest ones.
+
+### Fixed
+
+- `js/dividends.js`: remove the `rows.slice(0, 1000)` cap. Matches
+  upstream `Trade-Republic-Dashboard/app/dividends.html` which has
+  always rendered all rows. Browsers handle 1500+ rows fine.
+
 ## 0.1.23 — 2026-06-03
 
 Debug: capture raw TR eventType + eventSubType in

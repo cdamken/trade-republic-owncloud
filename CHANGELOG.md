@@ -1,5 +1,35 @@
 # CHANGELOG
 
+## 0.1.20 — 2026-06-03
+
+Surface XIRR (annualized return) in the cockpit, matching gbm-owncloud's
+5-KPI layout. The metric was already computed in `analyze_analytics.py`
+upstream but never displayed — closes part of the GBM/TR visual
+unification gap.
+
+### Added
+
+- 5th cockpit KPI card: **XIRR (annualized)** between Total P/L and
+  Available Cash. Reads `cash_flow.xirr` from `analytics.json`
+  (already produced by upstream's `analyze_analytics.py`).
+- `dashboard.js::load()` now also fetches `analytics` via the existing
+  `/data/{type}` endpoint, with a soft-fail (analytics is optional —
+  first-run users won't have it yet).
+- Tooltip on the card explains money-weighted vs simple P/L %.
+
+### Changed
+
+- Cockpit grid: `2fr 1fr 1fr 1fr` → `2fr 1fr 1fr 1fr 1fr`.
+
+### Notes
+
+- When XIRR can't converge (only one cash-flow sign, or all flows
+  outside the tr-api window): the card shows "—" with a sub-label
+  explaining the state. Same UX as GBM.
+- TR has unlimited timeline history (no GBM-style 365d API window),
+  so XIRR is genuinely useful here — most users should see a real
+  annualized number rather than "—".
+
 ## 0.1.0 — 2026-05-26
 
 First release.

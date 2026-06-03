@@ -580,6 +580,14 @@ async function load() {
   if (!res.ok) return;  // no portfolio.json yet — setup wizard / first update will create it
   state.data = await res.json();
 
+  // Analytics is optional — first-run users won't have it yet, and a
+  // missing file shouldn't break the portfolio render. We use it for
+  // the XIRR card and any future analytics-derived KPIs.
+  try {
+    const aRes = await fetch(routes.data.replace('__TYPE__', 'analytics') + '?t=' + Date.now());
+    state.analytics = aRes.ok ? await aRes.json() : null;
+  } catch (_) { state.analytics = null; }
+
   // Re-render the staleness chip in-place. Called on initial load and on
   // any cross-tab BroadcastChannel signal / 60s poll so the label stays
   // fresh and tabs catch updates fired from elsewhere.
@@ -751,7 +759,7 @@ function renderConcentrationWarnings(data) {
 }
 
 function renderCockpit(summary, data) {
-  // 4 KPIs at the top of the sticky cockpit.
+  // 5 KPIs at the top of the sticky cockpit.
   document.getElementById('ck-total').textContent = fmtEUR(summary.total_netvalue);
   document.getElementById('ck-total-sub').textContent =
     'Depot ' + fmtEUR(summary.depot_netvalue) +
@@ -767,6 +775,23 @@ function renderCockpit(summary, data) {
   plEl.classList.remove('pl-pos', 'pl-neg'); plEl.classList.add(plCls);
   plPctEl.classList.remove('pl-pos', 'pl-neg'); plPctEl.classList.add(plCls);
   document.getElementById('ck-cash').textContent = fmtEUR(summary.cash_eur);
+
+  // XIRR — read from analytics.json (cash_flow.xirr is a percent number).
+  // null = not enough flows / didn't converge → show em-dash like GBM.
+  const xirr = state.analytics && state.analytics.cash_flow && state.analytics.cash_flow.xirr;
+  const xirrEl = document.getElementById('ck-xirr');
+  const xirrSubEl = document.getElementById('ck-xirr-sub');
+  if (xirr == null || isNaN(xirr)) {
+    xirrEl.textContent = '—';
+    xirrEl.classList.remove('pl-pos', 'pl-neg');
+    xirrSubEl.textContent = state.analytics ? 'not enough flows to converge' : 'analytics pending';
+  } else {
+    const sign = xirr >= 0 ? '+' : '';
+    xirrEl.textContent = sign + xirr.toFixed(2) + '%';
+    xirrEl.classList.remove('pl-pos', 'pl-neg');
+    xirrEl.classList.add(xirr >= 0 ? 'pl-pos' : 'pl-neg');
+    xirrSubEl.textContent = 'money-weighted, all external flows';
+  }
 }
 
 function renderWealthBuckets(summary) {

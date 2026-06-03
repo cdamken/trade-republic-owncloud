@@ -57,7 +57,7 @@ $routes = $_['routes'];
   <div class="t-stage" id="toast-stage">Connecting…</div>
 </div>
 
-<!-- Sticky cockpit — 4 KPIs + 5 bucket pills (populated by dashboard.js) -->
+<!-- Sticky cockpit — 5 KPIs + 5 bucket pills (populated by dashboard.js) -->
 <div class="cockpit">
   <div class="cockpit-row kpis">
     <div>
@@ -74,6 +74,11 @@ $routes = $_['routes'];
       <div class="ck-label">Total P/L</div>
       <div class="ck-value" id="ck-pl">€0.00</div>
       <div class="ck-sub" id="ck-pl-pct">0.00%</div>
+    </div>
+    <div title="Annualized money-weighted return (XIRR). Uses all external cash flows (deposits + tax refunds minus withdrawals) plus today's portfolio value as the terminal flow. Unlike P/L %, this is time-aware: capital that worked longer counts more.">
+      <div class="ck-label">XIRR (annualized)</div>
+      <div class="ck-value" id="ck-xirr">—</div>
+      <div class="ck-sub" id="ck-xirr-sub">money-weighted</div>
     </div>
     <div>
       <div class="ck-label">Available Cash</div>

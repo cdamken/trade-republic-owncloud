@@ -136,7 +136,10 @@ function toggleSection(id) {
 
 // ============ Update flow (POST routes.update + MFA modal) ============
 const updateBtn = () => document.getElementById('update-btn');
-const updateStatus = () => document.getElementById('update-status');
+// NOTE: #update-status used to live in the subtitle bar; v0.1.x dropped
+// it in favor of the toast (#toast + #toast-stage). The showStatus()
+// helper below now routes through the toast — keep both names so the
+// existing 15+ call-sites don't all need a rename.
 const setUpdateBtn = (loading, label) => {
   const b = updateBtn();
   if (!b) return;
@@ -153,13 +156,21 @@ const setUpdateBtn = (loading, label) => {
     b.textContent = '🔄 ' + (label || 'Update Now');
   }
 };
+// Route status messages through the toast (the dedicated #update-status
+// span this used to write to was dropped from the template). The toast
+// auto-hides 'ok' messages after 3s; errors stay visible until dismissed
+// or the next showStatus() call replaces them.
 const showStatus = (kind, msg) => {
-  const s = updateStatus();
-  if (!s) return;
-  s.className = 'update-status ' + kind;
-  s.textContent = msg;
-  s.style.display = 'inline-block';
-  if (kind === 'ok') setTimeout(() => { s.style.display = 'none'; }, 5000);
+  const t = document.getElementById('toast');
+  const title = document.getElementById('toast-title');
+  const stage = document.getElementById('toast-stage');
+  if (!t || !title || !stage) return;
+  t.classList.remove('ok', 'err');
+  if (kind === 'ok' || kind === 'err') t.classList.add(kind);
+  title.textContent = msg || '';
+  stage.textContent = '';
+  t.classList.add('active');
+  if (kind === 'ok') setTimeout(() => t.classList.remove('active'), 3000);
 };
 
 async function postUpdate(mfaCode, opts) {

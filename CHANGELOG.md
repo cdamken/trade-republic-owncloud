@@ -1,5 +1,39 @@
 # CHANGELOG
 
+## 0.1.34 — 2026-06-05
+
+Companion release to gbm-owncloud@v0.14.12 — same structural
+clean-up applied to TR. The verifier from v0.1.33 surfaced three
+stranded DOM references; this release cleans them up and gets
+the codebase to ✅ on `verify_dom_ids.py`.
+
+### Removed
+
+- `cf-last-deposit` / `cf-last-deposit-date` references in
+  `js/analytics.js` (last-deposit tile dropped in the
+  2026-05-28 refactor; was guarded by a null-check but the
+  template element was never coming back. Also removed the
+  identical dead block from upstream
+  `Trade-Republic-Dashboard/app/analytics.html` so the two stay
+  aligned).
+
+### Changed
+
+- `js/dashboard.js::showStatus()` rewritten: instead of writing
+  to the no-longer-existing `#update-status` span, it routes
+  through `#toast` / `#toast-title` / `#toast-stage` — the same
+  toast the update flow already uses. 15+ call-sites that were
+  silently no-op'ing now show feedback again. The old
+  `updateStatus()` helper is gone (it only existed to grab the
+  removed element).
+- `scripts/deploy.sh` now runs `scripts/verify_dom_ids.py` as a
+  mandatory pre-deploy step (`--skip-verify` flag exists but
+  exists only for debugging the verifier itself).
+- `INSTALL.md` got new sections **6.5 Updating the app** (the
+  deploy.sh flow) and **6.6 Parity guarantees with upstream**
+  (link to `TR-GBM-Project/OWNCLOUD-PATCHES.md`, the 9-patch
+  catalog of permitted dashboard→ownCloud transformations).
+
 ## 0.1.33 — 2026-06-05
 
 Add `scripts/verify_dom_ids.py` — a pre-deploy check that catches

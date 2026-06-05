@@ -52,6 +52,7 @@ RSYNC_SSH="ssh -A -i ${SERVER_KEY} -p ${SERVER_PORT}"
 DO_APP=1
 DO_LIB=1
 DO_BUMP=""
+SKIP_VERIFY=0
 
 usage() {
   cat <<EOF
@@ -65,6 +66,10 @@ Options:
   --bump LEVEL             Bump <version> in appinfo/info.xml before deploy.
                            LEVEL = patch | minor | major
                            (no default — bump is opt-in)
+  --skip-verify            Skip scripts/verify_dom_ids.py pre-deploy check.
+                           Don't use this — the check exists because one
+                           null DOM reference can abort an entire JS
+                           wire-up callback (see 2026-06-05 incident).
   -h, --help               Show this help
 
 When to bump:
@@ -82,13 +87,14 @@ EOF
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --app)        DO_APP=1; shift ;;
-    --no-app)     DO_APP=0; shift ;;
-    --lib)        DO_LIB=1; shift ;;
-    --no-lib)     DO_LIB=0; shift ;;
-    --bump)       DO_BUMP="${2:-}"; shift 2 ;;
-    -h|--help)    usage; exit 0 ;;
-    *)            echo "Unknown flag: $1" >&2; usage >&2; exit 2 ;;
+    --app)         DO_APP=1; shift ;;
+    --no-app)      DO_APP=0; shift ;;
+    --lib)         DO_LIB=1; shift ;;
+    --no-lib)      DO_LIB=0; shift ;;
+    --bump)        DO_BUMP="${2:-}"; shift 2 ;;
+    --skip-verify) SKIP_VERIFY=1; shift ;;
+    -h|--help)     usage; exit 0 ;;
+    *)             echo "Unknown flag: $1" >&2; usage >&2; exit 2 ;;
   esac
 done
 
@@ -105,6 +111,14 @@ if [[ $DO_LIB -eq 1 ]] && [[ ! -d "$TR_API_REPO" ]]; then
   die "tr-api repo not found at $TR_API_REPO (set TR_API_REPO env or use --no-lib)"
 fi
 [[ -f "$SERVER_KEY" ]] || die "SSH key not found at $SERVER_KEY"
+
+# ---------- step 0: pre-deploy DOM-ID verifier ----------
+if [[ $DO_APP -eq 1 ]] && [[ $SKIP_VERIFY -eq 0 ]]; then
+  say "Pre-deploy: verify DOM-ID sync (scripts/verify_dom_ids.py)"
+  if ! python3 "${REPO_ROOT}/scripts/verify_dom_ids.py"; then
+    die "DOM-ID check failed. Fix the missing IDs or pass --skip-verify (not recommended)."
+  fi
+fi
 
 # ---------- step 1: optional version bump ----------
 if [[ -n "$DO_BUMP" ]]; then

@@ -140,6 +140,53 @@ Open `https://your-owncloud/index.php/apps/trade_republic/`:
 | `auth_failed` | Wrong phone or PIN. Open **⚙ Account** and save them again. |
 | Fetch takes > 2 min and times out | The PHP service timeout is 240 s. If your history is huge, use the "Full reload" checkbox in the MFA modal only when needed — incremental mode normally takes 5–15 s. |
 
+## 6.5. Updating the app
+
+From your laptop (**don't** `git pull` on the server — it skips the
+three pillars deploy.sh manages):
+
+```bash
+cd ~/damkencloud/Claude/Trade-Republic-owncloud
+./scripts/deploy.sh --bump patch
+```
+
+The script:
+1. Runs `scripts/verify_dom_ids.py` (mandatory pre-deploy check —
+   catches the class of bug where JS references a DOM id that no
+   template defines, which throws `null.addEventListener` at runtime
+   and aborts entire wire-up callbacks).
+2. Bumps `<version>` in `appinfo/info.xml`.
+3. rsyncs the app to `/var/www/owncloud/apps/trade_republic/`.
+4. `chown www-data` + `occ upgrade` + `maintenance:mode --off`.
+5. Reinstalls `tr-api` in `/opt/tr-venv`.
+6. `occ app:enable trade_republic` regenerates the asset cache buster.
+
+Flag variants:
+
+```bash
+./scripts/deploy.sh                # app + lib, no version bump
+./scripts/deploy.sh --no-lib       # JS-only change, skip pip
+./scripts/deploy.sh --lib --no-app # tr-api hot-fix only
+```
+
+## 6.6. Parity guarantees with upstream
+
+This app is a **verbatim port of `Trade-Republic-Dashboard`**, with only
+the divergences listed in
+[`TR-GBM-Project/OWNCLOUD-PATCHES.md`](https://github.com/cdamken/TR-GBM-Project/blob/main/OWNCLOUD-PATCHES.md)
+(9 documented transformations: data-route attrs, CSRF helper,
+addEventListener via null-safe `on()`, ICrypto credentials, per-user
+data dir, scoped CSS, .htaccess cache override, IIFE, tabs/spaces).
+Any divergence outside that catalog is a bug.
+
+`scripts/verify_dom_ids.py` protects against the most common class:
+stale DOM-id references in JS after a template element was removed.
+Run it manually any time:
+
+```bash
+python3 scripts/verify_dom_ids.py
+```
+
 ## 7. Per-user data
 
 After the first fetch, you'll see on disk:

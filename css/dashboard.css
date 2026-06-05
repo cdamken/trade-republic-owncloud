@@ -532,7 +532,7 @@ body.tr-app-active #content-wrapper {
 #tr-app .progress-overlay {
 	position: fixed; inset: 0; background: rgba(15, 20, 25, 0.92);
 	display: none; align-items: center; justify-content: center;
-	z-index: 200; backdrop-filter: blur(8px);
+	z-index: 200;
 }
 #tr-app .progress-overlay.show { display: flex; }
 #tr-app .progress-box {
@@ -560,7 +560,7 @@ body.tr-app-active #content-wrapper {
 #tr-app .modal-backdrop {
 	position: fixed; inset: 0; background: rgba(0,0,0,0.7);
 	display: none; align-items: center; justify-content: center;
-	z-index: 100; backdrop-filter: blur(4px);
+	z-index: 100;
 }
 #tr-app .modal-backdrop.open { display: flex; }
 #tr-app .modal {

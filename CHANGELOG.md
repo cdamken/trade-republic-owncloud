@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 0.1.31 — 2026-06-03
+
+Same backdrop-blur policy cleanup as gbm-owncloud@0.13.6. Remove
+`backdrop-filter: blur(…)` from `.modal-backdrop` and
+`.progress-overlay` scrims. Top-bar header keeps its blur.
+
 ## 0.1.30 — 2026-06-03
 
 UX fix: same as gbm-owncloud@0.13.4 — tighten the top spacing so

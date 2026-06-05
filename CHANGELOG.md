@@ -1,5 +1,36 @@
 # CHANGELOG
 
+## 0.1.35 — 2026-06-05
+
+CI + automated test harness. Mirror of gbm-owncloud@v0.14.13.
+
+### Added
+
+- `scripts/verify_wiring.py` — JS-callable-reference verifier
+  companion to `verify_dom_ids.py`.
+- `tests/test_fetch_wrapper_smoke.py` — 5 stdlib-unittest tests
+  on `python/fetch_wrapper.py` (file exists, no crash on `--help`,
+  argparse-required args, `--full` accepted, exit codes in sync
+  with `TrService.php`).
+- `tests/test_verify_scripts.py` — 5 regression tests for both
+  verifiers (planted-bug detection + comment/string false-positive
+  prevention).
+- `.github/workflows/ci.yml` — runs both verifiers + unittest on
+  every push/PR. Pure stdlib Python, no `pip install`, ~2 s.
+- `scripts/deploy.sh` step 0 now runs `verify_wiring.py` and
+  `python3 -m unittest discover -s tests` as mandatory gates.
+
+### Tests
+
+```
+$ python3 -m unittest discover -s tests -v
+... 9 tests ...
+----------------------------------------------------------------------
+Ran 9 tests in 0.354s
+
+OK
+```
+
 ## 0.1.34 — 2026-06-05
 
 Companion release to gbm-owncloud@v0.14.12 — same structural

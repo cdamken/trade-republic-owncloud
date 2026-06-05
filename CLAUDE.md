@@ -27,13 +27,15 @@ repo copies them.
 The only changes that originate here are forced by the multi-user
 ownCloud context — per-user paths, env-injected credentials, CSP
 adaptations, etc. The full list of structural divergences lives in
-[UPSTREAM.md](UPSTREAM.md). If you find yourself adding a new feature
+[TR-GBM-Project/OWNCLOUD-PATCHES.md](https://github.com/cdamken/TR-GBM-Project/blob/main/OWNCLOUD-PATCHES.md)
+(catalog of the 9 permitted dashboard→ownCloud transformations,
+shared with `gbm-owncloud`). If you find yourself adding a new feature
 HERE first, stop and rethink — it probably belongs upstream.
 
 ## The cardinal rule: copy verbatim, patch minimally
 
 When porting from upstream, copy line-for-line. The only allowed
-patches without UPSTREAM.md justification:
+patches without OWNCLOUD-PATCHES.md justification:
 
 - **Fetch URLs**: read from `data-route-*` attrs on `#tr-app`
   (template injects them via PageController). Replaces hardcoded
@@ -212,9 +214,32 @@ img/app.svg                     navigation entry icon
 | `python/fetch_wrapper.py` | The ENTIRE pipeline: WAF token → push → wait for code → fetch portfolio (snapshot_full) → fetch both timeline topics on ONE WS → write CSV → compute analytics inline → write portfolio.json + analytics.json + net_worth_history.json. |
 | `templates/main.php` + `js/dashboard.js` | Portfolio table with search/filter/sort. Verbatim from upstream. |
 | `templates/analytics.php` + `js/analytics.js` | Charts (Cash Flow, Allocation, Net Worth, Dividends) using vendored Chart.js. |
-| `UPSTREAM.md` | The diff catalog vs upstream Dashboard. Every divergence has a justification. |
+| `TR-GBM-Project/OWNCLOUD-PATCHES.md` (sibling repo) | The diff catalog vs upstream Dashboard. Every divergence has a justification. Shared with `gbm-owncloud`. |
+| `scripts/verify_dom_ids.py` + `scripts/verify_wiring.py` | Pre-deploy gates: block `null.addEventListener` and stranded JS refs. Mandatory in `deploy.sh` step 0 and in CI. |
+| `tests/` | 9 unit tests covering the wrapper smoke path + verifier regression. Run with `python3 -m unittest discover -s tests`. |
 
 ## Recently resolved
+
+- **2026-06-05**: Tests + CI harness landed (v0.1.35). 9 unit
+  tests, GitHub Actions green on push, `scripts/verify_dom_ids.py`
+  + `scripts/verify_wiring.py` + `unittest discover` as mandatory
+  pre-deploy gates in `scripts/deploy.sh`.
+- **2026-06-05**: Cleaned 3 stranded DOM references that the new
+  verifier surfaced (v0.1.34): rewrote `showStatus()` to route
+  through `#toast` instead of the removed `#update-status` span;
+  removed the `cf-last-deposit` tile refs that pointed at an
+  element dropped from the template in the 2026-05-28 refactor
+  (also removed in upstream `Trade-Republic-Dashboard`).
+- **2026-06-05**: Order lifecycle eventTypes captured in CSV
+  (v0.1.32) — `ORDER_CANCELED`, `TRADING_ORDER_CANCELLED`,
+  `ORDER_EXPIRED`, `TRADING_ORDER_EXPIRED`, `TRADING_ORDER_REJECTED`,
+  `TRADING_ORDER_CREATED` mapped to Cancelled/Expired/Rejected/Pending.
+  ~370 events that were appearing as `Type=Unknown` now categorized.
+- **2026-06-05**: Catalog of permitted dashboard→owncloud patches
+  written at [`TR-GBM-Project/OWNCLOUD-PATCHES.md`](https://github.com/cdamken/TR-GBM-Project/blob/main/OWNCLOUD-PATCHES.md).
+  Replaces the planned (but never written) `UPSTREAM.md` in this
+  repo — same content, single source of truth for both GBM and TR
+  ports.
 
 - **2026-05-28**: 'Documents' button + `POST /api/download_docs` route.
   `TrService::runDocsDownload()` shells out to `tr-api docs download

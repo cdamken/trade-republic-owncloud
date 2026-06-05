@@ -1,5 +1,24 @@
 # CHANGELOG
 
+## 0.1.32 — 2026-06-03
+
+Capture order lifecycle events (cancelled, expired, rejected,
+pending) in the CSV with proper Type labels. Carlos has ~370 of
+these in his account — previously they were lumped as Type="Unknown"
+since they were unmapped in EVENT_TYPE_MAP.
+
+### Added to EVENT_TYPE_MAP
+
+- `ORDER_CANCELED`, `TRADING_ORDER_CANCELLED` → **Cancelled**
+- `ORDER_EXPIRED`, `TRADING_ORDER_EXPIRED` → **Expired**
+- `TRADING_ORDER_REJECTED` → **Rejected**
+- `TRADING_ORDER_CREATED` → **Pending** (limit orders waiting to fill)
+
+After Full Reload these events will show up in the Ledger with the
+right Category badge. A dedicated "Histórico" page (matching GBM's
+orders_all.html) was considered but deferred — the existing Ledger
+filter can already surface them by Type.
+
 ## 0.1.31 — 2026-06-03
 
 Same backdrop-blur policy cleanup as gbm-owncloud@0.13.6. Remove

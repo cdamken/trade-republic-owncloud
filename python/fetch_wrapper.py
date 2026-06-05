@@ -271,6 +271,14 @@ EVENT_TYPE_MAP: dict[str, str] = {
     "GIFTER_TRANSACTION":                     "Deposit",
     "STOCK_PERK_REFUNDED":                    "Deposit",
     "SSP_SECURITIES_TRANSFER_OUTGOING":       "Withdrawal",
+
+    # Order lifecycle events (non-cash, useful in Ledger / audits).
+    "ORDER_CANCELED":                         "Cancelled",
+    "TRADING_ORDER_CANCELLED":                "Cancelled",
+    "ORDER_EXPIRED":                          "Expired",
+    "TRADING_ORDER_EXPIRED":                  "Expired",
+    "TRADING_ORDER_REJECTED":                 "Rejected",
+    "TRADING_ORDER_CREATED":                  "Pending",
 }
 
 PENDING_LOGIN_TTL_SECONDS = 5 * 60

@@ -1,5 +1,26 @@
 # CHANGELOG
 
+## 0.1.33 — 2026-06-05
+
+Add `scripts/verify_dom_ids.py` — a pre-deploy check that catches
+stranded JS references to DOM IDs that no template defines. The
+2026-06-05 `settings-btn` debacle in gbm-owncloud showed how one
+of these can throw at runtime, abort the rest of the wire-up, and
+silently break unrelated features (the GBM TOTP submit button).
+
+First run on this repo surfaced 3 latent issues (kept guarded by
+null-checks today but worth cleaning up):
+
+- `update-status` — 15+ `showStatus()` calls in `dashboard.js`
+  silently no-op because the ID was dropped from the template
+  during the toast refactor.
+- `cf-last-deposit` / `cf-last-deposit-date` — `analytics.js`
+  expects a "last deposit" tile that exists upstream in
+  `Trade-Republic-Dashboard/app/analytics.html:436` but was never
+  ported into `templates/analytics.php`.
+
+Run with `python3 scripts/verify_dom_ids.py` from the repo root.
+
 ## 0.1.32 — 2026-06-03
 
 Capture order lifecycle events (cancelled, expired, rejected,

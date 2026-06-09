@@ -88,32 +88,18 @@ async function loadCockpit(root) {
   } catch (_) { /* portfolio.json not yet — leave placeholders */ }
 }
 
-async function init() {
-  const root = document.getElementById('tr-app');
-  document.body.classList.add('tr-app-active');
-  loadCockpit(root);  // fire-and-forget — independent of analytics data
-  const dataUrl = root.dataset.routeData.replace('__TYPE__', 'analytics');
+// ----------------------------------------------------------------------
+// init() helpers — extracted in v0.1.39 from a 382-line init() that
+// mixed data loading, cash-flow tiles, allocation chart, geo chart and
+// history chart wiring in one function. Each helper handles one concern.
+// ----------------------------------------------------------------------
 
-  let data;
-  try {
-    const res = await fetch(dataUrl + '?t=' + Date.now());
-    if (!res.ok) {
-      // No analytics yet (first install). Show a friendly note instead of crashing.
-      document.body.insertAdjacentHTML('afterbegin',
-        '<div style="background:rgba(251,191,36,0.1); border-left:4px solid #fbbf24; padding:16px 20px; border-radius:8px; margin:20px 0; font-size:14px; color:#e8eef5;">' +
-        '⚠️ No analytics yet — go to <a href="' + root.dataset.routeIndex + '" style="color:#60a5fa">Portfolio</a> and click <b>Update Now</b> first.</div>');
-      return;
-    }
-    data = await res.json();
-  } catch (e) {
-    document.body.insertAdjacentHTML('afterbegin',
-      '<div style="background:rgba(248,113,113,0.1); border-left:4px solid #f87171; padding:16px 20px; border-radius:8px; margin:20px 0; color:#e8eef5;">' +
-      'Could not load analytics: ' + e.message + '</div>');
-    return;
-  }
-
-  // ============ Cash Flow ============
-  const cf = data.cash_flow || {};
+/**
+ * Renders the cash-flow tile cluster + lifetime P/L + 12-month dividend
+ * forecast at the top of the analytics page. Pure DOM rendering — no
+ * fetching, no chart construction.
+ */
+function _renderCashFlowTiles(cf, div) {
   document.getElementById('cf-deposits').textContent = fmtEur0(cf.deposits?.total || 0);
   document.getElementById('cf-deposits-count').textContent = cf.deposits?.count || 0;
   document.getElementById('cf-refunds').textContent = fmtEur0(cf.tax_refunds?.total || 0);
@@ -150,7 +136,6 @@ async function init() {
   }
 
   // Income forecast (forward 12mo dividends + yield on cost) + trading totals
-  const div = data.dividends || {};
   const fwd = div.forward_12mo;
   const fwdEl = document.getElementById('cf-fwd-div');
   const fwdSub = document.getElementById('cf-fwd-div-sub');
@@ -172,163 +157,170 @@ async function init() {
   document.getElementById('cf-sells').textContent = fmtEur0(cf.sells?.total || 0);
   document.getElementById('cf-sells-count').textContent = (cf.sells?.count || 0).toLocaleString();
 
-  // Top/bottom contributors table removed — Portfolio tab covers it.
-
   const monthly = cf.monthly || [];
   if (monthly.length > 0) {
     const avgNet = monthly.reduce((s, m) => s + m.net_flow, 0) / monthly.length;
     document.getElementById('cf-avg-month').textContent =
       (avgNet >= 0 ? '+' : '−') + fmtEur0(Math.abs(avgNet));
     document.getElementById('cf-month-count').textContent = monthly.length + ' months';
-
   }
+}
 
-  // Capital invested over time chart removed 2026-06-01 — see analytics
-  // research note. Replaced by the benchmark overlay on the Net Worth chart
-  // below (much more actionable: "did I beat the index?").
+/**
+ * Doughnut allocation chart (asset-category breakdown).
+ */
+function _renderAllocationChart(allocation) {
+  document.getElementById('alloc-total').textContent =
+    '€' + (allocation?.total || 0).toLocaleString(undefined,{maximumFractionDigits:0});
+  if (!allocation || allocation.total <= 0) return;
+  new Chart(document.getElementById('allocationChart'), {
+    type: 'doughnut',
+    data: {
+      labels: Object.keys(allocation.categories),
+      datasets: [{
+        data: Object.values(allocation.categories),
+        backgroundColor: ['#60a5fa','#4ade80','#fbbf24','#7a8599'],
+        borderColor: '#1a1f2e', borderWidth: 3, hoverOffset: 12,
+        hoverBorderWidth: 3, spacing: 2,
+      }],
+    },
+    options: {
+      maintainAspectRatio: false,
+      animation: { ...ANIMATION, animateRotate: true, animateScale: false },
+      cutout: '70%',
+      plugins: {
+        legend: {
+          position: 'right',
+          labels: {
+            color: '#e8eef5', font: { size: 14, weight: '600' },
+            padding: 20, usePointStyle: true, pointStyle: 'circle',
+            boxWidth: 12, boxHeight: 12,
+          },
+        },
+        tooltip: { ...TOOLTIP,
+          callbacks: {
+            label: (ctx) => {
+              const total = ctx.dataset.data.reduce((s, v) => s + v, 0);
+              const pct = total > 0 ? (ctx.parsed / total * 100) : 0;
+              return ' ' + ctx.label + ': €' + ctx.parsed.toLocaleString(undefined, {maximumFractionDigits:0}) + '  (' + pct.toFixed(1) + '%)';
+            },
+          },
+        },
+      },
+    },
+  });
+}
 
-  // ============ Allocation (dividends moved to dividends.php, 2026-05-29) ============
-  document.getElementById('alloc-total').textContent = '€' + (data.allocation?.total || 0).toLocaleString(undefined,{maximumFractionDigits:0});
+// ISIN prefix → country name. analytics.json doesn't carry all_positions,
+// so geo-allocation re-fetches portfolio.json (small JSON, already cached
+// by the browser from the cockpit load).
+const ISIN_COUNTRIES = {
+  US: 'United States', DE: 'Germany', FR: 'France', GB: 'United Kingdom',
+  IE: 'Ireland (UCITS)', LU: 'Luxembourg', NL: 'Netherlands',
+  ES: 'Spain', IT: 'Italy', CH: 'Switzerland', AT: 'Austria',
+  SE: 'Sweden', NO: 'Norway', DK: 'Denmark', FI: 'Finland',
+  BE: 'Belgium', PT: 'Portugal', GR: 'Greece', PL: 'Poland',
+  JP: 'Japan', CA: 'Canada', AU: 'Australia',
+  HK: 'Hong Kong', KR: 'South Korea', CN: 'China', TW: 'Taiwan',
+  IN: 'India', BR: 'Brazil', MX: 'Mexico', IL: 'Israel',
+  KY: 'Cayman Islands', BM: 'Bermuda', VG: 'British Virgin Islands',
+  JE: 'Jersey', GG: 'Guernsey', IM: 'Isle of Man',
+};
 
-  // 1. Allocation Chart — thinner ring + card-bg borders for separation.
-  if (data.allocation && data.allocation.total > 0) {
-    new Chart(document.getElementById('allocationChart'), {
-      type: 'doughnut',
+/**
+ * Geographic allocation bar chart, derived from `portfolio.json`'s
+ * all_positions ISIN[:2] country codes. Best-effort — silently no-ops if
+ * portfolio.json is unavailable. Verbatim port from
+ * Trade-Republic-Dashboard commit cd9dfe5 (2026-06-02).
+ */
+async function _renderGeoChart(root) {
+  try {
+    const portfolioUrl = root.dataset.routeData.replace('__TYPE__', 'portfolio');
+    const pres = await fetch(portfolioUrl + '?t=' + Date.now());
+    if (!pres.ok) return;
+    const portfolioData = await pres.json();
+    const geoBuckets = {};
+    for (const p of (portfolioData.all_positions || [])) {
+      const isin = p.isin || '';
+      const prefix = isin.slice(0, 2).toUpperCase();
+      if (!prefix || !/^[A-Z]{2}$/.test(prefix)) continue;
+      const label = ISIN_COUNTRIES[prefix] || ('Other (' + prefix + ')');
+      const v = Number(p.net_value_eur) || 0;
+      if (v <= 0) continue;
+      geoBuckets[label] = (geoBuckets[label] || 0) + v;
+    }
+    const geoEntries = Object.entries(geoBuckets).sort((a, b) => b[1] - a[1]);
+    let geoData = geoEntries;
+    if (geoEntries.length > 12) {
+      const top = geoEntries.slice(0, 12);
+      const rest = geoEntries.slice(12);
+      const restTotal = rest.reduce((s, [, v]) => s + v, 0);
+      if (restTotal > 0) top.push(['Other (' + rest.length + ' countries)', restTotal]);
+      geoData = top;
+    }
+    const geoTotal = geoEntries.reduce((s, [, v]) => s + v, 0);
+    const geoSubstat = document.getElementById('geo-substat');
+    if (geoSubstat) {
+      geoSubstat.textContent = geoEntries.length + ' countries · €' +
+        geoTotal.toLocaleString(undefined, { maximumFractionDigits: 0 }) +
+        ' total — derived from ISIN domicile, not revenue exposure.';
+    }
+    const geoCanvas = document.getElementById('geoChart');
+    if (!geoCanvas || geoData.length === 0) return;
+    new Chart(geoCanvas, {
+      type: 'bar',
       data: {
-        labels: Object.keys(data.allocation.categories),
+        labels: geoData.map(([k]) => k),
         datasets: [{
-          data: Object.values(data.allocation.categories),
-          backgroundColor: ['#60a5fa','#4ade80','#fbbf24','#7a8599'],
-          borderColor: '#1a1f2e', borderWidth: 3, hoverOffset: 12,
-          hoverBorderWidth: 3, spacing: 2,
+          data: geoData.map(([, v]) => v),
+          backgroundColor: '#60a5fa',
+          borderRadius: 4,
         }],
       },
       options: {
         maintainAspectRatio: false,
-        animation: { ...ANIMATION, animateRotate: true, animateScale: false },
-        cutout: '70%',
-        plugins: {
-          legend: {
-            position: 'right',
-            labels: {
-              color: '#e8eef5', font: { size: 14, weight: '600' },
-              padding: 20, usePointStyle: true, pointStyle: 'circle',
-              boxWidth: 12, boxHeight: 12,
+        indexAxis: 'y',
+        animation: { duration: 600, easing: 'easeOutQuart' },
+        scales: {
+          x: {
+            ticks: {
+              color: '#7a8599', font: { size: 11 },
+              callback: (v) => '€' + v.toLocaleString(undefined, { maximumFractionDigits: 0 }),
             },
+            grid: { color: 'rgba(42, 49, 66, 0.5)' },
           },
+          y: {
+            ticks: { color: '#e8eef5', font: { size: 12, weight: '500' } },
+            grid: { display: false },
+          },
+        },
+        plugins: {
+          legend: { display: false },
           tooltip: { ...TOOLTIP,
             callbacks: {
               label: (ctx) => {
-                const total = ctx.dataset.data.reduce((s, v) => s + v, 0);
-                const pct = total > 0 ? (ctx.parsed / total * 100) : 0;
-                return ' ' + ctx.label + ': €' + ctx.parsed.toLocaleString(undefined, {maximumFractionDigits:0}) + '  (' + pct.toFixed(1) + '%)';
+                const pct = geoTotal > 0 ? (ctx.parsed.x / geoTotal * 100) : 0;
+                return ' ' + fmtEur0(ctx.parsed.x) + ' (' + pct.toFixed(1) + '%)';
               },
             },
           },
         },
       },
     });
-  }
-
-  // 1b. Geographic allocation — derived from ISIN[:2] country codes.
-  // Verbatim port from Trade-Republic-Dashboard commit cd9dfe5 (2026-06-02).
-  // analytics.json doesn't carry all_positions, so we re-fetch portfolio.json
-  // (small JSON, already cached by the browser from cockpit load above).
-  try {
-    const portfolioUrl = root.dataset.routeData.replace('__TYPE__', 'portfolio');
-    const pres = await fetch(portfolioUrl + '?t=' + Date.now());
-    if (pres.ok) {
-      const portfolioData = await pres.json();
-      const ISIN_COUNTRIES = {
-        US: 'United States', DE: 'Germany', FR: 'France', GB: 'United Kingdom',
-        IE: 'Ireland (UCITS)', LU: 'Luxembourg', NL: 'Netherlands',
-        ES: 'Spain', IT: 'Italy', CH: 'Switzerland', AT: 'Austria',
-        SE: 'Sweden', NO: 'Norway', DK: 'Denmark', FI: 'Finland',
-        BE: 'Belgium', PT: 'Portugal', GR: 'Greece', PL: 'Poland',
-        JP: 'Japan', CA: 'Canada', AU: 'Australia',
-        HK: 'Hong Kong', KR: 'South Korea', CN: 'China', TW: 'Taiwan',
-        IN: 'India', BR: 'Brazil', MX: 'Mexico', IL: 'Israel',
-        KY: 'Cayman Islands', BM: 'Bermuda', VG: 'British Virgin Islands',
-        JE: 'Jersey', GG: 'Guernsey', IM: 'Isle of Man',
-      };
-      const geoBuckets = {};
-      for (const p of (portfolioData.all_positions || [])) {
-        const isin = p.isin || '';
-        const prefix = isin.slice(0, 2).toUpperCase();
-        if (!prefix || !/^[A-Z]{2}$/.test(prefix)) continue;
-        const label = ISIN_COUNTRIES[prefix] || ('Other (' + prefix + ')');
-        const v = Number(p.net_value_eur) || 0;
-        if (v <= 0) continue;
-        geoBuckets[label] = (geoBuckets[label] || 0) + v;
-      }
-      const geoEntries = Object.entries(geoBuckets).sort((a, b) => b[1] - a[1]);
-      let geoData = geoEntries;
-      if (geoEntries.length > 12) {
-        const top = geoEntries.slice(0, 12);
-        const rest = geoEntries.slice(12);
-        const restTotal = rest.reduce((s, [, v]) => s + v, 0);
-        if (restTotal > 0) top.push(['Other (' + rest.length + ' countries)', restTotal]);
-        geoData = top;
-      }
-      const geoTotal = geoEntries.reduce((s, [, v]) => s + v, 0);
-      const geoSubstat = document.getElementById('geo-substat');
-      if (geoSubstat) {
-        geoSubstat.textContent = geoEntries.length + ' countries · €' +
-          geoTotal.toLocaleString(undefined, { maximumFractionDigits: 0 }) +
-          ' total — derived from ISIN domicile, not revenue exposure.';
-      }
-      const geoCanvas = document.getElementById('geoChart');
-      if (geoCanvas && geoData.length > 0) {
-        new Chart(geoCanvas, {
-          type: 'bar',
-          data: {
-            labels: geoData.map(([k]) => k),
-            datasets: [{
-              data: geoData.map(([, v]) => v),
-              backgroundColor: '#60a5fa',
-              borderRadius: 4,
-            }],
-          },
-          options: {
-            maintainAspectRatio: false,
-            indexAxis: 'y',
-            animation: { duration: 600, easing: 'easeOutQuart' },
-            scales: {
-              x: {
-                ticks: {
-                  color: '#7a8599', font: { size: 11 },
-                  callback: (v) => '€' + v.toLocaleString(undefined, { maximumFractionDigits: 0 }),
-                },
-                grid: { color: 'rgba(42, 49, 66, 0.5)' },
-              },
-              y: {
-                ticks: { color: '#e8eef5', font: { size: 12, weight: '500' } },
-                grid: { display: false },
-              },
-            },
-            plugins: {
-              legend: { display: false },
-              tooltip: { ...TOOLTIP,
-                callbacks: {
-                  label: (ctx) => {
-                    const pct = geoTotal > 0 ? (ctx.parsed.x / geoTotal * 100) : 0;
-                    return ' ' + fmtEur0(ctx.parsed.x) + ' (' + pct.toFixed(1) + '%)';
-                  },
-                },
-              },
-            },
-          },
-        });
-      }
-    }
   } catch (_) { /* geo chart is best-effort — silent if portfolio missing */ }
+}
 
-  // 2. History Chart — with range selector (1W / 1M / 3M / 6M / 1Y / All)
-  let historyChartInstance = null;
+/**
+ * Net-worth history chart with the 1W/1M/3M/6M/1Y/All range selector.
+ * Wires its own button click handlers; safe to call once on page load.
+ */
+function _wireHistoryChart(data) {
   const fullHistory = data.history || [];
+  if (fullHistory.length === 0) return;
+  let historyChartInstance = null;
 
   function filterHistory(range) {
-    if (range === 'ALL' || fullHistory.length === 0) return fullHistory;
+    if (range === 'ALL') return fullHistory;
     const daysMap = { '1W': 7, '1M': 30, '3M': 90, '6M': 180, '1Y': 365 };
     const days = daysMap[range];
     if (!days) return fullHistory;
@@ -338,20 +330,12 @@ async function init() {
     return filtered.length > 0 ? filtered : fullHistory.slice(-1);
   }
 
-  function renderHistoryChart(range) {
-    const hist = filterHistory(range);
-    if (hist.length === 0) return;
-
-    // Big cumulative number was here — removed 2026-06-01 (Carlos: "no me
-     //  sirve para nada"). The substat is now static descriptive text.
-    const values = hist.map(h => h.value);
-
-    // Align each benchmark series to the visible month range.
+  // Align each benchmark series to the visible date range. Python emits
+  // one value per trading day (Yahoo interval=1d) — we carry forward the
+  // last known close on weekends/holidays so the line doesn't gap.
+  function alignBenchmarks(hist) {
     const benchmarks = data.benchmarks || (data.benchmark ? [data.benchmark] : []);
-    // Python side returns one benchmark value per trading day
-    // (Yahoo interval=1d). Build a daily index + carry-forward for
-    // weekends/holidays so the chart doesn't gap.
-    const benchDatasets = benchmarks.map(b => {
+    return benchmarks.map(b => {
       const byDay = {};
       for (const p of (b.history || [])) byDay[p.date] = p.value;
       const benchDatesSorted = Object.keys(byDay).sort();
@@ -370,20 +354,9 @@ async function init() {
       });
       return { aligned, label: b.label || b.symbol, color: b.color || '#fbbf24' };
     }).filter(b => b.aligned.some(v => v != null));
+  }
 
-    // Y range considers your line AND all benchmarks.
-    let minV = Math.min(...values), maxV = Math.max(...values);
-    for (const b of benchDatasets) {
-      for (const v of b.aligned) if (v != null) {
-        if (v < minV) minV = v;
-        if (v > maxV) maxV = v;
-      }
-    }
-    const padding = (maxV - minV) * 0.1 || 100;
-    const yMin = Math.floor((minV - padding) / 1000) * 1000;
-    const yMax = Math.ceil((maxV + padding) / 1000) * 1000;
-
-    if (historyChartInstance) historyChartInstance.destroy();
+  function buildDatasets(values, benchDatasets) {
     const datasets = [{
       label: 'Your portfolio',
       data: values,
@@ -417,6 +390,30 @@ async function init() {
         spanGaps: true,
       });
     }
+    return datasets;
+  }
+
+  function renderHistoryChart(range) {
+    const hist = filterHistory(range);
+    if (hist.length === 0) return;
+
+    const values = hist.map(h => h.value);
+    const benchDatasets = alignBenchmarks(hist);
+
+    // Y range considers your line AND all benchmarks.
+    let minV = Math.min(...values), maxV = Math.max(...values);
+    for (const b of benchDatasets) {
+      for (const v of b.aligned) if (v != null) {
+        if (v < minV) minV = v;
+        if (v > maxV) maxV = v;
+      }
+    }
+    const padding = (maxV - minV) * 0.1 || 100;
+    const yMin = Math.floor((minV - padding) / 1000) * 1000;
+    const yMax = Math.ceil((maxV + padding) / 1000) * 1000;
+
+    if (historyChartInstance) historyChartInstance.destroy();
+    const datasets = buildDatasets(values, benchDatasets);
     historyChartInstance = new Chart(document.getElementById('historyChart'), {
       type: 'line',
       data: { labels: hist.map(h => h.date), datasets },
@@ -455,18 +452,46 @@ async function init() {
     });
   }
 
-  if (fullHistory.length > 0) {
-    renderHistoryChart('ALL');
-    document.querySelectorAll('#history-range button').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('#history-range button').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        renderHistoryChart(btn.dataset.range);
-      });
+  renderHistoryChart('ALL');
+  document.querySelectorAll('#history-range button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#history-range button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderHistoryChart(btn.dataset.range);
     });
+  });
+}
+
+async function init() {
+  const root = document.getElementById('tr-app');
+  document.body.classList.add('tr-app-active');
+  loadCockpit(root);  // fire-and-forget — independent of analytics data
+  const dataUrl = root.dataset.routeData.replace('__TYPE__', 'analytics');
+
+  let data;
+  try {
+    const res = await fetch(dataUrl + '?t=' + Date.now());
+    if (!res.ok) {
+      // No analytics yet (first install). Show a friendly note instead of crashing.
+      document.body.insertAdjacentHTML('afterbegin',
+        '<div style="background:rgba(251,191,36,0.1); border-left:4px solid #fbbf24; padding:16px 20px; border-radius:8px; margin:20px 0; font-size:14px; color:#e8eef5;">' +
+        '⚠️ No analytics yet — go to <a href="' + root.dataset.routeIndex + '" style="color:#60a5fa">Portfolio</a> and click <b>Update Now</b> first.</div>');
+      return;
+    }
+    data = await res.json();
+  } catch (e) {
+    document.body.insertAdjacentHTML('afterbegin',
+      '<div style="background:rgba(248,113,113,0.1); border-left:4px solid #f87171; padding:16px 20px; border-radius:8px; margin:20px 0; color:#e8eef5;">' +
+      'Could not load analytics: ' + e.message + '</div>');
+    return;
   }
 
-  // 3. Dividend Chart + 4. By-issuer table + 5. Full ledger moved to
+  _renderCashFlowTiles(data.cash_flow || {}, data.dividends || {});
+  _renderAllocationChart(data.allocation);
+  await _renderGeoChart(root);
+  _wireHistoryChart(data);
+
+  // Dividend chart + by-issuer table + full ledger moved to
   // templates/dividends.php (2026-05-29). renderDividendsByIssuer,
   // renderDividendLedger, renderLedgerRows, wireDividendFilters and the
   // _divLedgerState helper were removed with them.

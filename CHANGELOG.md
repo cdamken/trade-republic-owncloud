@@ -1,5 +1,32 @@
 # CHANGELOG
 
+## 0.1.39 — 2026-06-10
+
+Refactor D: broke up the 382-line `init()` in `js/analytics.js`
+into four single-purpose helpers + a thin orchestrator.
+
+### What changed
+
+- `_renderCashFlowTiles(cf, div)` — top of the analytics page:
+  deposits / refunds / removals / withdrawals tiles, lifetime
+  P/L tile, forward-12mo dividend forecast, buys/sells totals,
+  monthly average.
+- `_renderAllocationChart(allocation)` — doughnut chart for the
+  asset-category breakdown.
+- `_renderGeoChart(root)` — best-effort geographic allocation
+  bar chart (re-fetches `portfolio.json` for ISIN[:2] derivation).
+- `_wireHistoryChart(data)` — net-worth chart with the
+  1W/1M/3M/6M/1Y/All range selector and benchmark alignment.
+  Owns its own range-button click handlers.
+- `ISIN_COUNTRIES` constant lifted to module scope (was hidden
+  inside the 382-line init body).
+
+`init()` itself is now ~30 lines: load data → call the four
+helpers in sequence. Reads top-down. Behavior unchanged.
+
+Verified: `node --check`, verify_dom_ids, verify_wiring, all 9
+unit tests green.
+
 ## 0.1.38 — 2026-06-10
 
 Refactor B: extracted `BaseOwnCloudService` parent class.

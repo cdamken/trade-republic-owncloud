@@ -23,29 +23,11 @@ $routes = $_['routes'];
 	data-route-data="<?php p($routes['data']); ?>"
 	data-route-update="<?php p($routes['update']); ?>">
 
-<!-- Same top-bar + cockpit as main.php / analytics.php / settings.php / glossary.php -->
-<div class="top-bar">
-  <div class="brand">
-    <div class="logo-box">📊</div>
-    <h1>Trade Republic</h1>
-  </div>
-  <nav>
-    <a href="<?php p($routes['index']); ?>">Portfolio</a>
-    <a href="<?php p($routes['analytics']); ?>">Analytics</a>
-    <a href="<?php p($routes['orders']); ?>">📋 Orders</a>
-    <a href="<?php p($routes['dividends']); ?>" class="active">💰 Dividends</a>
-    <a href="<?php p($routes['ledger']); ?>">📒 Ledger</a>
-    <a href="<?php p($routes['glossary']); ?>">📖 Glossary</a>
-    <a href="<?php p($routes['settings']); ?>">⚙ Settings</a>
-  </nav>
-  <div class="actions">
-    <a class="ghost" href="<?php p($routes['index']); ?>#docs"
-       style="text-decoration:none; display:inline-block; padding:8px 16px;
-              background:transparent; color:var(--muted); border:1px solid var(--border);
-              border-radius:8px; font-size:13px; font-weight:600;">📄 Documents</a>
-    <button id="update-btn">🔄 Update Now</button>
-  </div>
-</div>
+<!-- Unified top-bar — see templates/partials/_top_bar.php -->
+<?php
+$activeNav = 'dividends';
+include __DIR__ . '/partials/_top_bar.php';
+?>
 
 <!-- Sticky cockpit — same as everywhere else -->
 <div class="cockpit">

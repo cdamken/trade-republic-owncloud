@@ -58,9 +58,11 @@ ALLOWLIST_JS_INJECTED = {
 
 
 def collect_template_ids() -> dict[str, list[Path]]:
-    """All id="..." values found in any templates/*.php file, with their source paths."""
+    """All id="..." values found in templates/*.php files (including
+    partials/*.php) with their source paths. Recursive so a shared
+    partial like `partials/_top_bar.php` counts as a definition site."""
     ids: dict[str, list[Path]] = {}
-    for php in (ROOT / 'templates').glob('*.php'):
+    for php in (ROOT / 'templates').rglob('*.php'):
         text = php.read_text(encoding='utf-8')
         # Match id="foo" or id='foo' — PHP echo of dynamic IDs is rare in our templates
         for m in re.finditer(r"""\bid=["']([a-zA-Z][\w-]*)["']""", text):
@@ -159,7 +161,7 @@ def main() -> int:
     print('=' * 70)
     print('DOM-ID sync check')
     print('=' * 70)
-    print(f'  Templates scanned:    {len(list(templates_dir.glob("*.php")))} .php files')
+    print(f'  Templates scanned:    {len(list(templates_dir.rglob("*.php")))} .php files')
     print(f'  IDs defined in HTML:  {len(template_ids)}')
     print(f'  IDs referenced in JS: {len(referenced)}')
     print()

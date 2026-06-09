@@ -23,29 +23,13 @@ $routes = $_['routes'];
 	data-route-reset="<?php p($routes['reset']); ?>"
 	data-route-download-docs="<?php p($routes['downloadDocs']); ?>">
 
-<!-- New unified top-bar + sticky cockpit (same shell on every page) -->
-<div class="top-bar">
-  <div class="brand">
-    <div class="logo-box">📊</div>
-    <h1>Trade Republic</h1>
-  </div>
-  <nav>
-    <a href="<?php p($routes['index']); ?>" class="active">Portfolio</a>
-    <a href="<?php p($routes['analytics']); ?>">Analytics</a>
-    <a href="<?php p($routes['orders']); ?>">📋 Orders</a>
-    <a href="<?php p($routes['dividends']); ?>">💰 Dividends</a>
-    <a href="<?php p($routes['ledger']); ?>">📒 Ledger</a>
-    <a href="<?php p($routes['glossary']); ?>">📖 Glossary</a>
-    <a href="<?php p($routes['settings']); ?>">⚙ Settings</a>
-  </nav>
-  <div class="actions">
-    <button id="docs-btn" class="ghost"
-            title="Download every PDF TR has issued (trades, dividends, statements, tax). Files appear in your Files app under Trade_Republic_Docs/&lt;year&gt;/&lt;kind&gt;/.">
-      📄 Documents
-    </button>
-    <button id="update-btn">🔄 Update Now</button>
-  </div>
-</div>
+<!-- Unified top-bar (same shell on every page) — see templates/partials/_top_bar.php -->
+<?php
+$activeNav  = 'portfolio';
+$logoEmoji  = '📊';
+$docsButton = 'real';
+include __DIR__ . '/partials/_top_bar.php';
+?>
 
 <!-- Thin non-blocking progress bar at top of viewport -->
 <div id="progress-bar" class="progress-bar"></div>

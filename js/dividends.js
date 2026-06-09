@@ -60,10 +60,8 @@
   });
 
   // ============ Cockpit (read-only from portfolio.json) ============
+  // fmtEUR / fmtPct come from js/_shared.js (loaded first by PageController).
   async function loadCockpit() {
-    const fmtE = (n) => '€' + (n || 0).toLocaleString('en-US',
-      { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    const fmtP = (n) => (n >= 0 ? '+' : '') + (n || 0).toFixed(2) + '%';
     let d;
     try {
       const r = await fetch(routes.data.replace('__TYPE__', 'portfolio') + '?t=' + Date.now());
@@ -71,13 +69,13 @@
       d = await r.json();
     } catch (_) { return; }
     const s = d.summary;
-    document.getElementById('ck-total').textContent = fmtE(s.total_netvalue);
+    document.getElementById('ck-total').textContent = fmtEUR(s.total_netvalue);
     document.getElementById('ck-total-sub').textContent =
-      `Depot ${fmtE(s.depot_netvalue)} + Cash ${fmtE(s.cash_eur)} · ${d.positions_with_value} positions`;
-    document.getElementById('ck-cost').textContent = fmtE(s.depot_buycost);
-    document.getElementById('ck-pl').textContent = fmtE(s.depot_pl_eur);
-    document.getElementById('ck-pl-pct').textContent = fmtP(s.depot_pl_pct);
-    document.getElementById('ck-cash').textContent = fmtE(s.cash_eur);
+      `Depot ${fmtEUR(s.depot_netvalue)} + Cash ${fmtEUR(s.cash_eur)} · ${d.positions_with_value} positions`;
+    document.getElementById('ck-cost').textContent = fmtEUR(s.depot_buycost);
+    document.getElementById('ck-pl').textContent = fmtEUR(s.depot_pl_eur);
+    document.getElementById('ck-pl-pct').textContent = fmtPct(s.depot_pl_pct);
+    document.getElementById('ck-cash').textContent = fmtEUR(s.cash_eur);
 
     const labels = {
       stocksAndETFs:  ['📈 Brokerage (Stocks/ETFs)', 'asset-equity'],
@@ -93,11 +91,11 @@
       if (!b || !b.count) continue;
       const [name, color] = labels[k];
       pills.push('<div class="b-pill"><div class="b-label">' + name + '</div>' +
-        '<div class="b-value ' + color + '">' + fmtE(b.net_value_eur) + '</div>' +
-        '<div class="b-sub">' + b.count + ' pos · ' + fmtP(b.pl_pct) + '</div></div>');
+        '<div class="b-value ' + color + '">' + fmtEUR(b.net_value_eur) + '</div>' +
+        '<div class="b-sub">' + b.count + ' pos · ' + fmtPct(b.pl_pct) + '</div></div>');
     }
     pills.push('<div class="b-pill"><div class="b-label">💶 Cash</div>' +
-      '<div class="b-value asset-cash">' + fmtE(s.cash_eur) + '</div>' +
+      '<div class="b-value asset-cash">' + fmtEUR(s.cash_eur) + '</div>' +
       '<div class="b-sub">to invest / withdraw</div></div>');
     document.getElementById('ck-buckets').innerHTML = pills.join('');
   }

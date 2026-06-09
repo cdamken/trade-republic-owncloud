@@ -43,8 +43,12 @@ const ANIMATION = { duration: 700, easing: 'easeOutQuart' };
 (function () {
 'use strict';
 
-const fmtEur = (n, d=2) => '€' + n.toLocaleString(undefined, {minimumFractionDigits:d, maximumFractionDigits:d});
-const fmtEur0 = (n) => '€' + n.toLocaleString(undefined, {maximumFractionDigits:0});
+// fmtEUR / fmtEUR0 / fmtPct live in js/_shared.js (loaded first by
+// PageController in v0.1.40). The earlier top-level `fmtEur`
+// (lowercase r) was dead code — never called. `fmtEur0` was renamed
+// to `fmtEUR0` and lifted into _shared.js. The per-function `fmtE` /
+// `fmtP` shims inside loadCockpit() below were removed in v0.1.40 in
+// favor of _shared.js's globals.
 
 // Populate the sticky cockpit from portfolio.json (separate request from
 // analytics.json — kept here so this page is self-contained for the header).
@@ -55,15 +59,13 @@ async function loadCockpit(root) {
     if (!r.ok) return;
     const d = await r.json();
     const s = d.summary;
-    const fmtE = (n) => '€' + (n || 0).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
-    const fmtP = (n) => (n >= 0 ? '+' : '') + (n || 0).toFixed(2) + '%';
-    document.getElementById('ck-total').textContent = fmtE(s.total_netvalue);
+    document.getElementById('ck-total').textContent = fmtEUR(s.total_netvalue);
     document.getElementById('ck-total-sub').textContent =
-      'Depot ' + fmtE(s.depot_netvalue) + ' + Cash ' + fmtE(s.cash_eur) + ' · ' + d.positions_with_value + ' positions';
-    document.getElementById('ck-cost').textContent = fmtE(s.depot_buycost);
-    document.getElementById('ck-pl').textContent = fmtE(s.depot_pl_eur);
-    document.getElementById('ck-pl-pct').textContent = fmtP(s.depot_pl_pct);
-    document.getElementById('ck-cash').textContent = fmtE(s.cash_eur);
+      'Depot ' + fmtEUR(s.depot_netvalue) + ' + Cash ' + fmtEUR(s.cash_eur) + ' · ' + d.positions_with_value + ' positions';
+    document.getElementById('ck-cost').textContent = fmtEUR(s.depot_buycost);
+    document.getElementById('ck-pl').textContent = fmtEUR(s.depot_pl_eur);
+    document.getElementById('ck-pl-pct').textContent = fmtPct(s.depot_pl_pct);
+    document.getElementById('ck-cash').textContent = fmtEUR(s.cash_eur);
 
     const labels = {
       stocksAndETFs: ['📈 Brokerage (Stocks/ETFs)','asset-equity'],
@@ -78,11 +80,11 @@ async function loadCockpit(root) {
       const b = by[k]; if (!b || !b.count) continue;
       const [name, color] = labels[k];
       pills.push('<div class="b-pill"><div class="b-label">' + name + '</div>' +
-        '<div class="b-value ' + color + '">' + fmtE(b.net_value_eur) + '</div>' +
-        '<div class="b-sub">' + b.count + ' pos · ' + fmtP(b.pl_pct) + '</div></div>');
+        '<div class="b-value ' + color + '">' + fmtEUR(b.net_value_eur) + '</div>' +
+        '<div class="b-sub">' + b.count + ' pos · ' + fmtPct(b.pl_pct) + '</div></div>');
     }
     pills.push('<div class="b-pill"><div class="b-label">💶 Cash</div>' +
-      '<div class="b-value asset-cash">' + fmtE(s.cash_eur) + '</div>' +
+      '<div class="b-value asset-cash">' + fmtEUR(s.cash_eur) + '</div>' +
       '<div class="b-sub">to invest / withdraw</div></div>');
     document.getElementById('ck-buckets').innerHTML = pills.join('');
   } catch (_) { /* portfolio.json not yet — leave placeholders */ }
@@ -100,21 +102,21 @@ async function loadCockpit(root) {
  * fetching, no chart construction.
  */
 function _renderCashFlowTiles(cf, div) {
-  document.getElementById('cf-deposits').textContent = fmtEur0(cf.deposits?.total || 0);
+  document.getElementById('cf-deposits').textContent = fmtEUR0(cf.deposits?.total || 0);
   document.getElementById('cf-deposits-count').textContent = cf.deposits?.count || 0;
-  document.getElementById('cf-refunds').textContent = fmtEur0(cf.tax_refunds?.total || 0);
+  document.getElementById('cf-refunds').textContent = fmtEUR0(cf.tax_refunds?.total || 0);
   document.getElementById('cf-refunds-count').textContent = cf.tax_refunds?.count || 0;
-  document.getElementById('cf-removals').textContent = fmtEur0(cf.removals?.total || 0);
+  document.getElementById('cf-removals').textContent = fmtEUR0(cf.removals?.total || 0);
   document.getElementById('cf-removals-count').textContent = cf.removals?.count || 0;
   // Withdrawal tile (new 2026-05-28). Guard for missing element so old
   // cached templates don't error.
   const wEl = document.getElementById('cf-withdrawals');
   if (wEl) {
-    wEl.textContent = fmtEur0(cf.withdrawals?.total || 0);
+    wEl.textContent = fmtEUR0(cf.withdrawals?.total || 0);
     document.getElementById('cf-withdrawals-count').textContent = cf.withdrawals?.count || 0;
   }
-  document.getElementById('cf-net').textContent = fmtEur0(cf.net_capital_in || 0);
-  document.getElementById('cf-current').textContent = fmtEur0(cf.current_value || 0);
+  document.getElementById('cf-net').textContent = fmtEUR0(cf.net_capital_in || 0);
+  document.getElementById('cf-current').textContent = fmtEUR0(cf.current_value || 0);
 
   // Lifetime P/L: null means fetch_wrapper.py decided the data was too
   // incomplete (net_capital_in <= 0, typically because of the
@@ -130,7 +132,7 @@ function _renderCashFlowTiles(cf, div) {
   } else {
     const pl = cf.lifetime_pl;
     const plPct = cf.lifetime_pl_pct || 0;
-    document.getElementById('cf-pl').textContent = (pl >= 0 ? '+' : '−') + fmtEur0(Math.abs(pl));
+    document.getElementById('cf-pl').textContent = (pl >= 0 ? '+' : '−') + fmtEUR0(Math.abs(pl));
     document.getElementById('cf-pl-pct').textContent = (plPct >= 0 ? '+' : '') + plPct.toFixed(2) + '%';
     document.getElementById('cf-pl-tile').classList.add(pl >= 0 ? 'pl-pos' : 'pl-neg');
   }
@@ -152,16 +154,16 @@ function _renderCashFlowTiles(cf, div) {
   document.getElementById('cf-yoc').textContent =
     yoc != null ? yoc.toFixed(2) + '%' : '—';
   // Buys/Sells remain — but with less prominent positioning (they're context, not headline).
-  document.getElementById('cf-buys').textContent = fmtEur0(cf.buys?.total || 0);
+  document.getElementById('cf-buys').textContent = fmtEUR0(cf.buys?.total || 0);
   document.getElementById('cf-buys-count').textContent = (cf.buys?.count || 0).toLocaleString();
-  document.getElementById('cf-sells').textContent = fmtEur0(cf.sells?.total || 0);
+  document.getElementById('cf-sells').textContent = fmtEUR0(cf.sells?.total || 0);
   document.getElementById('cf-sells-count').textContent = (cf.sells?.count || 0).toLocaleString();
 
   const monthly = cf.monthly || [];
   if (monthly.length > 0) {
     const avgNet = monthly.reduce((s, m) => s + m.net_flow, 0) / monthly.length;
     document.getElementById('cf-avg-month').textContent =
-      (avgNet >= 0 ? '+' : '−') + fmtEur0(Math.abs(avgNet));
+      (avgNet >= 0 ? '+' : '−') + fmtEUR0(Math.abs(avgNet));
     document.getElementById('cf-month-count').textContent = monthly.length + ' months';
   }
 }
@@ -300,7 +302,7 @@ async function _renderGeoChart(root) {
             callbacks: {
               label: (ctx) => {
                 const pct = geoTotal > 0 ? (ctx.parsed.x / geoTotal * 100) : 0;
-                return ' ' + fmtEur0(ctx.parsed.x) + ' (' + pct.toFixed(1) + '%)';
+                return ' ' + fmtEUR0(ctx.parsed.x) + ' (' + pct.toFixed(1) + '%)';
               },
             },
           },

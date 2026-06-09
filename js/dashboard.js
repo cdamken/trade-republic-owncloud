@@ -31,9 +31,12 @@ let state = {
   plFilter: 'all'
 };
 
-const fmt = (n, d=2) => n.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
-const fmtEUR = (n) => '€' + fmt(n);
-const fmtPct = (n) => (n >= 0 ? '+' : '') + fmt(n, 1) + '%';
+// fmtEUR / fmtPct live in js/_shared.js (loaded first by PageController).
+// dashboard.js used to declare its own top-level copies — removed in
+// v0.1.40 along with the per-page inline `fmtE`/`fmtP` helpers. fmtPct
+// callsites in this file pass `1` as the second arg because the
+// portfolio table is the only place that uses 1-decimal P/L; every
+// other page accepts the 2-decimal default.
 
 // Quantity formatter that adapts decimal precision to the instrument
 // class (verbatim from Dashboard commit 1384e2e). Crypto needs many
@@ -674,7 +677,7 @@ function rowHTML(p) {
     <td class="num">${fmtEUR(p.buy_cost_eur)}</td>
     <td class="num"><strong>${fmtEUR(p.net_value_eur)}</strong></td>
     <td class="num ${plCls}">${fmtEUR(p.pl_eur)}</td>
-    <td class="num ${plCls}"><strong>${fmtPct(p.pl_pct)}</strong></td>
+    <td class="num ${plCls}"><strong>${fmtPct(p.pl_pct, 1)}</strong></td>
   </tr>`;
 }
 
@@ -688,7 +691,7 @@ function shortRow(p) {
     <td class="num">${fmtQty(p.quantity, p.category)}</td>
     <td class="num"><strong>${fmtEUR(p.net_value_eur)}</strong></td>
     <td class="num ${plCls}">${fmtEUR(p.pl_eur)}</td>
-    <td class="num ${plCls}"><strong>${fmtPct(p.pl_pct)}</strong></td>
+    <td class="num ${plCls}"><strong>${fmtPct(p.pl_pct, 1)}</strong></td>
   </tr>`;
 }
 
@@ -709,7 +712,7 @@ function openPositionModal(isin, name) {
       '<div class="pm-stat"><div class="pm-label">Current price</div><div class="pm-value">' + fmtEUR(pos.current_price) + '</div></div>' +
       '<div class="pm-stat"><div class="pm-label">Invested</div><div class="pm-value">' + fmtEUR(pos.buy_cost_eur) + '</div></div>' +
       '<div class="pm-stat"><div class="pm-label">Net value</div><div class="pm-value"><strong>' + fmtEUR(pos.net_value_eur) + '</strong></div></div>' +
-      '<div class="pm-stat"><div class="pm-label">P/L</div><div class="pm-value">' + fmtEUR(pos.pl_eur) + ' (' + fmtPct(pos.pl_pct) + ')</div></div>' +
+      '<div class="pm-stat"><div class="pm-label">P/L</div><div class="pm-value">' + fmtEUR(pos.pl_eur) + ' (' + fmtPct(pos.pl_pct, 1) + ')</div></div>' +
     '</div>' +
     '<div class="pm-meta">Category: <strong>' + (pos.category || 'unknown') + '</strong> · ISIN: <code>' + isin + '</code></div>' +
     '<p class="pm-tip">Click the buttons below to open external research in a new tab. All links work by ISIN. Most financial sites block iframe embedding via <code>X-Frame-Options</code>, so we can\'t inline them.</p>';
@@ -798,7 +801,7 @@ function renderCockpit(summary, data) {
   const plEl = document.getElementById('ck-pl');
   const plPctEl = document.getElementById('ck-pl-pct');
   plEl.textContent = fmtEUR(summary.depot_pl_eur);
-  plPctEl.textContent = fmtPct(summary.depot_pl_pct);
+  plPctEl.textContent = fmtPct(summary.depot_pl_pct, 1);
   // Recolour KPI cockpit P/L (green/red). Remove any previous class first.
   const plCls = (summary.depot_pl_eur || 0) >= 0 ? 'pl-pos' : 'pl-neg';
   plEl.classList.remove('pl-pos', 'pl-neg'); plEl.classList.add(plCls);
@@ -847,7 +850,7 @@ function renderWealthBuckets(summary) {
       '<div class="b-pill">' +
       '<div class="b-label">' + meta.icon + ' ' + meta.name + '</div>' +
       '<div class="b-value ' + meta.color + '">' + fmtEUR(b.net_value_eur) + '</div>' +
-      '<div class="b-sub">' + b.count + ' pos · <span class="' + subCls + '">' + fmtPct(b.pl_pct) + '</span></div>' +
+      '<div class="b-sub">' + b.count + ' pos · <span class="' + subCls + '">' + fmtPct(b.pl_pct, 1) + '</span></div>' +
       '</div>'
     );
   }

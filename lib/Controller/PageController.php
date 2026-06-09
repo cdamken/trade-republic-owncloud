@@ -120,13 +120,17 @@ class PageController extends Controller {
 			'orders'    => 'orders',
 			'ledger'    => 'ledger',
 		];
-		// Orders + Ledger (added 2026-06-02) need the shared helpers
-		// (fmtEUR, fmtSignedEUR, fmtDate, monthKey/Label, parseCsv) loaded
-		// BEFORE their page script. Mirror of Trade-Republic-Dashboard's
-		// _shared.js pattern (commit 66cc26d).
-		if ($template === 'orders' || $template === 'ledger') {
-			\OCP\Util::addScript($this->appName, '_shared');
-		}
+		// _shared.js holds fmtEUR / fmtEUR0 / fmtSignedEUR / fmtPct /
+		// fmtDate / monthKey / monthLabel / parseCsv. Originally loaded
+		// only on orders + ledger (the pages it was first written for);
+		// v0.1.40 loads it on EVERY template so every page can use the
+		// same formatters. Per-page JS files used to declare local
+		// `const fmtE` / `const fmtP` inside loadCockpit() bodies — all
+		// removed in v0.1.40 in favor of the globals here.
+		//
+		// Mirror of Trade-Republic-Dashboard's _shared.js pattern
+		// (commit 66cc26d).
+		\OCP\Util::addScript($this->appName, '_shared');
 		// Shared "🔄 Update Now" flow — loaded BEFORE the per-page script so the
 		// in-place update button works on every page (Analytics/Dividends/
 		// Settings/Glossary previously had a static link that bounced the user

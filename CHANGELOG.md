@@ -1,5 +1,54 @@
 # CHANGELOG
 
+## 0.1.40 — 2026-06-10
+
+Refactor C (TR side): shared JS formatters in `js/_shared.js`.
+
+`_shared.js` already exposed `fmtEUR` / `fmtSignedEUR` / `fmtDate`
+/ `monthKey` / `monthLabel` / `parseCsv` — but it was only loaded
+on `orders` + `ledger`. The older pages (dashboard, analytics,
+dividends, settings, glossary) each declared their own
+`const fmtE` / `const fmtP` shims inside `loadCockpit()` function
+bodies, with `analytics.js` carrying additional top-level
+`fmtEur` (dead code, never called) and `fmtEur0`. The earlier
+session-summary's "I left them alone — name collision risk" was
+laziness; this commit does the work properly.
+
+### What changed
+
+- **`js/_shared.js`**: added `fmtEUR0(n)` (0 decimals, lifted
+  from analytics.js's `fmtEur0`) and `fmtPct(n, d=2)` (sign-aware
+  percent with configurable decimals). The full helper set is now
+  `fmtEUR` / `fmtEUR0` / `fmtSignedEUR` / `fmtPct` / `fmtDate` /
+  `monthKey` / `monthLabel` / `parseCsv`.
+- **`lib/Controller/PageController.php`**: loads `_shared.js` on
+  EVERY template (was orders + ledger only).
+- **`js/dashboard.js`**: removed the top-level `const fmt`,
+  `const fmtEUR`, `const fmtPct`. The 5 portfolio-table `fmtPct(x)`
+  callsites now pass `fmtPct(x, 1)` explicitly to preserve the
+  1-decimal "+5.4%" display (every other page uses the 2-decimal
+  default).
+- **`js/analytics.js`**: removed dead `fmtEur` (lowercase r,
+  never called). `fmtEur0` renamed to `fmtEUR0` (12 callsites).
+  `loadCockpit()`'s inline `fmtE` / `fmtP` replaced with `fmtEUR`
+  / `fmtPct`.
+- **`js/dividends.js`**: `loadCockpit()`'s inline `fmtE` / `fmtP`
+  replaced with `fmtEUR` / `fmtPct`. The file-level `fmtEur` (sign-
+  aware with unicode minus prefix on negatives) kept — its '−'
+  output is unique behavior used by 4 callsites; not yet generalized
+  into _shared.js.
+- **`js/glossary.js`**: `loadCockpit()`'s inline `fmtE` / `fmtP`
+  replaced.
+- **`js/settings.js`**: `loadCockpit()`'s inline `fmtE` / `fmtP`
+  replaced.
+
+Net: −20 lines across page-level files, +20 lines in `_shared.js`
+(mostly comments + the new helpers). The win is a single source
+of truth for 7 helpers instead of 5 separate inline copies.
+
+Verified: 9-file `node --check` clean, verify_dom_ids,
+verify_wiring, all 9 unit tests green.
+
 ## 0.1.39 — 2026-06-10
 
 Refactor D: broke up the 382-line `init()` in `js/analytics.js`

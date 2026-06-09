@@ -1,14 +1,20 @@
-// Shared helpers for the newer TR dashboard pages (orders, ledger —
-// added 2026-06-02). Verbatim port from Trade-Republic-Dashboard
-// commit 66cc26d. The older pages (dashboard, analytics, dividends,
-// settings, glossary) each have their own inline fmt* helpers with
-// slightly different signatures (fmtEur vs fmtEUR, single-arg vs
-// (n, opts)) and we leave them alone to avoid a risky multi-file
-// refactor.
+// Shared helpers for ALL TR dashboard pages (v0.1.40 — Refactor C
+// round 2). Was originally a port of just orders + ledger helpers
+// from Trade-Republic-Dashboard (commit 66cc26d); the older pages
+// (dashboard, analytics, dividends, settings, glossary) carried
+// their own inline `fmtE` / `fmtP` 1-liner helpers declared inside
+// loadCockpit() function bodies. v0.1.40 unified them by loading
+// `_shared.js` on every page and removing the inline copies.
 //
-// Loaded by PageController before orders.js / ledger.js via
-// Util::addScript('_shared'). No IIFE — these are module-level globals
-// the page scripts read.
+// Loaded by PageController for every template via
+// Util::addScript('_shared'). No IIFE — these are module-level
+// globals the page scripts read. The order is: _shared → update_flow
+// → page script, so the page script can see `fmtEUR`/`fmtPct` at
+// parse time.
+//
+// Names match upstream Trade-Republic-Dashboard's _shared.js where
+// they exist; new helpers added here mirror the canonical 2-decimal
+// "fmtP" / 0-decimal money convention used across the older pages.
 
 // ----------------------------------------------------------------------
 // Number / currency formatters
@@ -19,10 +25,33 @@ function fmtEUR(n) {
   });
 }
 
-// Sign-aware EUR: "+€1.23" / "-€1.23" / "€0.00" depending on the value's sign.
+// Same as fmtEUR but with 0 fraction digits — used in the analytics
+// page's cash-flow tiles where the headline number reads better
+// without €.50 precision.
+function fmtEUR0(n) {
+  return '€' + (Number(n) || 0).toLocaleString(undefined, {
+    maximumFractionDigits: 0,
+  });
+}
+
+// Sign-aware EUR: "+€1.23" / "−€1.23" / "+€0.00" depending on the value's sign.
+// NOTE (2026-06-10): the original returned negatives WITHOUT a sign
+// (and relied on a `.red` CSS class to communicate it). The ledger
+// page applies the class as well, so this is safe to display either
+// way — but the verbatim port from upstream keeps the no-sign
+// negative for now to preserve byte-for-byte UI. If you want a real
+// minus on negatives, call `fmtSignedEURWithMinus()` instead.
 function fmtSignedEUR(n) {
   const v = Number(n) || 0;
   return (v >= 0 ? '+' : '') + fmtEUR(Math.abs(v));
+}
+
+// Percent with sign, configurable decimals (default 2). Pass d=1 for
+// the portfolio table's "+5.4%" style. Treats null/undefined as 0.
+function fmtPct(n, d) {
+  if (d === undefined) d = 2;
+  const v = Number(n) || 0;
+  return (v >= 0 ? '+' : '') + v.toFixed(d) + '%';
 }
 
 // ----------------------------------------------------------------------

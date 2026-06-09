@@ -1,5 +1,40 @@
 # CHANGELOG
 
+## 0.1.38 — 2026-06-10
+
+Refactor B: extracted `BaseOwnCloudService` parent class.
+
+`TrService` and the sister `GbmService` (gbm-owncloud) carried
+~100 lines of byte-identical code each — DI constructor, lazy
+`userId()` resolution, the EXIT_* constants, and the proc_open
+`runProcess()` body. That duplication drifted independently
+twice in the past, and any future bug fix would have had to be
+remembered in both files.
+
+### What changed
+
+- New abstract class `BaseOwnCloudService` (171 lines) holds the
+  shared plumbing:
+  - DI-friendly constructor (IUserSession + IConfig + ICrypto)
+  - Lazy `userId()` — security boundary against cross-user access
+  - `userDir()` per-user data dir under `{datadir}/<uid>/<app>/`
+    (subclass provides `<app>` via abstract `appDirName()`)
+  - `runProcess()` — proc_open wrapper with timeout + fetch.log
+  - `EXIT_OK` / `EXIT_MFA_REQUIRED` / `EXIT_MFA_INVALID` /
+    `EXIT_AUTH_FAILED` / `EXIT_API_ERROR` / `EXIT_RATE_LIMITED` /
+    `EXIT_CONFIG_ERROR`
+- `TrService` extends it, drops the 100 duplicated lines, and now
+  only carries TR-specific logic (credentials, profile dir, docs
+  download, scanDocsFolder).
+- `TrService.php`: 505 → 397 lines (−21%).
+- The class is intentionally VENDORED-DUPLICATED with
+  `gbm-owncloud/lib/Service/BaseOwnCloudService.php` (same content,
+  different namespace) — two ownCloud apps can't share a class via
+  composer without an extra package.
+
+Verified: `php -l` clean, verify_dom_ids, verify_wiring, all 9
+unit tests green.
+
 ## 0.1.35 — 2026-06-05
 
 CI + automated test harness. Mirror of gbm-owncloud@v0.14.13.

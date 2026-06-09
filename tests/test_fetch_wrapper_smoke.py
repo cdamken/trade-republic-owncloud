@@ -85,13 +85,18 @@ class TestFetchWrapperSmoke(unittest.TestCase):
             self.assertNotIn('Traceback', err, f'Crash on --full: {err!r}')
 
     def test_exit_codes_match_php(self):
-        """Every EXIT_* constant here should appear in TrService.php."""
-        php = REPO_ROOT / 'lib' / 'Service' / 'TrService.php'
-        text = php.read_text()
+        """Every EXIT_* constant here should appear in TrService.php or its
+        BaseOwnCloudService parent (where the shared exit-code block now lives
+        after the v0.1.36 base-class refactor)."""
+        text = ''
+        for fname in ('TrService.php', 'BaseOwnCloudService.php'):
+            php = REPO_ROOT / 'lib' / 'Service' / fname
+            if php.is_file():
+                text += php.read_text()
         for name in ('EXIT_OK', 'EXIT_MFA_REQUIRED', 'EXIT_MFA_INVALID',
                      'EXIT_AUTH_FAILED', 'EXIT_API_ERROR', 'EXIT_CONFIG_ERROR'):
             self.assertIn(name, text,
-                          f'{name} missing from TrService.php — wrapper/PHP drift')
+                          f'{name} missing from TrService.php / BaseOwnCloudService.php — wrapper/PHP drift')
 
 
 if __name__ == '__main__':

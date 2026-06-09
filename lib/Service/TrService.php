@@ -3,9 +3,9 @@
  * Per-user bridge to the tr-api Python library.
  *
  * Every public method here operates on a single ownCloud user. The userId is
- * resolved lazily from IUserSession, which makes leaking another user's data
- * structurally impossible: every path goes through userId() at request time,
- * and there is no setter for it.
+ * resolved lazily from IUserSession (see BaseOwnCloudService::userId()),
+ * which makes leaking another user's data structurally impossible: every
+ * path goes through userId() at request time, and there is no setter for it.
  *
  * Storage layout (datadirectory is the ownCloud root data dir):
  *
@@ -29,64 +29,25 @@
  *     occ config:system:set trade_republic.python_bin --value=/path/to/venv/bin/python
  *
  * The venv must have tr-api installed (`pip install tr-api[browser]`).
+ *
+ * Shared DI plumbing (constructor, userId, userDir, runProcess, EXIT_*)
+ * lives in BaseOwnCloudService — see that file for the security boundary
+ * + subprocess gotchas. This class only carries TR-specific logic.
  */
 
 namespace OCA\TradeRepublic\Service;
 
-use OCP\IConfig;
-use OCP\IUserSession;
-use OCP\Security\ICrypto;
-
-class TrService {
+class TrService extends BaseOwnCloudService {
 
 	const APPID = 'trade_republic';
 
-	const EXIT_OK            = 0;
-	const EXIT_MFA_REQUIRED  = 10;
-	const EXIT_MFA_INVALID   = 11;
-	const EXIT_AUTH_FAILED   = 12;
-	const EXIT_API_ERROR     = 20;
-	const EXIT_RATE_LIMITED  = 21;
-	const EXIT_CONFIG_ERROR  = 30;
-
-	private $userSession;
-	private $config;
-	private $crypto;
-	private $dataDirRoot;
-	private $userIdCache = null;
-
-	public function __construct(IUserSession $userSession, IConfig $config, ICrypto $crypto) {
-		$this->userSession = $userSession;
-		$this->config = $config;
-		$this->crypto = $crypto;
-		$this->dataDirRoot = rtrim(
-			(string) $config->getSystemValue('datadirectory', \OC::$SERVERROOT . '/data'),
-			'/'
-		);
-	}
-
-	private function userId(): string {
-		if ($this->userIdCache === null) {
-			$user = $this->userSession->getUser();
-			if ($user === null) {
-				throw new \RuntimeException('TR app: no user in session');
-			}
-			$this->userIdCache = $user->getUID();
-		}
-		return $this->userIdCache;
+	protected function appDirName(): string {
+		return 'trade_republic';
 	}
 
 	// ------------------------------------------------------------------
 	// Paths (per-user, isolated)
 	// ------------------------------------------------------------------
-	public function userTrDir(): string {
-		$path = $this->dataDirRoot . '/' . $this->userId() . '/trade_republic';
-		if (!is_dir($path)) {
-			@mkdir($path, 0700, true);
-		}
-		return $path;
-	}
-
 	/**
 	 * Where PDF documents land. We write INTO the user's Files area so
 	 * documents show up automatically in the ownCloud Files app — no
@@ -173,7 +134,7 @@ class TrService {
 	}
 
 	public function profileDir(): string {
-		$path = $this->userTrDir() . '/profile';
+		$path = $this->userDir() . '/profile';
 		if (!is_dir($path)) {
 			@mkdir($path, 0700, true);
 		}
@@ -193,7 +154,7 @@ class TrService {
 		if (!in_array($name, $allowed, true)) {
 			throw new \InvalidArgumentException("unknown data file: $name");
 		}
-		return $this->userTrDir() . '/' . $name;
+		return $this->userDir() . '/' . $name;
 	}
 
 	// ------------------------------------------------------------------
@@ -236,7 +197,7 @@ class TrService {
 		$this->config->deleteUserValue($this->userId(), self::APPID, 'phone');
 		$this->config->deleteUserValue($this->userId(), self::APPID, 'pin_enc');
 		$this->config->deleteUserValue($this->userId(), self::APPID, 'docs_folder');
-		$dir = $this->userTrDir();
+		$dir = $this->userDir();
 		// rm -rf $dir
 		$this->rrmdir($dir);
 	}
@@ -291,7 +252,7 @@ class TrService {
 			$python,
 			$script,
 			'--profile-dir', $this->profileDir(),
-			'--data-dir',    $this->userTrDir(),
+			'--data-dir',    $this->userDir(),
 		];
 		if ($mfaCode !== null) {
 			$cmd[] = '--mfa-code';
@@ -448,58 +409,5 @@ class TrService {
 			@fclose($pipes[2]);
 			proc_close($proc);
 		}
-	}
-
-	private function runProcess(array $cmd, array $env, int $timeoutSec): array {
-		$descriptorSpec = [
-			0 => ['pipe', 'r'],
-			1 => ['pipe', 'w'],
-			2 => ['pipe', 'w'],
-		];
-		$proc = proc_open($cmd, $descriptorSpec, $pipes, null, $env);
-		if (!is_resource($proc)) {
-			return ['exitCode' => self::EXIT_CONFIG_ERROR, 'stdout' => '', 'stderr' => 'proc_open failed'];
-		}
-		fclose($pipes[0]);
-
-		stream_set_blocking($pipes[1], false);
-		stream_set_blocking($pipes[2], false);
-
-		$stdout = '';
-		$stderr = '';
-		$exitCode = -1;
-		$deadline = microtime(true) + $timeoutSec;
-		while (true) {
-			$status = proc_get_status($proc);
-			$stdout .= stream_get_contents($pipes[1]);
-			$stderr .= stream_get_contents($pipes[2]);
-			if (!$status['running']) {
-				// PHP gotcha: proc_get_status() captures the exit status the
-				// first time it sees the process exited. proc_close() called
-				// afterwards returns -1 because the status was already reaped.
-				$exitCode = (int) $status['exitcode'];
-				break;
-			}
-			if (microtime(true) > $deadline) {
-				proc_terminate($proc, 9);
-				$stderr .= "\n[timeout after {$timeoutSec}s]";
-				$exitCode = self::EXIT_CONFIG_ERROR;
-				break;
-			}
-			usleep(100 * 1000);
-		}
-		$stdout .= stream_get_contents($pipes[1]);
-		$stderr .= stream_get_contents($pipes[2]);
-		fclose($pipes[1]);
-		fclose($pipes[2]);
-		proc_close($proc);
-
-		@file_put_contents(
-			$this->userTrDir() . '/fetch.log',
-			'[' . date('c') . "] exit=$exitCode\n--- stdout ---\n$stdout\n--- stderr ---\n$stderr\n",
-			LOCK_EX
-		);
-
-		return ['exitCode' => $exitCode, 'stdout' => $stdout, 'stderr' => $stderr];
 	}
 }

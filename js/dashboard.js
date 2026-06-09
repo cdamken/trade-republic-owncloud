@@ -75,33 +75,48 @@ function stalenessHint(iso) {
   return { label, severity };
 }
 
-// Re-fetch last_update.date and re-render the chip + #ts line in place.
-// Used after the initial load, periodically (60s) so the label stays
-// fresh, AND after a cross-tab BroadcastChannel signal so other tabs
-// catch updates from this one.
+// Inject + refresh the staleness chip in the top-bar .actions on every
+// page — including Portfolio. Same format as the chip on secondary
+// pages (update_flow.js): "Updated HH:MM · 2 h ago". Same place
+// (top-bar) so all pages look consistent (2026-06-09 — Carlos noticed
+// Portfolio's chip lived in the subtitle and looked nothing like the
+// others).
 async function refreshStalenessChip() {
   if (!routes || !routes.data) return;
-  const tsEl   = document.getElementById('ts');
-  const chipEl = document.getElementById('last-update-age');
-  if (!chipEl) return;
+  // Ensure the chip element exists in the top-bar — inject it the first
+  // time refreshStalenessChip runs.
+  let chip = document.getElementById('last-update-age');
+  if (!chip) {
+    const actions = document.querySelector('.top-bar .actions');
+    if (!actions) return;
+    chip = document.createElement('span');
+    chip.id = 'last-update-age';
+    chip.className = 'staleness-chip';
+    const upd = document.getElementById('update-btn');
+    if (upd) actions.insertBefore(chip, upd);
+    else actions.appendChild(chip);
+  }
   let fetchedAt = null;
   try {
     const r = await fetch(routes.data.replace('__TYPE__', 'last_update') + '?t=' + Date.now());
     if (r.ok) fetchedAt = (await r.text()).trim();
   } catch (_) { /* keep prior state on error */ }
   if (fetchedAt && /\d{4}-\d{2}-\d{2}[ T]\d/.test(fetchedAt)) {
+    const s = stalenessHint(fetchedAt);
+    if (!s) return;
     const parseable = fetchedAt.replace(' ', 'T');
     const d = new Date(parseable);
-    if (tsEl) tsEl.textContent = 'Last update: ' + d.toLocaleString();
-    const s = stalenessHint(fetchedAt);
-    if (s) {
-      chipEl.textContent = s.label;
-      chipEl.className = 'staleness-chip show ' + s.severity;
-      chipEl.title = 'Snapshot fetched ' + fetchedAt;
-    }
+    const today = new Date();
+    const sameDay = d.toDateString() === today.toDateString();
+    const abs = sameDay
+      ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      : d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' +
+        d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    chip.textContent = 'Updated ' + abs + ' · ' + s.label;
+    chip.className = 'staleness-chip show ' + s.severity;
+    chip.title = 'Snapshot fetched ' + fetchedAt;
   } else {
-    if (tsEl) tsEl.textContent = 'Last update: ' + new Date().toLocaleString();
-    chipEl.className = 'staleness-chip';
+    chip.className = 'staleness-chip';
   }
 }
 

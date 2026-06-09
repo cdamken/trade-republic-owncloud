@@ -89,7 +89,10 @@ $routes = $_['routes'];
   <div class="cockpit-row buckets" id="ck-buckets"></div>
 </div>
 
-<p class="subtitle">Data extracted via <a href="https://github.com/cdamken/tr-api" target="_blank" rel="noopener" style="color:var(--muted); text-decoration:underline;">tr-api</a> (WebSocket TR). <span id="ts"></span> <span id="last-update-age" class="staleness-chip"></span></p>
+<!-- The freshness chip lives in the top-bar .actions now (same place as every
+     other page) — injected and refreshed by js/dashboard.js via the same
+     refreshStalenessChip() helper update_flow.js uses on secondary pages. -->
+<p class="subtitle">Data extracted via <a href="https://github.com/cdamken/tr-api" target="_blank" rel="noopener" style="color:var(--muted); text-decoration:underline;">tr-api</a> (WebSocket TR).</p>
 
 <!-- ============ MFA Modal ============ -->
 <div id="mfa-modal" class="modal-backdrop">

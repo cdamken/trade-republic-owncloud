@@ -36,7 +36,7 @@ import traceback
 import urllib.request
 import urllib.error
 from collections import defaultdict
-from datetime import datetime, timedelta, timezone, date as _date_t
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 

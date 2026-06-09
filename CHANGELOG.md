@@ -1,5 +1,20 @@
 # CHANGELOG
 
+## 0.1.41 — 2026-06-10
+
+`BaseOwnCloudService` now also exposes `EXIT_TIMEOUT` (alias for
+the existing `EXIT_RATE_LIMITED`, both = 21). The two names track
+semantically distinct conditions — TR's API genuinely emits HTTP
+429 rate limits (this app uses `EXIT_RATE_LIMITED`), while GBM and
+Scalable hit the same code as a wrapper timeout (they use
+`EXIT_TIMEOUT`). PHP forbids self-referential `const` so the
+literal `21` is duplicated.
+
+No behavior change for TR — `ApiController` still references
+`TrService::EXIT_RATE_LIMITED`. The new alias just lets the
+Scalable-Capital-owncloud port to the shared base class use the
+locally-meaningful name. All 9 unit tests still green.
+
 ## 0.1.40 — 2026-06-10
 
 Refactor C (TR side): shared JS formatters in `js/_shared.js`.

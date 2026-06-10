@@ -46,7 +46,8 @@
     document.getElementById('save-account-btn').addEventListener('click', async () => {
       const phone = document.getElementById('setting-phone').value.trim();
       const pin = document.getElementById('setting-pin').value.trim();
-      if (!/^\+\d{8,15}$/.test(phone)) {
+      // Same regex as ApiController::setConfig — E.164, no leading zero.
+      if (!/^\+[1-9]\d{7,14}$/.test(phone)) {
         return setStatus('account-status', 'Phone must look like +4912345678', 'err');
       }
       if (!/^\d{4,6}$/.test(pin)) {

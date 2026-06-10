@@ -121,7 +121,10 @@ function showToast(stage, kind) {
   t.classList.remove('ok', 'err');
   if (kind) t.classList.add(kind);
   const stageEl = document.getElementById('toast-stage');
-  if (stageEl) stageEl.textContent = stage;
+  // Skip the DOM write when the text hasn't changed — the 500 ms
+  // progress poll calls this with the same stage for minutes at a
+  // time during long fetches.
+  if (stageEl && stageEl.textContent !== stage) stageEl.textContent = stage;
   t.classList.add('active');
 }
 function setToastTitle(title) {
@@ -249,15 +252,21 @@ function closeMfaModal() {
 }
 
 async function submitMfa() {
-  const code = document.getElementById('mfa-input').value.trim();
+  // Null guards: the modal is normally injected by injectModalsIfMissing(),
+  // but if injection failed (CSP, broken DOM) a naked deref here would
+  // throw and silently kill the whole flow — same bug class as the
+  // settings-btn TypeError documented in CLAUDE.md.
+  const inp = document.getElementById('mfa-input');
   const errEl = document.getElementById('mfa-err');
+  const submitBtn = document.getElementById('mfa-submit-btn');
+  if (!inp || !errEl || !submitBtn) return;
+  const code = inp.value.trim();
   errEl.classList.remove('show');
   if (!/^\d{4}$/.test(code)) {
     errEl.textContent = 'The code must be exactly 4 digits.';
     errEl.classList.add('show');
     return;
   }
-  const submitBtn = document.getElementById('mfa-submit-btn');
   submitBtn.disabled = true;
   submitBtn.textContent = 'Verifying…';
   const fullReload = !!document.getElementById('mfa-full-reload') &&
@@ -280,7 +289,7 @@ async function submitMfa() {
       openMfaModal();
       errEl.textContent = 'Wrong code. Check and try again.';
       errEl.classList.add('show');
-      document.getElementById('mfa-input').select();
+      inp.select();
     } else if (r.state === 'auth_failed') {
       openMfaModal();
       errEl.textContent = 'Invalid credentials. Reopen ⚙️ Account and save them again.';
@@ -402,6 +411,12 @@ function broadcastUpdateComplete() {
 
 // ============ Init ============
 function init() {
+  // Re-entry guard: a second init() (double script load, manual call)
+  // would duplicate every addEventListener below — two /update POSTs
+  // per click, validation firing twice per keystroke.
+  if (window.__updateFlowInitialized) return;
+  window.__updateFlowInitialized = true;
+
   const root = document.getElementById('tr-app');
   if (!root) return;
   // Portfolio (main.php) ships its own copy of this logic inside dashboard.js

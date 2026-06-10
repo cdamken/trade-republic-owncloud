@@ -1,5 +1,33 @@
 # CHANGELOG
 
+## 0.1.45 — 2026-06-10
+
+Quality pass — applies the cross-repo code-review findings.
+
+### Fixed
+
+- **parseCsv quote-awareness** (`js/_shared.js`): Python's csv writer
+  quotes any field containing `;` or `"`; the old naive `split(';')`
+  sheared those rows apart (a note like `Dividend; gross €1000`
+  corrupted the Orders/Ledger tables). New `splitCsvLine()` only
+  splits on unquoted semicolons. Mirror of upstream
+  `Trade-Republic-Dashboard@6e25a73`.
+- **monthLabel clamp**: malformed month keys ("2026-13") rendered
+  "undefined 2026"; index now clamps to 0..11.
+- **submitMfa null guards** (`js/update_flow.js`): naked
+  `getElementById(...).value` derefs could throw and silently kill
+  the flow if modal injection failed — same TypeError class as the
+  settings-btn bug.
+- **init() re-entry guard**: a double script load duplicated every
+  listener (two `/update` POSTs per click).
+- **Phone regex** (`js/settings.js`): now matches the backend's
+  E.164 validation exactly (`/^\+[1-9]\d{7,14}$/` — no leading zero).
+
+### Performance
+
+- `showToast` skips the DOM write when the stage text is unchanged
+  (the 500 ms progress poll rewrote the same string for minutes).
+
 ## 0.1.44 — 2026-06-10
 
 Fix: `last_update.date` written as UTC ISO 8601 with explicit `Z`.

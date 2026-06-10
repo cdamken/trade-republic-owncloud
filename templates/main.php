@@ -285,6 +285,10 @@ include __DIR__ . '/partials/_top_bar.php';
       <option value="big_winners">Winners &gt;50%</option>
       <option value="big_losers">Losers &gt;25%</option>
     </select>
+    <a href="<?php p(str_replace('__KIND__', 'holdings', $routes['exportCsv'])); ?>"
+       download="holdings.csv"
+       style="background: rgba(96,165,250,0.08); color: var(--blue); text-decoration: none; padding: 6px 12px; border-radius: 6px; font-size: 13px; font-weight: 500; border: 1px solid var(--blue); white-space: nowrap;"
+       title="Download every holding as CSV (name, ISIN, type, qty, avg cost, current price, value, daily P/L)">↓ Export CSV</a>
   </div>
 
   <table id="all">

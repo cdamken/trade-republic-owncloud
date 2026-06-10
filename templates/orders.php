@@ -74,6 +74,10 @@ include __DIR__ . '/partials/_top_bar.php';
   <select id="month-filter">
     <option value="">All months</option>
   </select>
+  <a href="<?php p(str_replace('__KIND__', 'orders', $routes['exportCsv'])); ?>"
+     download="orders.csv"
+     style="background: rgba(96,165,250,0.08); color: var(--blue); text-decoration: none; padding: 6px 12px; border-radius: 6px; font-size: 13px; font-weight: 500; border: 1px solid var(--blue); white-space: nowrap;"
+     title="Download the orders table as CSV (date, side, eventType, ISIN, security, quantity, amount, status)">↓ Export CSV</a>
 </div>
 
 <table id="orders-table">

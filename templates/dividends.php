@@ -112,6 +112,10 @@ include __DIR__ . '/partials/_top_bar.php';
   <select id="div-issuer-filter">
     <option value="">All issuers</option>
   </select>
+  <a href="<?php p(str_replace('__KIND__', 'dividends', $routes['exportCsv'])); ?>"
+     download="dividends.csv"
+     style="background: rgba(96,165,250,0.08); color: var(--blue); text-decoration: none; padding: 6px 12px; border-radius: 6px; font-size: 13px; font-weight: 500; border: 1px solid var(--blue); white-space: nowrap;"
+     title="Download dividend + interest payments as CSV (date, security, ISIN, amount, currency, status)">↓ Export CSV</a>
 </div>
 
 <table id="payments-table" class="dividends-table">

@@ -12,6 +12,8 @@
  *   api#downloadDocs POST /api/download_docs   → bulk download PDFs to per-user documents/
  *   api#getDocsFolder GET  /api/docs_folder    → { folder: string }   per-user docs subfolder
  *   api#setDocsFolder POST /api/docs_folder    → save { folder } (relative to Files root)
+ *   api#exportCsv     GET  /export/{kind}.csv  → per-page CSV download
+ *                                                (kinds: orders, ledger, dividends, holdings)
  */
 
 return [
@@ -31,5 +33,8 @@ return [
 		['name' => 'api#downloadDocs',   'url' => '/api/download_docs', 'verb' => 'POST'],
 		['name' => 'api#getDocsFolder',  'url' => '/api/docs_folder',   'verb' => 'GET'],
 		['name' => 'api#setDocsFolder',  'url' => '/api/docs_folder',   'verb' => 'POST'],
+		// Per-page CSV exports — mirror of Trade-Republic-Dashboard
+		// /export/* endpoints. {kind} is whitelisted in ApiController.
+		['name' => 'api#exportCsv',      'url' => '/export/{kind}.csv', 'verb' => 'GET'],
 	],
 ];

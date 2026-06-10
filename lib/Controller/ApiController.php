@@ -212,4 +212,140 @@ class ApiController extends Controller {
 			'detail'    => substr((string) ($envelope['message'] ?? ''), 0, 500),
 		], $httpStatus);
 	}
+
+	// =====================================================================
+	// Per-page CSV exports — verbatim port of
+	// Trade-Republic-Dashboard/app/server.py::_export_*_csv() helpers.
+	// Each kind is a focused subset of account_transactions.csv (or
+	// portfolio.json) matching what's visible on the corresponding
+	// dashboard page. Lighter than a single 30-column dump.
+	// =====================================================================
+
+	const _BUY_SELL_EVENT_TYPES = [
+		'TRADING_TRADE_EXECUTED',
+		'TRADING_SAVINGSPLAN_EXECUTED',
+		'SPARE_CHANGE_AGGREGATE',
+		'SAVEBACK_AGGREGATE',
+		'CRYPTO_BUY_EXECUTED',
+		'CRYPTO_SELL_EXECUTED',
+	];
+	const _DIVIDEND_EVENT_TYPES = [
+		'SSP_CORPORATE_ACTION_CASH',
+		'ssp_corporate_action_invoice_cash',
+	];
+
+	/**
+	 * @NoAdminRequired
+	 * @NoCSRFRequired
+	 */
+	public function exportCsv(string $kind): Http\Response {
+		switch ($kind) {
+			case 'orders':    return $this->_csvFromCsv('orders.csv',    'orders');
+			case 'ledger':    return $this->_csvFromCsv('ledger.csv',    'ledger');
+			case 'dividends': return $this->_csvFromCsv('dividends.csv', 'dividends');
+			case 'holdings':  return $this->_csvFromPortfolio();
+			default:
+				return new JSONResponse(['error' => 'unknown export kind'], Http::STATUS_BAD_REQUEST);
+		}
+	}
+
+	private function _csvRow(array $row): string {
+		// Quote per RFC 4180 — wrap any cell containing `,`, `"`, or
+		// newline; escape embedded quotes by doubling.
+		$cells = [];
+		foreach ($row as $cell) {
+			$cell = (string) $cell;
+			if (strpbrk($cell, ",\"\n\r") !== false) {
+				$cell = '"' . str_replace('"', '""', $cell) . '"';
+			}
+			$cells[] = $cell;
+		}
+		return implode(',', $cells) . "\n";
+	}
+
+	private function _csvFromCsv(string $filename, string $mode): Http\Response {
+		$path = $this->tr->dataPath('account_transactions.csv');
+		if ($mode === 'orders') {
+			$out = $this->_csvRow(['date', 'side', 'eventType', 'isin', 'security', 'quantity', 'amount_eur', 'status']);
+		} elseif ($mode === 'ledger') {
+			$out = $this->_csvRow(['date', 'eventType', 'category', 'description', 'related_isin', 'amount_eur', 'status']);
+		} else {
+			$out = $this->_csvRow(['date', 'security', 'isin', 'amount_eur', 'currency', 'status']);
+		}
+
+		if (is_file($path) && ($fh = @fopen($path, 'r')) !== false) {
+			fgetcsv($fh, 0, ';');
+			while (($r = fgetcsv($fh, 0, ';')) !== false) {
+				$r = array_pad($r, 12, '');
+				[$date, $typ, $val, $note, $isin, $shares, $_fees, $_taxes, $_i2, $_s2, $ev, $sub] = $r;
+				if ($mode === 'orders') {
+					$isTrade = in_array($ev, self::_BUY_SELL_EVENT_TYPES, true)
+					        || in_array($typ, ['Buy', 'Sell'], true);
+					if (!$isTrade) continue;
+					if (in_array($typ, ['Buy', 'Sell'], true)) {
+						$side = $typ;
+					} else {
+						$side = ((float) $val) < 0 ? 'Buy' : 'Sell';
+					}
+					$out .= $this->_csvRow([$date, $side, $ev, $isin, $note, $shares, $val, $sub ?: 'executed']);
+				} elseif ($mode === 'ledger') {
+					if (in_array($ev, self::_BUY_SELL_EVENT_TYPES, true) || in_array($typ, ['Buy', 'Sell'], true)) {
+						$cat = 'trade';
+					} elseif (in_array($ev, self::_DIVIDEND_EVENT_TYPES, true) || $typ === 'Dividend') {
+						$cat = 'dividend';
+					} elseif (in_array($ev, ['BANK_TRANSACTION_INCOMING', 'CARD_REFUND'], true) || $typ === 'Deposit') {
+						$cat = 'deposit';
+					} elseif (strpos($ev, 'BANK_TRANSACTION_OUTGOING') === 0 || $typ === 'Withdrawal') {
+						$cat = 'withdrawal';
+					} elseif ($ev === 'CARD_TRANSACTION' || $typ === 'Removal') {
+						$cat = 'card_spending';
+					} elseif ($ev === 'SSP_TAX_CORRECTION' || $typ === 'Tax Refund') {
+						$cat = 'tax_refund';
+					} elseif (strpos($ev, 'INTEREST_PAYOUT') === 0 || $typ === 'Interest') {
+						$cat = 'interest';
+					} else {
+						$cat = 'other';
+					}
+					$out .= $this->_csvRow([$date, $ev, $cat, $note, $isin, $val, $sub ?: '']);
+				} else {
+					if (!in_array($ev, self::_DIVIDEND_EVENT_TYPES, true) && $typ !== 'Dividend') continue;
+					$out .= $this->_csvRow([$date, $note, $isin, $val, 'EUR', $sub ?: 'credited']);
+				}
+			}
+			fclose($fh);
+		}
+		return $this->_sendCsv($filename, $out);
+	}
+
+	private function _csvFromPortfolio(): Http\Response {
+		$path = $this->tr->dataPath('portfolio.json');
+		$out = $this->_csvRow(['name', 'isin', 'type', 'qty', 'fifo', 'current_price', 'value_eur', 'daily_pnl']);
+		if (is_file($path)) {
+			$raw = @file_get_contents($path);
+			$data = $raw ? json_decode($raw, true) : null;
+			foreach ((array) ($data['all_positions'] ?? []) as $p) {
+				$out .= $this->_csvRow([
+					$p['name']         ?? $p['security'] ?? '',
+					$p['isin']         ?? '',
+					$p['type']         ?? $p['category'] ?? '',
+					$p['qty']          ?? $p['quantity'] ?? '',
+					$p['avg_cost']     ?? $p['fifo_avg_cost'] ?? '',
+					$p['current_price'] ?? '',
+					$p['net_value_eur'] ?? '',
+					$p['daily_pnl_eur'] ?? $p['pl_eur'] ?? '',
+				]);
+			}
+		}
+		return $this->_sendCsv('holdings.csv', $out);
+	}
+
+	private function _sendCsv(string $filename, string $body): Http\Response {
+		$response = new DataDisplayResponse(
+			$body,
+			Http::STATUS_OK,
+			['Content-Type' => 'text/csv; charset=utf-8']
+		);
+		$response->addHeader('Content-Disposition', 'attachment; filename="' . $filename . '"');
+		return $response;
+	}
 }

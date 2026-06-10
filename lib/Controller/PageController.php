@@ -154,6 +154,7 @@ class PageController extends Controller {
 				'reset'        => $this->urlGenerator->linkToRoute('trade_republic.api.reset'),
 				'downloadDocs' => $this->urlGenerator->linkToRoute('trade_republic.api.downloadDocs'),
 				'docsFolder'   => $this->urlGenerator->linkToRoute('trade_republic.api.getDocsFolder'),
+				'exportCsv'    => $this->urlGenerator->linkToRoute('trade_republic.api.exportCsv', ['kind' => '__KIND__']),
 			],
 		];
 

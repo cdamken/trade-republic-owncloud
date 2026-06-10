@@ -1,5 +1,36 @@
 # CHANGELOG
 
+## 0.1.43 — 2026-06-10
+
+Per-page CSV exports ([Trade-Republic-owncloud closes upstream
+trade-republic-dashboard#2](https://github.com/cdamken/trade-republic-dashboard/issues/2)).
+
+### What changed
+
+- New route `api#exportCsv` at `GET /export/{kind}.csv`.
+- 4 kinds whitelisted: `orders`, `ledger`, `dividends`, `holdings`.
+- Each page's controls bar gets a "↓ Export CSV" link rendering
+  inline (`<a href="..." download>`) — no JS, no CSRF (these are
+  read-only GET endpoints, no `OC.requestToken` needed).
+- Implementation in `ApiController::exportCsv()` reads
+  `account_transactions.csv` (3 kinds) or `portfolio.json`
+  (`holdings`) from the per-user data dir, filters / projects to
+  the right columns, RFC-4180-quotes, returns a
+  `DataDisplayResponse` with `Content-Disposition: attachment`.
+- Verbatim port of `Trade-Republic-Dashboard/app/server.py`'s
+  `_export_*_csv()` helpers — same column shapes, same eventType
+  filters, same category mapping. Buttons on the 4 dashboard pages
+  use the upstream link href verbatim.
+
+### Why "per-page" instead of one big CSV
+
+A single export-all CSV is great for tax filing but painful for
+analysis ("which 13 of the 30 columns do I actually need?").
+Per-page CSVs give you exactly the subset matching what's on screen.
+
+Verified: php -l clean, verify_dom_ids, verify_wiring, 9/9 unit
+tests green.
+
 ## 0.1.42 — 2026-06-10
 
 Backlog burn-down: closes 5 issues in one shot.

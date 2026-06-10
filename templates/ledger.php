@@ -80,6 +80,10 @@ include __DIR__ . '/partials/_top_bar.php';
     <option value="1000">1000 rows</option>
     <option value="2000">2000 rows</option>
   </select>
+  <a href="<?php p(str_replace('__KIND__', 'ledger', $routes['exportCsv'])); ?>"
+     download="ledger.csv"
+     style="background: rgba(96,165,250,0.08); color: var(--blue); text-decoration: none; padding: 6px 12px; border-radius: 6px; font-size: 13px; font-weight: 500; border: 1px solid var(--blue); white-space: nowrap;"
+     title="Download every transaction as CSV (date, eventType, category, description, ISIN, amount, status)">↓ Export CSV</a>
 </div>
 
 <table id="ledger-table">

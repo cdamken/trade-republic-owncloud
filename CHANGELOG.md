@@ -1,5 +1,24 @@
 # CHANGELOG
 
+## 0.1.44 — 2026-06-10
+
+Fix: `last_update.date` written as UTC ISO 8601 with explicit `Z`.
+
+Carlos reported the staleness chip showing "Updated 07:21 AM · 2 h
+ago" right after clicking Actualizar. Root cause: `fetch_wrapper.py`
+wrote `datetime.now()` (naive local-of-server) and cloud.damken.com
+runs UTC. Browser JS parsed `2026-06-10 07:21:43` as the user's
+local timezone, displaying the UTC wall-clock instead of his actual
+local time.
+
+Fix: emit `2026-06-10T07:21:43Z`. JS's `stalenessHint()` already
+detects the `Z` marker and parses as UTC; `toLocaleTimeString()`
+renders in the user's TZ. The read-side parser also accepts both
+old space-separated and new T-separated formats so the next
+incremental fetch doesn't choke on stale on-disk files.
+
+Verbatim port from `Trade-Republic-Dashboard@7174d37`.
+
 ## 0.1.43 — 2026-06-10
 
 Per-page CSV exports ([Trade-Republic-owncloud closes upstream

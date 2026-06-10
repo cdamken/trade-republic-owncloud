@@ -742,7 +742,11 @@ def fetch_transactions(tr, client, data_dir: Path, force_full: bool) -> None:
 
     if not (force_full or not tx_csv.exists() or not last_update_file.exists()):
         try:
-            last_str = last_update_file.read_text(encoding="utf-8").strip().split()[0]
+            # Accept legacy "2026-06-10 09:21:43" AND new ISO
+            # "2026-06-10T09:21:43Z" — only the YYYY-MM-DD prefix
+            # matters for the cutoff date.
+            raw = last_update_file.read_text(encoding="utf-8").strip()
+            last_str = raw.split('T')[0].split()[0]
             cutoff = datetime.strptime(last_str, "%Y-%m-%d").replace(tzinfo=timezone.utc) - timedelta(days=3)
         except Exception:
             cutoff = None
@@ -1346,8 +1350,12 @@ def main() -> None:
     print("Computing analytics...", flush=True)
     compute_analytics(data_dir)
 
+    # ISO 8601 with explicit Z (UTC). Browser JS parses the `Z` and
+    # converts to user-local via toLocaleTimeString() — fixes the
+    # "Updated 07:21 AM" chip on a UTC server (Carlos report 2026-06-10).
     (data_dir / "last_update.date").write_text(
-        datetime.now().strftime("%Y-%m-%d %H:%M:%S\n"), encoding="utf-8"
+        datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ\n"),
+        encoding="utf-8",
     )
     print("OK Fetch complete.")
     sys.exit(0)

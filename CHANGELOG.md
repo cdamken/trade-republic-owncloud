@@ -1,5 +1,57 @@
 # CHANGELOG
 
+## 0.1.42 — 2026-06-10
+
+Backlog burn-down: closes 5 issues in one shot.
+
+### Fixed
+
+- **fmtSignedEUR negative-sign bug** ([#1](https://github.com/cdamken/trade-republic-owncloud/issues/1)).
+  Previously returned negatives WITHOUT a sign character (relied on a
+  `.red` CSS class to communicate negativity — colour-blind-hostile
+  and misleading on copy-paste). Now uses unicode minus (U+2212):
+  `"+€1.23"` / `"−€1.23"` / `"+€0.00"`.
+- **dividends.js inline `fmtEur` helper removed** ([#2](https://github.com/cdamken/trade-republic-owncloud/issues/2)).
+  Hoisted into `_shared.js` as new `fmtEURWithMinus(n)` (minus on
+  negatives, no sign on positives — for headline totals where `+`
+  is visual noise). `dividends.js` keeps a one-line alias
+  (`const fmtEur = fmtEURWithMinus;`) so the 4 callsites don't churn.
+
+### Added
+
+- **Glossary parity with gbm-owncloud** ([#3](https://github.com/cdamken/trade-republic-owncloud/issues/3)).
+  New "📐 Analytics methodology" section with 5 terms ported from
+  gbm-dashboard's "Métricas del dashboard":
+  - XIRR (defined; flagged as "not computed for TR yet")
+  - Cost basis trajectory
+  - Forward 12-month dividend projection
+  - Yield on cost
+  - Benchmark replay
+
+### Closed-as-already-done
+
+- **[#5 Forward dividend surface](https://github.com/cdamken/trade-republic-owncloud/issues/5)** — already
+  shipped at v0.1.x: `templates/analytics.php` has the `#cf-fwd-div`
+  tile under "Income forecast"; `_renderCashFlowTiles` populates it
+  from `analytics.json::dividends.forward_12mo`. Stale-read issue.
+- **[#4 Settings sidebar](https://github.com/cdamken/trade-republic-owncloud/issues/4)** — already
+  shipped: 6-section sidebar (Account / Documents / Display / Data /
+  Danger / About), more structured than gbm's 4. Stale-read issue.
+- **[#6 Sticky top-bar verify](https://github.com/cdamken/trade-republic-owncloud/issues/6)** — wontfix.
+  CSS audit confirms `#tr-app .top-bar { position: sticky; top: 0; }`
+  works correctly. The cockpit (KPIs + buckets BELOW the top-bar)
+  intentionally scrolls out — that's likely what Carlos read as "tabs
+  moving".
+
+### Upstream mirror
+
+Same fmtSignedEUR fix + dividends.html shim landed in
+`Trade-Republic-Dashboard@7d31686` first, per the upstream-first
+port rule.
+
+Verified: node --check, verify_dom_ids, verify_wiring, 9/9 unit
+tests green.
+
 ## 0.1.41 — 2026-06-10
 
 `BaseOwnCloudService` now also exposes `EXIT_TIMEOUT` (alias for

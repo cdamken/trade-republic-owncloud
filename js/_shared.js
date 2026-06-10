@@ -34,16 +34,28 @@ function fmtEUR0(n) {
   });
 }
 
-// Sign-aware EUR: "+€1.23" / "−€1.23" / "+€0.00" depending on the value's sign.
-// NOTE (2026-06-10): the original returned negatives WITHOUT a sign
-// (and relied on a `.red` CSS class to communicate it). The ledger
-// page applies the class as well, so this is safe to display either
-// way — but the verbatim port from upstream keeps the no-sign
-// negative for now to preserve byte-for-byte UI. If you want a real
-// minus on negatives, call `fmtSignedEURWithMinus()` instead.
+// Sign-aware EUR: "+€1.23" / "−€1.23" / "+€0.00" — explicit sign on
+// BOTH positives and negatives. For deltas / net cash flows where the
+// sign is the headline information.
+//
+// Uses unicode minus (U+2212). Fixed v0.1.42 (was returning negatives
+// WITHOUT any sign, relying on `.red` CSS class to communicate
+// negativity — colour-blind-hostile + misleading on copy-paste).
 function fmtSignedEUR(n) {
   const v = Number(n) || 0;
-  return (v >= 0 ? '+' : '') + fmtEUR(Math.abs(v));
+  if (v < 0) return '−' + fmtEUR(Math.abs(v));
+  return '+' + fmtEUR(v);
+}
+
+// EUR with minus on negatives but NO sign on positives: "€1.23" /
+// "−€1.23" / "€0.00". For values that are conventionally positive
+// (dividend totals, balances) where a "+" prefix would be visual
+// noise but a missing "−" on a refund would be wrong. Mirrors
+// dividends.js's historic local `fmtEur` helper.
+function fmtEURWithMinus(n) {
+  const v = Number(n) || 0;
+  if (v < 0) return '−' + fmtEUR(Math.abs(v));
+  return fmtEUR(v);
 }
 
 // Percent with sign, configurable decimals (default 2). Pass d=1 for

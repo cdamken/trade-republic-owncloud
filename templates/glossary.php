@@ -103,6 +103,48 @@ include __DIR__ . '/partials/_top_bar.php';
     <dt>MFA / Security code</dt>
     <dd>4-digit code TR pushes to your mobile app when a fresh login is needed.</dd>
   </dl>
+
+  <!-- Analytics methodology — ported from gbm-owncloud's glossary
+       (v0.1.42, 2026-06-10) to bring TR ↔ GBM parity. Verbatim from
+       upstream Trade-Republic-Dashboard. -->
+  <h2 style="font-size:14px; color:var(--muted); text-transform:uppercase; letter-spacing:1.5px; font-weight:600; margin: 24px 0 8px;">📐 Analytics methodology</h2>
+  <p style="color:var(--muted); font-size:13px; margin-bottom:14px;">How specific numbers in this dashboard are calculated.</p>
+
+  <dl class="glossary">
+    <dt>XIRR (Internal Rate of Return)</dt>
+    <dd>Annualized money-weighted return. Considers the exact timing of each external
+        cash flow (deposit, withdrawal) into TR and the current portfolio value. It's the
+        "true" rate of return your committed capital has earned, in % per year.
+        <br><br>
+        <strong>Currently NOT computed for TR</strong> — the Lifetime P/L tile shows
+        total absolute return instead. If you want to compare against benchmarks like
+        MSCI World, XIRR is the right metric. Tracked as future work.</dd>
+
+    <dt>Cost basis trajectory</dt>
+    <dd>The "Capital invested over time" line you'd see on a Net Worth chart. Accumulates
+        purchases − sales day by day. Does NOT reflect historical market values (we don't
+        have past prices), only when you committed capital. Today's actual market value
+        sits in the cockpit KPI cards above any chart.</dd>
+
+    <dt>Forward 12-month dividend (projection)</dt>
+    <dd>Naive estimate of how much you'll receive in dividends over the next 12 months,
+        scaling what you received in the observed window up to 365 days. Requires ≥90
+        days of dividend history to avoid noise from one-off payments. Shown on the
+        Analytics page under "Income forecast".</dd>
+
+    <dt>Yield on cost</dt>
+    <dd><code>Forward 12-mo dividend ÷ Total cost basis</code>. The dividend yield you're
+        earning on the money you actually paid for your positions — different from
+        market-yield (which divides by current price). Tells you "how much income am
+        I getting per euro I invested?".</dd>
+
+    <dt>Benchmark replay</dt>
+    <dd>When a benchmark line appears on a chart (e.g. MSCI World on the Net Worth
+        chart), it's reconstructed by simulating "what if you'd bought the index on the
+        same dates you bought TR positions, with the same amounts". Lets you compare
+        your stock picks against a passive index using your actual cash-flow timeline,
+        not a flat lump-sum baseline.</dd>
+  </dl>
 </div>
 
 </div>

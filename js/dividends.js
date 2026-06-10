@@ -19,13 +19,11 @@
   let monthlyChartRef = null;
 
   // ============ Money / date formatters ============
-  const fmtEur = (n) => {
-    const sign = n < 0 ? '−' : '';
-    const abs = Math.abs(n || 0);
-    return sign + '€' + abs.toLocaleString('en-US', {
-      minimumFractionDigits: 2, maximumFractionDigits: 2,
-    });
-  };
+  // fmtEur (local) replaced by _shared.js's fmtEURWithMinus in v0.1.42.
+  // Same behaviour: "€1.23" / "−€1.23" — minus on negatives, no sign
+  // on positives. The local declaration predated _shared.js becoming
+  // a per-page global and lingered through the v0.1.40 refactor.
+  const fmtEur = fmtEURWithMinus;
   const monthKey = (isoDate) => isoDate ? isoDate.slice(0, 7) : '';
   const monthLabel = (key) => {
     if (!key) return '';

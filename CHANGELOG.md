@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 0.1.46 — 2026-06-11
+
+Added the `.htaccess` cache-revalidation override that GBM-owncloud
+already had but this repo was missing (OWNCLOUD-PATCHES #7). Forces
+browsers to revalidate JS/CSS (304 when unchanged) instead of trusting
+ownCloud's ~6-month asset TTL — so a deployed JS fix actually reaches
+users. Surfaced by Portfolio-Master's new `verify_layering.sh`.
+
 ## 0.1.45 — 2026-06-10
 
 Quality pass — applies the cross-repo code-review findings.

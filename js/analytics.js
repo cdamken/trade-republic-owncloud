@@ -137,23 +137,8 @@ function _renderCashFlowTiles(cf, div) {
     document.getElementById('cf-pl-tile').classList.add(pl >= 0 ? 'pl-pos' : 'pl-neg');
   }
 
-  // Income forecast (forward 12mo dividends + yield on cost) + trading totals
-  const fwd = div.forward_12mo;
-  const fwdEl = document.getElementById('cf-fwd-div');
-  const fwdSub = document.getElementById('cf-fwd-div-sub');
-  if (fwd != null) {
-    fwdEl.textContent = '€' + fwd.toLocaleString(undefined, {maximumFractionDigits: 0});
-    fwdEl.style.color = 'var(--green)';
-    fwdSub.textContent = 'From ' + (div.forward_12mo_payments_used || 0) + ' payments · ' +
-                         (div.forward_12mo_basis_days || 0) + ' days basis';
-  } else {
-    fwdEl.textContent = '—';
-    fwdSub.textContent = 'Need ≥90 days of Dividend history';
-  }
-  const yoc = div.yield_on_cost;
-  document.getElementById('cf-yoc').textContent =
-    yoc != null ? yoc.toFixed(2) + '%' : '—';
-  // Buys/Sells remain — but with less prominent positioning (they're context, not headline).
+  // Forward dividends + yield on cost moved to the Dividends page.
+  // Trading totals (buys/sells) stay here.
   document.getElementById('cf-buys').textContent = fmtEUR0(cf.buys?.total || 0);
   document.getElementById('cf-buys-count').textContent = (cf.buys?.count || 0).toLocaleString();
   document.getElementById('cf-sells').textContent = fmtEUR0(cf.sells?.total || 0);

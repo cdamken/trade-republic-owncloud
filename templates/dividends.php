@@ -68,6 +68,16 @@ include __DIR__ . '/partials/_top_bar.php';
     <div class="value" id="card-issuers">—</div>
     <div class="delta" id="card-issuers-detail">unique ISINs</div>
   </div>
+  <div class="summary-card">
+    <div class="label">Forward 12-mo dividends</div>
+    <div class="value green" id="card-fwd-div">—</div>
+    <div class="delta" id="card-fwd-div-sub">projection from last 12 months</div>
+  </div>
+  <div class="summary-card" title="Forward 12-month dividend ÷ total cost basis. Unlike market yield (÷ current price), this is the income you earn per euro you actually paid. Same metric as GBM/SC.">
+    <div class="label">Yield on cost</div>
+    <div class="value" id="card-yoc" style="color: var(--blue);">—</div>
+    <div class="delta">forward dividends ÷ cost basis</div>
+  </div>
 </div>
 
 <div class="dividends-note">

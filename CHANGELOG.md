@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 0.1.48 — 2026-06-15
+
+Dividend metrics off Analytics onto the Dividends page. The "Income
+forecast" section's Forward 12-mo dividends + Yield on cost moved to the
+Dividends page (both read from analytics.json); the Analytics section is
+now "Trading totals" (buys/sells only). Consistent with GBM/SC —
+dividends live with dividends.
+
 ## 0.1.47 — 2026-06-15
 
 Benchmark replay is now daily instead of monthly stair-steps. The replay

@@ -109,6 +109,23 @@
       }
       const d = await r.json();
       const div = d.dividends || {};
+
+      // Income forecast (moved here from Analytics — dividend metrics live
+      // with dividends). forward_12mo + yield_on_cost come from analytics.json.
+      const fwd = div.forward_12mo;
+      const fwdEl = document.getElementById('card-fwd-div');
+      const fwdSub = document.getElementById('card-fwd-div-sub');
+      if (fwd != null) {
+        fwdEl.textContent = '€' + fwd.toLocaleString(undefined, { maximumFractionDigits: 0 });
+        fwdSub.textContent = 'from ' + (div.forward_12mo_payments_used || 0) + ' payments · ' +
+                             (div.forward_12mo_basis_days || 0) + ' days basis';
+      } else {
+        fwdEl.textContent = '—';
+        fwdSub.textContent = 'need ≥90 days of dividend history';
+      }
+      document.getElementById('card-yoc').textContent =
+        div.yield_on_cost != null ? div.yield_on_cost.toFixed(2) + '%' : '—';
+
       state.rows = div.all_payments || div.recent || [];
       const dates = state.rows.map(p => p.date).filter(Boolean).sort();
       state.fromDate = dates[0] || null;

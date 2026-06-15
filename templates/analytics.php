@@ -91,22 +91,10 @@ include __DIR__ . '/partials/_top_bar.php';
     <strong>Lifetime P/L</strong> = Current value + Card spending − Net capital in TR − Investment income. Pure price appreciation on the capital you've committed.
   </div>
 
-  <!-- Income forecast (Forward 12-month dividends + Yield on cost). 2026-06-01 —
-       replaces the old Trading totals tiles which just repeated buys/sells totals
-       already visible in net_traded. These two answer "what will I earn in the
-       next year?" — actionable, unlike the gross flow numbers we used to show. -->
-  <h2 style="margin-top: 32px;">Income forecast</h2>
+  <!-- Trading totals. Forward dividends + Yield on cost moved to the
+       Dividends page (dividend metrics live with dividends). -->
+  <h2 style="margin-top: 32px;">Trading totals</h2>
   <div class="cf-grid">
-    <div class="cf-tile in">
-      <div class="label">Forward 12-mo dividends</div>
-      <div class="value" id="cf-fwd-div">—</div>
-      <div class="sub" id="cf-fwd-div-sub">Projection from last 12 months</div>
-    </div>
-    <div class="cf-tile">
-      <div class="label">Yield on cost</div>
-      <div class="value" id="cf-yoc" style="color: var(--blue);">—</div>
-      <div class="sub">Forward dividends ÷ total cost basis</div>
-    </div>
     <div class="cf-tile">
       <div class="label">Total stock purchases</div>
       <div class="value" id="cf-buys">€0</div>

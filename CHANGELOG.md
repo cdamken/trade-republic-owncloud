@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 0.1.47 — 2026-06-15
+
+Benchmark replay is now daily instead of monthly stair-steps. The replay
+keyed the benchmark by `YYYY-MM` and emitted one point per month at
+`-01`, so the MSCI World / S&P 500 / Nasdaq 100 overlays rendered as ugly
+steps. `replay_against_benchmark` (in `python/fetch_wrapper.py`) now walks
+every calendar day against the daily Yahoo closes (`interval=1d`),
+replaying the SAME daily cost-basis series the user's line plots — the
+exact algorithm gbm-dashboard uses, so all three trios match. Run Update
+Now to regenerate `analytics.json` with the smooth series. (Upstream:
+Trade-Republic-Dashboard.)
+
 ## 0.1.46 — 2026-06-11
 
 Added the `.htaccess` cache-revalidation override that GBM-owncloud

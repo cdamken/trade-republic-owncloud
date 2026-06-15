@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 0.1.49 — 2026-06-15
+
+Benchmark overlays rebased to the window start. MSCI World / S&P 500 /
+Nasdaq 100 now begin at the **same height** as your line at the left edge
+of the selected range (the index's pre-window head-start is subtracted),
+so 1W/1M/3M/6M/1Y comparisons are fair. No-op in the All view.
+
 ## 0.1.48 — 2026-06-15
 
 Dividend metrics off Analytics onto the Dividends page. The "Income

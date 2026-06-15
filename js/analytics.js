@@ -327,7 +327,7 @@ function _wireHistoryChart(data) {
       for (const p of (b.history || [])) byDay[p.date] = p.value;
       const benchDatesSorted = Object.keys(byDay).sort();
       let last = null;
-      const aligned = hist.map(h => {
+      let aligned = hist.map(h => {
         const d = h.date;
         if (byDay[d] != null) {
           last = byDay[d];
@@ -339,6 +339,16 @@ function _wireHistoryChart(data) {
         }
         return last;
       });
+      // Rebase so the benchmark STARTS at the same height as your line at the
+      // left edge of the visible window (subtract the pre-window head-start),
+      // otherwise an index that already ran up looks like it "starts higher".
+      // No-op in the "All" view.
+      let i = 0;
+      while (i < aligned.length && (aligned[i] == null || hist[i].value == null)) i++;
+      if (i < aligned.length) {
+        const offset = aligned[i] - hist[i].value;
+        aligned = aligned.map(v => v == null ? null : +(v - offset).toFixed(2));
+      }
       return { aligned, label: b.label || b.symbol, color: b.color || '#fbbf24' };
     }).filter(b => b.aligned.some(v => v != null));
   }

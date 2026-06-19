@@ -197,7 +197,7 @@ abstract class BaseOwnCloudService {
 		// summarises the run before the raw stdout/stderr dumps.
 		@file_put_contents(
 			$this->userDir() . '/fetch.log',
-			'[' . date('c') . "] exit=$exitCode ($exitName) duration=${durationMs}ms\n"
+			'[' . date('c') . "] exit=$exitCode ($exitName) duration={$durationMs}ms\n"
 				. "cmd: $cmdline\n"
 				. ($lastErr !== '' ? "last stderr: $lastErr\n" : '')
 				. "--- stdout ---\n$stdout\n--- stderr ---\n$stderr\n",

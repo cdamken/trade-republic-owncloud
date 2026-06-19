@@ -26,7 +26,7 @@
  * vendored-twin keeps both repos self-contained.
  */
 
-namespace OCA\TradeRepublic\Service;
+namespace OCA\TradeRepublicNext\Service;
 
 use OCP\IConfig;
 use OCP\IUserSession;

@@ -4,7 +4,7 @@
 #
 # Three moving parts that must stay in lockstep:
 #
-#   1. THE APP   →  /var/www/owncloud/apps/trade_republic/
+#   1. THE APP   →  /var/www/owncloud/apps/trade_republic_next/
 #                   (PHP controllers, JS, CSS, templates, python wrapper)
 #
 #   2. THE LIB   →  /opt/tr-venv/   (Python venv with tr-api installed)
@@ -34,13 +34,13 @@ set -euo pipefail
 # ---------- paths / hosts (edit if the deploy topology moves) ----------
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TR_API_REPO="${HOME}/damkencloud/Claude/tr-api"
-LOCAL_OC_APPS="${HOME}/damkencloud/oc_Apps/trade_republic"
+LOCAL_OC_APPS="${HOME}/damkencloud/oc_Apps/trade_republic_next"
 
 SERVER_HOST="carlos@cloud.damken.com"
 SERVER_PORT="2222"
 SERVER_KEY="${HOME}/.ssh/id_ed25519"
 
-SERVER_APP_DIR="/var/www/owncloud/apps/trade_republic"
+SERVER_APP_DIR="/var/www/owncloud/apps/trade_republic_next"
 SERVER_TR_API_SRC="/opt/tr-api-src"
 SERVER_VENV="/opt/tr-venv"
 SERVER_OCC="/var/www/owncloud/occ"
@@ -220,9 +220,9 @@ fi
 
 # ---------- step 4: cache invalidation (ownCloud regenerates ?v= hash) ----------
 if [[ $DO_APP -eq 1 ]] || [[ -n "$DO_BUMP" ]]; then
-  say "Invalidating ownCloud asset cache (occ app:enable trade_republic)"
+  say "Invalidating ownCloud asset cache (occ app:enable trade_republic_next)"
   ssh "${SSH_OPTS[@]}" "$SERVER_HOST" \
-    "sudo -u www-data php ${SERVER_OCC} app:enable trade_republic" | tail -3
+    "sudo -u www-data php ${SERVER_OCC} app:enable trade_republic_next" | tail -3
   ok "App re-enabled"
 
   say "Reading version reported by occ"
@@ -232,7 +232,7 @@ if [[ $DO_APP -eq 1 ]] || [[ -n "$DO_BUMP" ]]; then
   ")
   ok "App version on server: ${srv_ver}"
   echo
-  echo "  Browsers cache /apps/trade_republic/js/dashboard.js?v=<hash>."
+  echo "  Browsers cache /apps/trade_republic_next/js/dashboard.js?v=<hash>."
   echo "  The hash is derived from this version, so a bump regenerates it."
   echo "  If you DIDN'T bump (--bump) but JS/CSS changed, hard-refresh:"
   echo "    Cmd+Shift+R (macOS) / Ctrl+Shift+R (Linux/Windows)"

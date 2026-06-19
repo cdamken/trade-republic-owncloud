@@ -9,9 +9,9 @@
  *   POST /api/reset      → wipe credentials + data dir
  */
 
-namespace OCA\TradeRepublic\Controller;
+namespace OCA\TradeRepublicNext\Controller;
 
-use OCA\TradeRepublic\Service\TrService;
+use OCA\TradeRepublicNext\Service\TrService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\DataDisplayResponse;

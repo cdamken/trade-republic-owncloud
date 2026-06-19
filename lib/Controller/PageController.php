@@ -6,7 +6,7 @@
  * is what isolates one user from another at request time.
  */
 
-namespace OCA\TradeRepublic\Controller;
+namespace OCA\TradeRepublicNext\Controller;
 
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -97,7 +97,7 @@ class PageController extends Controller {
 	private function renderTemplate(string $template) {
 		if (!$this->userSession->isLoggedIn()) {
 			$here = $this->urlGenerator->linkToRoute(
-				'trade_republic.page.' . ($template === 'analytics' ? 'analytics' : 'index')
+				'trade_republic_next.page.' . ($template === 'analytics' ? 'analytics' : 'index')
 			);
 			$login = $this->urlGenerator->linkToRoute('core.login.showLoginForm')
 			       . '?redirect_url=' . rawurlencode($here);
@@ -141,20 +141,20 @@ class PageController extends Controller {
 
 		$params = [
 			'routes' => [
-				'index'        => $this->urlGenerator->linkToRoute('trade_republic.page.index'),
-				'analytics'    => $this->urlGenerator->linkToRoute('trade_republic.page.analytics'),
-				'settings'     => $this->urlGenerator->linkToRoute('trade_republic.page.settings'),
-				'glossary'     => $this->urlGenerator->linkToRoute('trade_republic.page.glossary'),
-				'dividends'    => $this->urlGenerator->linkToRoute('trade_republic.page.dividends'),
-				'orders'       => $this->urlGenerator->linkToRoute('trade_republic.page.orders'),
-				'ledger'       => $this->urlGenerator->linkToRoute('trade_republic.page.ledger'),
-				'data'         => $this->urlGenerator->linkToRoute('trade_republic.api.data', ['type' => '__TYPE__']),
-				'config'       => $this->urlGenerator->linkToRoute('trade_republic.api.getConfig'),
-				'update'       => $this->urlGenerator->linkToRoute('trade_republic.api.update'),
-				'reset'        => $this->urlGenerator->linkToRoute('trade_republic.api.reset'),
-				'downloadDocs' => $this->urlGenerator->linkToRoute('trade_republic.api.downloadDocs'),
-				'docsFolder'   => $this->urlGenerator->linkToRoute('trade_republic.api.getDocsFolder'),
-				'exportCsv'    => $this->urlGenerator->linkToRoute('trade_republic.api.exportCsv', ['kind' => '__KIND__']),
+				'index'        => $this->urlGenerator->linkToRoute('trade_republic_next.page.index'),
+				'analytics'    => $this->urlGenerator->linkToRoute('trade_republic_next.page.analytics'),
+				'settings'     => $this->urlGenerator->linkToRoute('trade_republic_next.page.settings'),
+				'glossary'     => $this->urlGenerator->linkToRoute('trade_republic_next.page.glossary'),
+				'dividends'    => $this->urlGenerator->linkToRoute('trade_republic_next.page.dividends'),
+				'orders'       => $this->urlGenerator->linkToRoute('trade_republic_next.page.orders'),
+				'ledger'       => $this->urlGenerator->linkToRoute('trade_republic_next.page.ledger'),
+				'data'         => $this->urlGenerator->linkToRoute('trade_republic_next.api.data', ['type' => '__TYPE__']),
+				'config'       => $this->urlGenerator->linkToRoute('trade_republic_next.api.getConfig'),
+				'update'       => $this->urlGenerator->linkToRoute('trade_republic_next.api.update'),
+				'reset'        => $this->urlGenerator->linkToRoute('trade_republic_next.api.reset'),
+				'downloadDocs' => $this->urlGenerator->linkToRoute('trade_republic_next.api.downloadDocs'),
+				'docsFolder'   => $this->urlGenerator->linkToRoute('trade_republic_next.api.getDocsFolder'),
+				'exportCsv'    => $this->urlGenerator->linkToRoute('trade_republic_next.api.exportCsv', ['kind' => '__KIND__']),
 			],
 		];
 

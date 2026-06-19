@@ -35,14 +35,14 @@
  * + subprocess gotchas. This class only carries TR-specific logic.
  */
 
-namespace OCA\TradeRepublic\Service;
+namespace OCA\TradeRepublicNext\Service;
 
 class TrService extends BaseOwnCloudService {
 
-	const APPID = 'trade_republic';
+	const APPID = 'trade_republic_next';
 
 	protected function appDirName(): string {
-		return 'trade_republic';
+		return 'trade_republic_next';
 	}
 
 	// ------------------------------------------------------------------

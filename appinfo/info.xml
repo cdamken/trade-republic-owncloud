@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <info>
-	<id>trade_republic</id>
-	<name>Trade Republic Portfolio</name>
+	<id>trade_republic_next</id>
+	<name>Trade Republic Portfolio (next)</name>
 	<description>
 		Private dashboard for your Trade Republic portfolio. Each ownCloud
 		user sees only their own data: phone + PIN and session cookies live
@@ -16,7 +16,7 @@
 	<repository type="git">https://github.com/cdamken/trade-republic-owncloud.git</repository>
 	<category>tools</category>
 	<summary>Per-user Trade Republic dashboard on ownCloud</summary>
-	<namespace>TradeRepublic</namespace>
+	<namespace>TradeRepublicNext</namespace>
 	<dependencies>
 		<owncloud min-version="10" max-version="10"/>
 	</dependencies>

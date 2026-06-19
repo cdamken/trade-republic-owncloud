@@ -11,7 +11,7 @@
  * IUserSession (see TrService::userId()).
  */
 
-namespace OCA\TradeRepublic;
+namespace OCA\TradeRepublicNext;
 
 use OCP\AppFramework\App;
 use OCP\INavigationManager;
@@ -19,7 +19,7 @@ use OCP\IURLGenerator;
 
 class Application extends App {
 
-	const APPID = 'trade_republic';
+	const APPID = 'trade_republic_next';
 
 	public function __construct(array $urlParams = []) {
 		parent::__construct(self::APPID, $urlParams);
@@ -31,7 +31,7 @@ class Application extends App {
 			return [
 				'id'    => self::APPID,
 				'order' => 80,
-				'href'  => $url->linkToRoute('trade_republic.page.index'),
+				'href'  => $url->linkToRoute('trade_republic_next.page.index'),
 				'icon'  => $url->imagePath(self::APPID, 'app.svg'),
 				'name'  => 'Trade Republic',
 			];

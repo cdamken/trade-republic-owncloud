@@ -11,6 +11,8 @@
 
 namespace OCA\TradeRepublicNext\Controller;
 
+use OCA\TradeRepublicNext\Service\AnalysisService;
+use OCA\TradeRepublicNext\Service\IngestService;
 use OCA\TradeRepublicNext\Service\TrService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -21,10 +23,29 @@ use OCP\IRequest;
 class ApiController extends Controller {
 
 	private $tr;
+	private $ingest;
+	private $analysis;
 
-	public function __construct(string $appName, IRequest $request, TrService $tr) {
+	public function __construct(string $appName, IRequest $request, TrService $tr, IngestService $ingest, AnalysisService $analysis) {
 		parent::__construct($appName, $request);
 		$this->tr = $tr;
+		$this->ingest = $ingest;
+		$this->analysis = $analysis;
+	}
+
+	/**
+	 * DB-backed analytics for the Analytics page: summary, per-stock, real
+	 * portfolio-value history (snapshots). Read-only, per-session user.
+	 *
+	 * @NoAdminRequired
+	 * @NoCSRFRequired
+	 */
+	public function analysisData(): JSONResponse {
+		try {
+			return new JSONResponse($this->analysis->perUser($this->tr->currentUserId()));
+		} catch (\Throwable $e) {
+			return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_INTERNAL_SERVER_ERROR);
+		}
 	}
 
 	/**
@@ -124,6 +145,15 @@ class ApiController extends Controller {
 
 		$payload = ['status' => $jsonStatus];
 		if ($httpStatus === Http::STATUS_OK) {
+			// Keep the DB in sync with the freshly-written JSON so a manual
+			// "Update" refreshes the DB-backed analytics + appends today's
+			// snapshot — not just the JSON files. No cron: history accrues
+			// from each manual Update. A DB hiccup must NOT fail the fetch.
+			try {
+				$this->ingest->ingestForUser($this->tr->currentUserId());
+			} catch (\Throwable $e) {
+				\OC::$server->getLogger()->logException($e, ['app' => 'trade_republic_next']);
+			}
 			$payload['output'] = substr($result['stdout'], -2000);
 		} else {
 			$stderr = trim((string) $result['stderr']);

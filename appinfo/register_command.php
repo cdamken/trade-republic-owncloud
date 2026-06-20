@@ -6,3 +6,5 @@ $container = $app->getContainer();
 
 /** @var \Symfony\Component\Console\Application $application */
 $application->add($container->query(\OCA\TradeRepublicNext\Command\Ingest::class));
+$application->add($container->query(\OCA\TradeRepublicNext\Command\Analyze::class));
+$application->add($container->query(\OCA\TradeRepublicNext\Command\Lots::class));

@@ -149,6 +149,7 @@ class PageController extends Controller {
 				'orders'       => $this->urlGenerator->linkToRoute('trade_republic_next.page.orders'),
 				'ledger'       => $this->urlGenerator->linkToRoute('trade_republic_next.page.ledger'),
 				'data'         => $this->urlGenerator->linkToRoute('trade_republic_next.api.data', ['type' => '__TYPE__']),
+				'analysisData' => $this->urlGenerator->linkToRoute('trade_republic_next.api.analysisData'),
 				'config'       => $this->urlGenerator->linkToRoute('trade_republic_next.api.getConfig'),
 				'update'       => $this->urlGenerator->linkToRoute('trade_republic_next.api.update'),
 				'reset'        => $this->urlGenerator->linkToRoute('trade_republic_next.api.reset'),

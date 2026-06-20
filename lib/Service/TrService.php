@@ -160,6 +160,15 @@ class TrService extends BaseOwnCloudService {
 	// ------------------------------------------------------------------
 	// Credentials (per-user, PIN encrypted)
 	// ------------------------------------------------------------------
+	/**
+	 * The logged-in user's id, exposed for controllers that need to pass it
+	 * to the DB-backed services (IngestService / AnalysisService). Resolves
+	 * from IUserSession via the base class — never from request input.
+	 */
+	public function currentUserId(): string {
+		return $this->userId();
+	}
+
 	public function getPhone(): string {
 		return (string) $this->config->getUserValue($this->userId(), self::APPID, 'phone', '');
 	}

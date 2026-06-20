@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <info>
 	<id>trade_republic_next</id>
-	<name>Trade Republic Portfolio (next)</name>
+	<name>Trade Republic Portfolio</name>
 	<description>
 		Private dashboard for your Trade Republic portfolio. Each ownCloud
 		user sees only their own data: phone + PIN and session cookies live
@@ -10,7 +10,7 @@
 	</description>
 	<licence>BUSL-1.1</licence>
 	<author>Carlos Damken</author>
-	<version>0.1.50</version>
+	<version>0.1.51</version>
 	<website>https://github.com/cdamken/trade-republic-owncloud</website>
 	<bugs>https://github.com/cdamken/trade-republic-owncloud/issues</bugs>
 	<repository type="git">https://github.com/cdamken/trade-republic-owncloud.git</repository>

@@ -153,7 +153,9 @@ body.tr-app-active #content-wrapper {
 	padding-left: 24px; padding-right: 24px;
 }
 #tr-app .cockpit-row { display: grid; gap: 18px; align-items: center; }
-#tr-app .cockpit-row.kpis    { grid-template-columns: 2fr 1fr 1fr 1fr 1fr; margin-bottom: 10px; }
+/* auto-fit (like gbm-owncloud's .cards) so the KPIs always fill the row with
+   no lonely wrapped cell, regardless of how many there are (4, 5, …). */
+#tr-app .cockpit-row.kpis    { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-bottom: 10px; }
 #tr-app .cockpit-row.buckets { grid-template-columns: repeat(5, 1fr); gap: 8px; }
 #tr-app .cockpit .ck-label {
 	color: var(--muted); font-size: 11px;

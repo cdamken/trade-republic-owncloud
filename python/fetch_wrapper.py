@@ -611,6 +611,14 @@ def _shape_portfolio(
     by_category: dict[str, dict[str, Any]] = {}
     for pos in positions:
         cat = pos.get("category") or "others"
+        # TR's category field is unreliable: it mis-tags plain equities (e.g.
+        # DuPont de Nemours) as "others" while leaving genuine oddities
+        # (warrants WTS, subscription rights ANR) as stocksAndETFs. The
+        # "others" cockpit pill then shows a confusing standalone line for a
+        # position already listed among the stocks. Fold it into Brokerage so
+        # the cockpit matches the positions list. (Upstream: tr_fetch.py.)
+        if cat == "others":
+            cat = "stocksAndETFs"
         bucket = by_category.setdefault(cat, {
             "count": 0,
             "buy_cost_eur": 0.0,

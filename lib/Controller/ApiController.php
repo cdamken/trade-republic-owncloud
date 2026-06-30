@@ -198,49 +198,50 @@ class ApiController extends Controller {
 	}
 
 	/**
+	 * Start a background bulk-PDF download. Returns immediately — the actual
+	 * walk + download runs detached server-side; the browser polls docsStatus()
+	 * for progress. See TrService::startDocsDownload().
+	 *
 	 * @NoAdminRequired
 	 */
 	public function downloadDocs(?string $since = null, ?string $kinds = null): JSONResponse {
-		$result = $this->tr->runDocsDownload(
+		$res = $this->tr->startDocsDownload(
 			$since ? trim($since) : null,
 			$kinds ? trim($kinds) : null,
 		);
+		$state = $res['state'] ?? 'error';
 
-		// The CLI emits a JSON envelope on stdout. Parse and surface a
-		// uniform shape to the JS regardless of whether tr-api succeeded.
-		$envelope = json_decode((string) $result['stdout'], true);
-		if (!is_array($envelope)) {
-			$envelope = ['ok' => false, 'message' => substr((string) $result['stderr'], -500)];
+		if ($state === 'started' || $state === 'already_running') {
+			return new JSONResponse(['status' => $state], Http::STATUS_OK);
 		}
-
-		if (!empty($envelope['ok'])) {
-			$data = $envelope['data'] ?? [];
+		if ($state === 'auth_required') {
 			return new JSONResponse([
-				'status'   => 'ok',
-				'out_dir'  => $data['out_dir']  ?? null,
-				'counts'   => $data['counts']   ?? new \stdClass(),
-				'manifest' => $data['manifest'] ?? null,
-			], Http::STATUS_OK);
-		}
-
-		// Map tr-api exit codes (see tr-api/docs/cli-contract.md) to HTTP.
-		// NB: server runs PHP 7.4, so this is if/elseif (no `match` expression).
-		$exitCode = (int) ($envelope['exit_code'] ?? $result['exitCode']);
-		if (in_array($exitCode, [20, 30], true)) {
-			$httpStatus = Http::STATUS_UNAUTHORIZED;
-			$jsonStatus = 'auth_required';
-		} elseif ($exitCode === 41) {
-			$httpStatus = Http::STATUS_TOO_MANY_REQUESTS;
-			$jsonStatus = 'rate_limited';
-		} else {
-			$httpStatus = Http::STATUS_INTERNAL_SERVER_ERROR;
-			$jsonStatus = 'error';
+				'status' => 'auth_required',
+				'detail' => substr((string) ($res['message'] ?? ''), 0, 500),
+			], Http::STATUS_UNAUTHORIZED);
 		}
 		return new JSONResponse([
-			'status'    => $jsonStatus,
-			'exit_code' => $exitCode,
-			'detail'    => substr((string) ($envelope['message'] ?? ''), 0, 500),
-		], $httpStatus);
+			'status' => 'error',
+			'detail' => substr((string) ($res['message'] ?? 'unknown error'), 0, 500),
+		], Http::STATUS_INTERNAL_SERVER_ERROR);
+	}
+
+	/**
+	 * Poll the state of the background docs download for the current user.
+	 * Returns { state: idle|running|done|error, counts, message, started_at,
+	 * finished_at }. Always HTTP 200 — `state` carries the outcome.
+	 *
+	 * @NoAdminRequired
+	 */
+	public function docsStatus(): JSONResponse {
+		$status = $this->tr->docsStatus();
+		return new JSONResponse([
+			'state'       => $status['state']       ?? 'idle',
+			'counts'      => $status['counts']      ?? null,
+			'message'     => $status['message']     ?? '',
+			'started_at'  => $status['started_at']  ?? null,
+			'finished_at' => $status['finished_at'] ?? null,
+		], Http::STATUS_OK);
 	}
 
 	// =====================================================================

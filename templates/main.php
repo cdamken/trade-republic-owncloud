@@ -21,7 +21,8 @@ $routes = $_['routes'];
 	data-route-config="<?php p($routes['config']); ?>"
 	data-route-update="<?php p($routes['update']); ?>"
 	data-route-reset="<?php p($routes['reset']); ?>"
-	data-route-download-docs="<?php p($routes['downloadDocs']); ?>">
+	data-route-download-docs="<?php p($routes['downloadDocs']); ?>"
+	data-route-docs-status="<?php p($routes['docsStatus']); ?>">
 
 <!-- Unified top-bar (same shell on every page) — see templates/partials/_top_bar.php -->
 <?php
@@ -110,6 +111,60 @@ include __DIR__ . '/partials/_top_bar.php';
     <div class="modal-actions">
       <button id="mfa-cancel-btn" class="btn-cancel">Cancel</button>
       <button id="mfa-submit-btn" class="btn-submit">Submit</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Documents Download Modal ============ -->
+<!-- One modal, three states toggled by dashboard.js: confirm → progress → result. -->
+<div id="docs-modal" class="modal-backdrop">
+  <div class="modal">
+    <!-- (1) confirm / warning -->
+    <div id="docs-confirm">
+      <h3>📄 Download all documents</h3>
+      <p>Download every PDF Trade Republic has issued — trades, dividends,
+         statements and tax documents — into your Files app under
+         <code><?php p($_['docsFolderLabel'] ?? 'Trade_Republic_Docs'); ?>/&lt;year&gt;/&lt;kind&gt;/</code>.</p>
+      <div class="hint">
+        ⏱ The first run can take <strong>several minutes</strong> (a full history is
+        thousands of PDFs). It runs in the background — you can keep using the
+        dashboard or even close this tab; the download keeps going on the server.<br>
+        ↻ Re-runs only fetch what is missing.
+      </div>
+      <div class="modal-actions">
+        <button id="docs-cancel-btn" class="btn-cancel">Cancel</button>
+        <button id="docs-start-btn" class="btn-submit">Start download</button>
+      </div>
+    </div>
+
+    <!-- (2) progress -->
+    <div id="docs-progress" style="display:none; text-align:center;">
+      <h3>📄 Downloading documents…</h3>
+      <div class="progress-spinner" style="margin:18px auto;"></div>
+      <div id="docs-progress-stage" class="progress-stage">Walking your timeline and fetching PDFs…</div>
+      <div class="hint" style="text-align:left;">
+        This runs on the server and can take several minutes. It's safe to
+        close this tab or navigate away — the download continues, and the
+        Documents button stays disabled until it finishes.
+      </div>
+      <div id="docs-progress-elapsed" class="progress-elapsed">0s</div>
+      <div class="modal-actions">
+        <button id="docs-progress-hide-btn" class="btn-cancel">Hide</button>
+      </div>
+    </div>
+
+    <!-- (3) result -->
+    <div id="docs-result" style="display:none;">
+      <h3 id="docs-result-title">✓ Documents downloaded</h3>
+      <div id="docs-result-summary" class="hint" style="text-align:left;"></div>
+      <p style="font-size:13px; color:var(--muted);">
+        Your PDFs are in your Files app under
+        <code><?php p($_['docsFolderLabel'] ?? 'Trade_Republic_Docs'); ?>/</code>.
+        (Refresh the Files page if you don't see them immediately.)
+      </p>
+      <div class="modal-actions">
+        <button id="docs-result-close-btn" class="btn-submit">Close</button>
+      </div>
     </div>
   </div>
 </div>

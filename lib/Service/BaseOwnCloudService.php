@@ -254,7 +254,7 @@ abstract class BaseOwnCloudService {
 	}
 
 	/** Last non-empty line of a multi-line string, trimmed to 240 chars. */
-	private function lastLine(string $text): string {
+	protected function lastLine(string $text): string {
 		$text = trim($text);
 		if ($text === '') { return ''; }
 		$lines = preg_split('/\r?\n/', $text) ?: [];

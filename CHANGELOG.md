@@ -1,5 +1,20 @@
 # CHANGELOG
 
+## 0.1.55 — 2026-06-30
+
+Documents download is now a background job with an in-app modal. The bulk
+PDF download no longer blocks an HTTP request that the browser would time
+out on ("Failed to fetch") while the server kept working. Starting a
+download launches a detached server-side job; the browser polls
+`/api/docs_status` and shows progress in an in-app modal (confirm →
+progress → result) instead of native `confirm()`/`alert()` popups. The
+Documents button stays disabled — reconciled against the server's real
+state — for the whole job, so a client timeout or a page reload can't
+trigger a second overlapping download. Pairs with tr-api fixes: per-document
+filenames (no more collisions → no `FileNotFoundError` on multi-doc events)
+and a session keepalive that refreshes the cookie every ~290s so long
+downloads don't bounce back to an MFA prompt.
+
 ## 0.1.49 — 2026-06-15
 
 Benchmark overlays rebased to the window start. MSCI World / S&P 500 /

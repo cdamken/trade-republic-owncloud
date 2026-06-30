@@ -423,72 +423,175 @@ function hideProgressOverlay() {
   hideToast();
 }
 
-async function downloadDocs() {
-  // Bulk-download every PDF Trade Republic has issued for this user into
-  // their per-user data dir. Files appear inside ownCloud's Files app at
-  // trade_republic/documents/<YYYY>/<kind>/ automatically. Idempotent on
-  // re-runs (skips files already on disk). Server pre-checks session
-  // liveness so we fail fast with auth_required when cookies died.
-  if (!confirm(
-    'Download every PDF (trades, dividends, statements, tax) into your\n' +
-    'Files app under Trade_Republic_Docs/<year>/<kind>/?\n\n' +
-    'First run can take a few minutes. Re-runs only fetch what is missing.'
-  )) {
-    return;
-  }
-  const btn = document.getElementById('docs-btn');
-  const orig = btn.innerHTML;
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner" style="display:inline-block"></span> Downloading…';
-  showStatus('', 'Walking timeline + downloading PDFs…');
+// ============ Documents download (background job + in-app modal) ============
+//
+// The download runs as a detached server-side job; the browser starts it,
+// then polls /api/docs_status. The Documents button stays disabled for the
+// whole job — reconciled against the SERVER's state, so a client-side timeout
+// or a page reload can't re-enable it while the server is still downloading.
+// All UI is in #docs-modal (confirm → progress → result) — no native
+// confirm()/alert() dialogs.
+
+let _docsPollTimer = null;
+let _docsElapsedTimer = null;
+let _docsStartedAt = null;
+let _docsBtnOrig = null;
+
+function _docsBtn() { return document.getElementById('docs-btn'); }
+
+function setDocsBtnRunning(running) {
+  const btn = _docsBtn();
+  if (!btn) return;
+  if (_docsBtnOrig === null) _docsBtnOrig = btn.innerHTML;
+  btn.disabled = running;
+  btn.innerHTML = running
+    ? '<span class="spinner" style="display:inline-block"></span> Downloading…'
+    : _docsBtnOrig;
+}
+
+function showDocsState(which) {
+  ['confirm', 'progress', 'result'].forEach((s) => {
+    const el = document.getElementById('docs-' + s);
+    if (el) el.style.display = (s === which) ? '' : 'none';
+  });
+}
+
+function openDocsModal() {
+  // If a job is already running (e.g. opened from another tab), jump straight
+  // to the progress view instead of offering to start a second one.
+  showDocsState(_docsPollTimer ? 'progress' : 'confirm');
+  document.getElementById('docs-modal').classList.add('open');
+}
+
+function closeDocsModal() {
+  document.getElementById('docs-modal').classList.remove('open');
+}
+
+// The top-bar Documents button just opens the modal — the actual work is
+// gated behind the explicit "Start download" button inside it.
+function downloadDocs() {
+  openDocsModal();
+}
+
+async function startDocsDownload() {
+  showStatus('', 'Starting document download…');
   try {
     const r = await fetch(routes.downloadDocs, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'requesttoken': OC.requestToken },
       body: JSON.stringify({}),
     });
-    const data = await r.json();
-    if (r.ok && data.status === 'ok') {
-      const c = data.counts || {};
+    const data = await r.json().catch(() => ({}));
+    if (r.ok && (data.status === 'started' || data.status === 'already_running')) {
+      _docsStartedAt = Date.now();
+      setDocsBtnRunning(true);
+      showDocsState('progress');
+      beginDocsPolling();
+      showStatus('', 'Downloading documents in the background…');
+    } else if (data.status === 'auth_required') {
+      // Re-auth inside the modal: explain, then route through the normal MFA
+      // flow (same security-code prompt as Update Now).
+      showDocsResult('err', '🔐 Session expired',
+        'Your Trade Republic session expired. Re-authenticate (you\'ll get a ' +
+        'security-code push), then open Documents again.');
+      showStatus('err', 'Session expired');
+      setTimeout(() => { closeDocsModal(); updateData(); }, 2200);
+    } else {
+      showDocsResult('err', '⚠️ Could not start',
+        data.detail || data.status || 'Unknown error starting the download.');
+      showStatus('err', 'Download failed to start');
+    }
+  } catch (e) {
+    showDocsResult('err', '⚠️ Network error', e.message);
+    showStatus('err', 'Network error');
+  }
+}
+
+function beginDocsPolling() {
+  stopDocsPolling();
+  _docsElapsedTimer = setInterval(updateDocsElapsed, 1000);
+  updateDocsElapsed();
+  // Poll every 3s. First poll after a short delay so the job has a moment.
+  _docsPollTimer = setInterval(pollDocsStatus, 3000);
+}
+
+function stopDocsPolling() {
+  if (_docsPollTimer) { clearInterval(_docsPollTimer); _docsPollTimer = null; }
+  if (_docsElapsedTimer) { clearInterval(_docsElapsedTimer); _docsElapsedTimer = null; }
+}
+
+function updateDocsElapsed() {
+  const el = document.getElementById('docs-progress-elapsed');
+  if (!el || !_docsStartedAt) return;
+  const s = Math.floor((Date.now() - _docsStartedAt) / 1000);
+  const m = Math.floor(s / 60);
+  el.textContent = m > 0 ? `${m}m ${s % 60}s` : `${s}s`;
+}
+
+async function pollDocsStatus() {
+  try {
+    const r = await fetch(routes.docsStatus + '?t=' + Date.now(), {
+      headers: { 'requesttoken': OC.requestToken },
+    });
+    const s = await r.json().catch(() => ({}));
+    if (s.state === 'done') {
+      stopDocsPolling();
+      setDocsBtnRunning(false);
+      const c = s.counts || {};
       const downloaded = c.downloaded || 0;
       const skipped    = c.skipped_existing || 0;
       const errors     = c.error || 0;
       const total      = c.total || 0;
-      const summary = `${downloaded} new, ${skipped} already present` +
-                      (errors ? `, ${errors} errors` : '') +
-                      ` (of ${total} total)`;
-      showStatus('ok', '✓ ' + summary);
-      alert(
-        '✓ Documents downloaded\n\n' +
-        summary + '\n\n' +
-        'Your PDFs are now in your Files app under:\n' +
-        '   📁 Trade_Republic_Docs/<year>/<kind>/\n\n' +
-        '(Refresh the Files page if you do not see them immediately.)'
-      );
-    } else if (data.status === 'auth_required') {
-      showStatus('err', 'Session expired');
-      const want = confirm(
-        'Your Trade Republic session expired.\n\n' +
-        'Click OK to re-authenticate now (we will open the security-code\n' +
-        'prompt — same flow as Update Now). Then try Documents again.'
-      );
-      if (want) {
-        updateData();
-      }
-    } else if (data.status === 'rate_limited') {
-      showStatus('err', 'Rate limited by Trade Republic');
-      alert('Trade Republic rate-limited us. Wait a few minutes and try again.');
-    } else {
+      const summary = `<strong>${downloaded}</strong> new, ` +
+                      `<strong>${skipped}</strong> already present` +
+                      (errors ? `, <strong>${errors}</strong> errors` : '') +
+                      ` (of ${total} total).`;
+      showDocsResult('ok', '✓ Documents downloaded', summary);
+      showStatus('ok', `✓ ${downloaded} new, ${skipped} present` +
+                       (errors ? `, ${errors} errors` : ''));
+    } else if (s.state === 'error') {
+      stopDocsPolling();
+      setDocsBtnRunning(false);
+      showDocsResult('err', '⚠️ Download failed',
+        s.message || 'The download did not complete.');
       showStatus('err', 'Download failed');
-      alert('Download failed: ' + (data.detail || data.status || 'unknown error'));
     }
+    // state === 'running' (or 'idle' on a transient blip): keep polling.
   } catch (e) {
-    showStatus('err', 'Network error');
-    alert('Download error: ' + e.message);
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = orig;
+    // Transient network error — keep polling; the job runs server-side.
   }
+}
+
+function showDocsResult(kind, title, summaryHtml) {
+  // Make sure the modal is visible (it may have been hidden), then show the
+  // result panel.
+  document.getElementById('docs-modal').classList.add('open');
+  const titleEl = document.getElementById('docs-result-title');
+  const sumEl = document.getElementById('docs-result-summary');
+  if (titleEl) titleEl.textContent = title;
+  if (sumEl) {
+    sumEl.innerHTML = summaryHtml;
+    sumEl.style.borderLeftColor = kind === 'err' ? 'var(--red)' : '';
+  }
+  showDocsState('result');
+}
+
+// On page load, ask the server whether a docs job is already running (e.g.
+// started in another tab or before a reload). If so, reflect it in the button
+// + resume polling so the disabled state survives reloads.
+async function checkDocsStatusOnLoad() {
+  if (!routes || !routes.docsStatus) return;
+  try {
+    const r = await fetch(routes.docsStatus + '?t=' + Date.now(), {
+      headers: { 'requesttoken': OC.requestToken },
+    });
+    const s = await r.json().catch(() => ({}));
+    if (s.state === 'running') {
+      _docsStartedAt = s.started_at ? Date.parse(s.started_at) : Date.now();
+      setDocsBtnRunning(true);
+      beginDocsPolling();
+    }
+  } catch (e) { /* ignore — best effort */ }
 }
 
 async function updateData() {
@@ -913,10 +1016,25 @@ document.addEventListener('DOMContentLoaded', () => {
     update:       root.dataset.routeUpdate,
     reset:        root.dataset.routeReset,
     downloadDocs: root.dataset.routeDownloadDocs,
+    docsStatus:   root.dataset.routeDocsStatus,
   };
 
   document.getElementById('update-btn').addEventListener('click', updateData);
-  document.getElementById('docs-btn').addEventListener('click', downloadDocs);
+  const docsBtn = document.getElementById('docs-btn');
+  if (docsBtn) docsBtn.addEventListener('click', downloadDocs);
+  // Documents modal: confirm → start, plus the hide/close buttons. Closing the
+  // modal never stops the job — polling continues so the button stays disabled.
+  const bind = (id, fn) => { const el = document.getElementById(id); if (el) el.addEventListener('click', fn); };
+  bind('docs-start-btn', startDocsDownload);
+  bind('docs-cancel-btn', closeDocsModal);
+  bind('docs-progress-hide-btn', closeDocsModal);
+  bind('docs-result-close-btn', closeDocsModal);
+  const docsBackdrop = document.getElementById('docs-modal');
+  if (docsBackdrop) docsBackdrop.addEventListener('click', (e) => {
+    if (e.target === docsBackdrop) closeDocsModal();
+  });
+  // If a download is already running (other tab / before reload), resume.
+  checkDocsStatusOnLoad();
   // Settings + Glossary are real pages now (links in the top-bar); the
   // old setup-open-btn modal trigger has moved to the Settings page.
   const toastClose = document.getElementById('toast-close-btn');

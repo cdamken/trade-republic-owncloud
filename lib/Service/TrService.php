@@ -427,10 +427,12 @@ class TrService extends BaseOwnCloudService {
 	 *
 	 * The inner shell runs the command (stdout+stderr → job log), then writes
 	 * its exit code to the rc file — that file's appearance is how docsStatus()
-	 * knows the job finished. `nohup ... &` + redirecting the outer fd to
-	 * /dev/null detaches it from the PHP-FPM worker so the request can return
-	 * while the download keeps going. proc_open is used (not exec) to stay
-	 * consistent with runProcess and not depend on exec() being enabled.
+	 * knows the job finished. `setsid` puts the job in its own session so it
+	 * fully detaches from the PHP-FPM worker (immune to the worker being
+	 * recycled mid-download); `nohup` + redirecting every fd to /dev/null and
+	 * backgrounding with `&` means proc_open returns immediately. proc_open is
+	 * used (not exec) to stay consistent with runProcess and not depend on
+	 * exec() being enabled.
 	 */
 	private function launchDocsJob(array $cmd, array $env): bool {
 		$logFile = $this->docsLogPath();
@@ -446,7 +448,8 @@ class TrService extends BaseOwnCloudService {
 		$inner  = $envPrefix . $cmdStr
 		        . ' > ' . escapeshellarg($logFile) . ' 2>&1; '
 		        . 'echo $? > ' . escapeshellarg($rcFile);
-		$line = 'nohup sh -c ' . escapeshellarg($inner) . ' > /dev/null 2>&1 &';
+		$line = 'setsid nohup sh -c ' . escapeshellarg($inner)
+		      . ' < /dev/null > /dev/null 2>&1 &';
 
 		$this->logInfo('startDocsDownload: launching detached docs job');
 		$descriptorSpec = [

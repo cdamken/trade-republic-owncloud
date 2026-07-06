@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 0.1.56 — 2026-07-03
+
+Login migrated to Trade Republic's 2026 **v2 push-approval** flow. TR
+deprecated the legacy `/api/v1/auth/web/login` (returns 426
+CLIENT_VERSION_OUTDATED) and moved web login to `/api/v2/auth/web/login`:
+there is **no 4-digit code anymore** — you approve the login from a prompt in
+the Trade Republic mobile app (same as Scalable Capital). The dashboard now
+does this in two phases: clicking Update detects a stale session (fast), then
+shows "Approve the login on your phone" while the server polls TR until you
+approve (~90s window). New tr-api `auth.web_login_v2()` (v1 kept as fallback).
+Verified live via probe. Ref: pytr PR #355.
+
 ## 0.1.55 — 2026-06-30
 
 Documents download is now a background job with an in-app modal. The bulk

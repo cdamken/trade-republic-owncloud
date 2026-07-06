@@ -195,6 +195,7 @@ async function postUpdate(mfaCode, opts) {
   const body = {};
   if (mfaCode) body.mfa_code = mfaCode;
   if (opts && opts.full) body.full = true;
+  if (opts && opts.approveLogin) body.approve_login = true;
   const res = await fetch(routes.update, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'requesttoken': OC.requestToken },
@@ -617,7 +618,35 @@ async function updateData() {
       setTimeout(() => location.reload(), 800);
       return;
     }
-    cleanupOverlay();
+    // v2 push-approval: TR's 2026 web login has no 4-digit code — the user
+    // approves the login from a prompt in the TR mobile app. Phase 1 detected
+    // a stale session; now show the "approve on your phone" overlay and run
+    // phase 2 (the wrapper blocks up to ~90s waiting for the approval, then
+    // fetches).
+    if (r.state === 'approval_required') {
+      if (!overlayShown) { showProgressOverlay({ full: false }); overlayShown = true; }
+      const title = document.getElementById('progress-title');
+      const stage = document.getElementById('progress-stage');
+      if (title) title.textContent = 'Approve the login on your phone';
+      if (stage) stage.textContent = '📱 Open Trade Republic and approve the login prompt…';
+      const r2 = await postUpdate(null, { approveLogin: true });
+      if (r2.http === 200) {
+        if (stage) stage.textContent = '✓ Data downloaded — reloading…';
+        showStatus('ok', '✓ Updated — reloading');
+        broadcastUpdateComplete();
+        setTimeout(() => location.reload(), 800);
+        return;
+      }
+      cleanupOverlay();
+      if (r2.state === 'approval_timeout') {
+        showStatus('err', '⌛ Login not approved in time — click Update Now again and approve the prompt in your Trade Republic app.');
+      } else if (r2.state === 'rate_limited') {
+        showStatus('err', '⚠ Rate-limited by Trade Republic — wait 15–30 min and retry');
+      } else {
+        showStatus('err', '✗ ' + (r2.detail || r2.state || ('HTTP ' + r2.http)));
+      }
+      return;
+    }
     if (r.state === 'mfa_required') {
       openMfaModal();
       return;

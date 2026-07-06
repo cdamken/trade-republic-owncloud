@@ -250,7 +250,7 @@ class TrService extends BaseOwnCloudService {
 	 * $full forces a full transactions re-download (the wrapper does
 	 * incremental by default).
 	 */
-	public function runFetch(?string $mfaCode, bool $full = false): array {
+	public function runFetch(?string $mfaCode, bool $full = false, bool $approveLogin = false): array {
 		if (!$this->isConfigured()) {
 			return ['exitCode' => self::EXIT_CONFIG_ERROR, 'stdout' => '', 'stderr' => 'credentials not configured'];
 		}
@@ -274,6 +274,9 @@ class TrService extends BaseOwnCloudService {
 		if ($full) {
 			$cmd[] = '--full';
 		}
+		if ($approveLogin) {
+			$cmd[] = '--approve-login';
+		}
 
 		$env = [
 			'TR_PHONE'    => $this->getPhone(),
@@ -294,7 +297,10 @@ class TrService extends BaseOwnCloudService {
 			$env['PLAYWRIGHT_BROWSERS_PATH'] = $browsersPath;
 		}
 
-		return $this->runProcess($cmd, $env, 240);
+		// 300s: a first login now blocks up to ~90s waiting for the user to
+		// approve the push in the TR app (v2 push-approval), then the fetch
+		// itself runs. 240s was occasionally too tight with the approval wait.
+		return $this->runProcess($cmd, $env, 300);
 	}
 
 	// ------------------------------------------------------------------

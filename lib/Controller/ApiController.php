@@ -117,7 +117,7 @@ class ApiController extends Controller {
 	/**
 	 * @NoAdminRequired
 	 */
-	public function update(?string $mfa_code = null, $full = null): JSONResponse {
+	public function update(?string $mfa_code = null, $full = null, $approve_login = null): JSONResponse {
 		if ($mfa_code !== null) {
 			$mfa_code = trim((string) $mfa_code);
 			if (!ctype_digit($mfa_code) || strlen($mfa_code) !== 4) {
@@ -129,15 +129,18 @@ class ApiController extends Controller {
 		}
 
 		$forceFull = $full === true || $full === 'true' || $full === 1 || $full === '1';
-		$result = $this->tr->runFetch($mfa_code === '' ? null : $mfa_code, $forceFull);
+		$approveLogin = $approve_login === true || $approve_login === 'true' || $approve_login === 1 || $approve_login === '1';
+		$result = $this->tr->runFetch($mfa_code === '' ? null : $mfa_code, $forceFull, $approveLogin);
 
 		static $map = [
 			TrService::EXIT_OK            => [Http::STATUS_OK,                      'ok'],
 			TrService::EXIT_MFA_REQUIRED  => [Http::STATUS_UNAUTHORIZED,            'mfa_required'],
 			TrService::EXIT_MFA_INVALID   => [Http::STATUS_UNAUTHORIZED,            'mfa_invalid'],
+			TrService::EXIT_APPROVAL_REQUIRED => [Http::STATUS_UNAUTHORIZED,       'approval_required'],
 			TrService::EXIT_AUTH_FAILED   => [Http::STATUS_UNAUTHORIZED,            'auth_failed'],
 			TrService::EXIT_API_ERROR     => [Http::STATUS_BAD_GATEWAY,             'api_error'],
 			TrService::EXIT_RATE_LIMITED  => [Http::STATUS_TOO_MANY_REQUESTS,       'rate_limited'],
+			TrService::EXIT_APPROVAL_TIMEOUT => [Http::STATUS_UNAUTHORIZED,        'approval_timeout'],
 			TrService::EXIT_CONFIG_ERROR  => [Http::STATUS_INTERNAL_SERVER_ERROR,   'config_error'],
 		];
 		$exit = $result['exitCode'];

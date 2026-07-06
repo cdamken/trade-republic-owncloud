@@ -390,13 +390,15 @@ def _clear_pending(data_dir: Path) -> None:
 # ---------------------------------------------------------------------------
 # Authenticated client
 # ---------------------------------------------------------------------------
-def get_authenticated_client(tr, phone: str, pin: str, data_dir: Path, mfa_code: str | None):
-    """Return an authenticated TrClient, or exit 10/11/20/21 along the way.
+def get_authenticated_client(tr, phone: str, pin: str, data_dir: Path,
+                             mfa_code: str | None, approve_login: bool = False):
+    """Return an authenticated TrClient, or exit along the way.
 
-    Routes:
-      - mfa_code provided  → complete the pending login (step 2).
-      - no mfa_code, cookies still valid → use them as-is.
-      - no mfa_code, cookies stale       → initiate (push) and exit 10 (step 1).
+    v2 push-approval routes:
+      - cookies still valid            → use them as-is.
+      - cookies stale, approve_login=0 → exit 15 (tell UI to prompt approval).
+      - cookies stale, approve_login=1 → v2 login: block until the user
+        approves the push in the TR app (or exit 22 on timeout).
     """
     profiles = tr["profiles"]
     TrClient = tr["TrClient"]
@@ -406,9 +408,6 @@ def get_authenticated_client(tr, phone: str, pin: str, data_dir: Path, mfa_code:
     except tr["ProfileNotFound"]:
         prof = profiles.create(phone, jurisdiction="DE", name="ownCloud")
     profiles.set_active(phone)
-
-    if mfa_code is not None:
-        return _complete_pending_or_die(tr, phone, pin, data_dir, mfa_code, prof)
 
     # Try existing cookies — if a recent login is still good, we're done.
     try:
@@ -421,20 +420,62 @@ def get_authenticated_client(tr, phone: str, pin: str, data_dir: Path, mfa_code:
         if alive:
             return client
     except tr["MissingSessionCookies"]:
-        pass  # fall through to "trigger push"
+        pass  # fall through to v2 login
 
-    # If a push has *already* been sent within the last few minutes, don't
-    # re-send (the previous code is still valid for the in-flight modal).
-    if _load_pending(data_dir, phone) is not None:
+    # Fresh login required. TR's 2026 web login is PUSH-APPROVAL (v2): no
+    # 4-digit code — the user approves from a prompt in the TR mobile app.
+    #
+    # Two-phase so the UI can tell the user to approve BEFORE we start the
+    # ~90s blocking wait:
+    #   phase 1 (approve_login=False): just report that approval is needed
+    #     and exit fast (15). The browser then shows "approve in your app".
+    #   phase 2 (approve_login=True): initiate + block-poll until the user
+    #     approves (single session), then drop into the fetch.
+    if not approve_login:
         sys.stderr.write(
-            "A 4-digit code was already pushed to your phone within the last "
-            "5 minutes. Enter it in the dashboard modal.\n"
+            "Trade Republic login required (push-approval). "
+            "Approve the prompt in your TR mobile app.\n"
         )
-        sys.exit(10)
+        sys.exit(15)
+    return _login_v2_or_die(tr, phone, pin, prof, mfa_code)
 
-    # Fresh login required — trigger a push and surface mfa_required.
-    _trigger_push_and_exit(tr, phone, pin, data_dir)
-    return None  # unreachable; satisfies the type checker
+
+def _login_v2_or_die(tr, phone: str, pin: str, prof, mfa_code):
+    auth = tr["auth"]
+    TrClient = tr["TrClient"]
+
+    # mfa_code is a leftover from the old 4-digit flow; v2 has no code. If the
+    # UI still sends one, ignore it — approval happens in the app.
+    if mfa_code:
+        sys.stderr.write("Note: v2 push-approval ignores the 4-digit code field.\n")
+
+    sys.stderr.write(
+        "Trade Republic login required. APPROVE THE LOGIN in your Trade "
+        "Republic mobile app now (push-approval, no code)...\n"
+    )
+    sys.stderr.flush()
+    try:
+        result = auth.web_login_v2(
+            prof, pin, timeout=90.0, interval=2.0,
+            log=lambda m: (sys.stderr.write(m + "\n"), sys.stderr.flush()),
+        )
+    except tr["RateLimited"] as e:
+        sys.stderr.write(f"Rate-limited by Trade Republic: {e}\n")
+        sys.exit(21)
+    except tr["InvalidCredentials"] as e:
+        sys.stderr.write(f"Bad credentials: {e}\n")
+        sys.exit(11)
+    except getattr(auth, "LoginApprovalTimeout", tr["LoginError"]) as e:
+        # Not approved in time / process expired — retryable.
+        sys.stderr.write(f"Login approval not received: {e}\n")
+        sys.exit(22)
+    except tr["LoginError"] as e:
+        sys.stderr.write(f"Login failed: {e}\n")
+        sys.exit(20)
+
+    tr["cookies"].save_to_file(result.cookies, prof.cookies_file)
+    sys.stderr.write("Login approved — session saved.\n")
+    return TrClient(prof)
 
 
 def _trigger_push_and_exit(tr, phone: str, pin: str, data_dir: Path) -> None:
@@ -454,6 +495,22 @@ def _trigger_push_and_exit(tr, phone: str, pin: str, data_dir: Path) -> None:
     except tr["LoginError"] as e:
         sys.stderr.write(f"Could not initiate login: {e}\n")
         sys.exit(20)
+
+    # DIAGNOSTIC (2026-07-03): capture TR's raw initiate response so we can
+    # see whether TR changed the 2FA method (e.g. APP-approval vs a 4-digit
+    # code). Non-destructive: writes a debug JSON alongside the data files.
+    try:
+        (data_dir / "last_initiate.json").write_text(
+            json.dumps({
+                "at": datetime.now(timezone.utc).isoformat(),
+                "two_factor_method": getattr(init, "two_factor_method", None),
+                "countdown_seconds": getattr(init, "countdown_seconds", None),
+                "raw": getattr(init, "raw", None),
+            }, indent=2, ensure_ascii=False, default=str),
+            encoding="utf-8",
+        )
+    except Exception:
+        pass
 
     _save_pending(data_dir, phone, init.process_id)
     sys.stderr.write(
@@ -611,6 +668,14 @@ def _shape_portfolio(
     by_category: dict[str, dict[str, Any]] = {}
     for pos in positions:
         cat = pos.get("category") or "others"
+        # TR's category field is unreliable: it mis-tags plain equities (e.g.
+        # DuPont de Nemours) as "others" while leaving genuine oddities
+        # (warrants WTS, subscription rights ANR) as stocksAndETFs. The
+        # "others" cockpit pill then shows a confusing standalone line for a
+        # position already listed among the stocks. Fold it into Brokerage so
+        # the cockpit matches the positions list. (Upstream: tr_fetch.py.)
+        if cat == "others":
+            cat = "stocksAndETFs"
         bucket = by_category.setdefault(cat, {
             "count": 0,
             "buy_cost_eur": 0.0,
@@ -1326,6 +1391,10 @@ def main() -> None:
     parser.add_argument("--mfa-code", help="4-digit code from TR app push (optional).")
     parser.add_argument("--full", action="store_true",
                         help="Force full transactions download (skip incremental).")
+    parser.add_argument("--approve-login", action="store_true",
+                        help="Do the v2 push-approval login (block until the user "
+                             "approves in the TR app). Without it, a stale session "
+                             "exits 15 so the UI can prompt first.")
     args = parser.parse_args()
 
     profile_dir = Path(args.profile_dir).expanduser().resolve()
@@ -1356,7 +1425,8 @@ def main() -> None:
             sys.exit(11)
 
     tr = _import_tr_api()
-    client = get_authenticated_client(tr, phone, pin, data_dir, args.mfa_code)
+    client = get_authenticated_client(tr, phone, pin, data_dir, args.mfa_code,
+                                      approve_login=args.approve_login)
 
     print("Fetching portfolio snapshot...", flush=True)
     shaped = fetch_portfolio(tr, client, data_dir)

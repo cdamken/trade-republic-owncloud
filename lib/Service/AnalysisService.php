@@ -1,0 +1,115 @@
+<?php
+/**
+ * AnalysisService — thin DB-backed adapter over the pure PortfolioAnalytics.
+ *
+ * Loads a user's holdings / securities / dividends / accounts via the
+ * mappers, converts the exact-string money columns to float at this edge,
+ * and delegates ALL math to OCA\TradeRepublic\Analytics\PortfolioAnalytics (which
+ * has zero framework dependency). Per-user scoped by construction.
+ */
+
+namespace OCA\TradeRepublic\Service;
+
+use OCA\TradeRepublic\Analytics\PortfolioAnalytics;
+use OCA\TradeRepublic\Db\AccountMapper;
+use OCA\TradeRepublic\Db\DividendMapper;
+use OCA\TradeRepublic\Db\HoldingMapper;
+use OCA\TradeRepublic\Db\PortfolioSnapshotMapper;
+use OCA\TradeRepublic\Db\SecurityMapper;
+
+class AnalysisService {
+	/** @var HoldingMapper */
+	private $holdings;
+	/** @var SecurityMapper */
+	private $securities;
+	/** @var DividendMapper */
+	private $dividends;
+	/** @var AccountMapper */
+	private $accounts;
+	/** @var PortfolioSnapshotMapper */
+	private $snapshots;
+
+	public function __construct(
+		HoldingMapper $holdings,
+		SecurityMapper $securities,
+		DividendMapper $dividends,
+		AccountMapper $accounts,
+		PortfolioSnapshotMapper $snapshots
+	) {
+		$this->holdings = $holdings;
+		$this->securities = $securities;
+		$this->dividends = $dividends;
+		$this->accounts = $accounts;
+		$this->snapshots = $snapshots;
+	}
+
+	/**
+	 * @return array{summary:array,per_stock:array,concentration:array}
+	 */
+	public function perUser(string $uid): array {
+		// security id -> [ext_id, name, asset_class]
+		$secById = [];
+		foreach ($this->securities->findByUser($uid) as $s) {
+			$secById[(int) $s->getId()] = [
+				'ext_id'      => (string) $s->getExtId(),
+				'name'        => (string) $s->getName(),
+				'asset_class' => (string) $s->getAssetClass(),
+			];
+		}
+
+		// dividends summed (net, falling back to gross) per security
+		$divBySec = [];
+		foreach ($this->dividends->findByUser($uid) as $d) {
+			$sid = (int) $d->getSecurityId();
+			$net = $this->f($d->getNet());
+			if ($net === 0.0) {
+				$net = $this->f($d->getGross());
+			}
+			$divBySec[$sid] = ($divBySec[$sid] ?? 0.0) + $net;
+		}
+
+		// holdings -> the shape PortfolioAnalytics expects
+		$rows = [];
+		foreach ($this->holdings->findByUser($uid) as $h) {
+			$sid = (int) $h->getSecurityId();
+			$sec = $secById[$sid] ?? ['ext_id' => (string) $sid, 'name' => '', 'asset_class' => ''];
+			$rows[] = [
+				'securityId'   => $sid,
+				'extId'        => $sec['ext_id'],
+				'name'         => $sec['name'],
+				'assetClass'   => $sec['asset_class'],
+				'qty'          => $this->f($h->getQuantity()),
+				'avgCost'      => $this->f($h->getAvgCost()),
+				'marketValue'  => $this->f($h->getMarketValue()),
+			];
+		}
+
+		$cash = 0.0;
+		foreach ($this->accounts->findByUser($uid) as $a) {
+			$cash += $this->f($a->getCashAmount());
+		}
+
+		// Real portfolio-value history (the DB's killer feature; grows daily).
+		$history = [];
+		foreach ($this->snapshots->findByUser($uid) as $s) {
+			$history[] = [
+				'date'  => (string) $s->getCapturedOn(),
+				'value' => $this->f($s->getTotalValue()),
+				'cost'  => $this->f($s->getTotalCost()),
+			];
+		}
+
+		$perStock = PortfolioAnalytics::perStock($rows, $divBySec);
+		return [
+			'summary'       => PortfolioAnalytics::summary($perStock),
+			'per_stock'     => $perStock,
+			'concentration' => PortfolioAnalytics::concentration($perStock, $cash),
+			'history'       => $history,
+		];
+	}
+
+	/** DB money is an exact decimal string (or null) — parse at this edge only. */
+	private function f($v): float {
+		return $v === null || $v === '' ? 0.0 : (float) $v;
+	}
+}

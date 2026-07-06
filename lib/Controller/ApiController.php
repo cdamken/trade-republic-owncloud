@@ -11,6 +11,8 @@
 
 namespace OCA\TradeRepublic\Controller;
 
+use OCA\TradeRepublic\Service\AnalysisService;
+use OCA\TradeRepublic\Service\IngestService;
 use OCA\TradeRepublic\Service\TrService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -21,10 +23,29 @@ use OCP\IRequest;
 class ApiController extends Controller {
 
 	private $tr;
+	private $ingest;
+	private $analysis;
 
-	public function __construct(string $appName, IRequest $request, TrService $tr) {
+	public function __construct(string $appName, IRequest $request, TrService $tr, IngestService $ingest, AnalysisService $analysis) {
 		parent::__construct($appName, $request);
 		$this->tr = $tr;
+		$this->ingest = $ingest;
+		$this->analysis = $analysis;
+	}
+
+	/**
+	 * DB-backed analytics for the Analytics page: summary, per-stock, real
+	 * portfolio-value history (snapshots). Read-only, per-session user.
+	 *
+	 * @NoAdminRequired
+	 * @NoCSRFRequired
+	 */
+	public function analysisData(): JSONResponse {
+		try {
+			return new JSONResponse($this->analysis->perUser($this->tr->currentUserId()));
+		} catch (\Throwable $e) {
+			return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_INTERNAL_SERVER_ERROR);
+		}
 	}
 
 	/**
@@ -96,7 +117,7 @@ class ApiController extends Controller {
 	/**
 	 * @NoAdminRequired
 	 */
-	public function update(?string $mfa_code = null, $full = null): JSONResponse {
+	public function update(?string $mfa_code = null, $full = null, $approve_login = null): JSONResponse {
 		if ($mfa_code !== null) {
 			$mfa_code = trim((string) $mfa_code);
 			if (!ctype_digit($mfa_code) || strlen($mfa_code) !== 4) {
@@ -108,15 +129,18 @@ class ApiController extends Controller {
 		}
 
 		$forceFull = $full === true || $full === 'true' || $full === 1 || $full === '1';
-		$result = $this->tr->runFetch($mfa_code === '' ? null : $mfa_code, $forceFull);
+		$approveLogin = $approve_login === true || $approve_login === 'true' || $approve_login === 1 || $approve_login === '1';
+		$result = $this->tr->runFetch($mfa_code === '' ? null : $mfa_code, $forceFull, $approveLogin);
 
 		static $map = [
 			TrService::EXIT_OK            => [Http::STATUS_OK,                      'ok'],
 			TrService::EXIT_MFA_REQUIRED  => [Http::STATUS_UNAUTHORIZED,            'mfa_required'],
 			TrService::EXIT_MFA_INVALID   => [Http::STATUS_UNAUTHORIZED,            'mfa_invalid'],
+			TrService::EXIT_APPROVAL_REQUIRED => [Http::STATUS_UNAUTHORIZED,       'approval_required'],
 			TrService::EXIT_AUTH_FAILED   => [Http::STATUS_UNAUTHORIZED,            'auth_failed'],
 			TrService::EXIT_API_ERROR     => [Http::STATUS_BAD_GATEWAY,             'api_error'],
 			TrService::EXIT_RATE_LIMITED  => [Http::STATUS_TOO_MANY_REQUESTS,       'rate_limited'],
+			TrService::EXIT_APPROVAL_TIMEOUT => [Http::STATUS_UNAUTHORIZED,        'approval_timeout'],
 			TrService::EXIT_CONFIG_ERROR  => [Http::STATUS_INTERNAL_SERVER_ERROR,   'config_error'],
 		];
 		$exit = $result['exitCode'];
@@ -124,6 +148,15 @@ class ApiController extends Controller {
 
 		$payload = ['status' => $jsonStatus];
 		if ($httpStatus === Http::STATUS_OK) {
+			// Keep the DB in sync with the freshly-written JSON so a manual
+			// "Update" refreshes the DB-backed analytics + appends today's
+			// snapshot — not just the JSON files. No cron: history accrues
+			// from each manual Update. A DB hiccup must NOT fail the fetch.
+			try {
+				$this->ingest->ingestForUser($this->tr->currentUserId());
+			} catch (\Throwable $e) {
+				\OC::$server->getLogger()->logException($e, ['app' => 'trade_republic']);
+			}
 			$payload['output'] = substr($result['stdout'], -2000);
 		} else {
 			$stderr = trim((string) $result['stderr']);
@@ -168,49 +201,50 @@ class ApiController extends Controller {
 	}
 
 	/**
+	 * Start a background bulk-PDF download. Returns immediately — the actual
+	 * walk + download runs detached server-side; the browser polls docsStatus()
+	 * for progress. See TrService::startDocsDownload().
+	 *
 	 * @NoAdminRequired
 	 */
 	public function downloadDocs(?string $since = null, ?string $kinds = null): JSONResponse {
-		$result = $this->tr->runDocsDownload(
+		$res = $this->tr->startDocsDownload(
 			$since ? trim($since) : null,
 			$kinds ? trim($kinds) : null,
 		);
+		$state = $res['state'] ?? 'error';
 
-		// The CLI emits a JSON envelope on stdout. Parse and surface a
-		// uniform shape to the JS regardless of whether tr-api succeeded.
-		$envelope = json_decode((string) $result['stdout'], true);
-		if (!is_array($envelope)) {
-			$envelope = ['ok' => false, 'message' => substr((string) $result['stderr'], -500)];
+		if ($state === 'started' || $state === 'already_running') {
+			return new JSONResponse(['status' => $state], Http::STATUS_OK);
 		}
-
-		if (!empty($envelope['ok'])) {
-			$data = $envelope['data'] ?? [];
+		if ($state === 'auth_required') {
 			return new JSONResponse([
-				'status'   => 'ok',
-				'out_dir'  => $data['out_dir']  ?? null,
-				'counts'   => $data['counts']   ?? new \stdClass(),
-				'manifest' => $data['manifest'] ?? null,
-			], Http::STATUS_OK);
-		}
-
-		// Map tr-api exit codes (see tr-api/docs/cli-contract.md) to HTTP.
-		// NB: server runs PHP 7.4, so this is if/elseif (no `match` expression).
-		$exitCode = (int) ($envelope['exit_code'] ?? $result['exitCode']);
-		if (in_array($exitCode, [20, 30], true)) {
-			$httpStatus = Http::STATUS_UNAUTHORIZED;
-			$jsonStatus = 'auth_required';
-		} elseif ($exitCode === 41) {
-			$httpStatus = Http::STATUS_TOO_MANY_REQUESTS;
-			$jsonStatus = 'rate_limited';
-		} else {
-			$httpStatus = Http::STATUS_INTERNAL_SERVER_ERROR;
-			$jsonStatus = 'error';
+				'status' => 'auth_required',
+				'detail' => substr((string) ($res['message'] ?? ''), 0, 500),
+			], Http::STATUS_UNAUTHORIZED);
 		}
 		return new JSONResponse([
-			'status'    => $jsonStatus,
-			'exit_code' => $exitCode,
-			'detail'    => substr((string) ($envelope['message'] ?? ''), 0, 500),
-		], $httpStatus);
+			'status' => 'error',
+			'detail' => substr((string) ($res['message'] ?? 'unknown error'), 0, 500),
+		], Http::STATUS_INTERNAL_SERVER_ERROR);
+	}
+
+	/**
+	 * Poll the state of the background docs download for the current user.
+	 * Returns { state: idle|running|done|error, counts, message, started_at,
+	 * finished_at }. Always HTTP 200 — `state` carries the outcome.
+	 *
+	 * @NoAdminRequired
+	 */
+	public function docsStatus(): JSONResponse {
+		$status = $this->tr->docsStatus();
+		return new JSONResponse([
+			'state'       => $status['state']       ?? 'idle',
+			'counts'      => $status['counts']      ?? null,
+			'message'     => $status['message']     ?? '',
+			'started_at'  => $status['started_at']  ?? null,
+			'finished_at' => $status['finished_at'] ?? null,
+		], Http::STATUS_OK);
 	}
 
 	// =====================================================================

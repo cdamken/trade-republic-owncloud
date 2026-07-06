@@ -45,10 +45,16 @@ abstract class BaseOwnCloudService {
 	const EXIT_OK            = 0;
 	const EXIT_MFA_REQUIRED  = 10;
 	const EXIT_MFA_INVALID   = 11;
+	// v2 push-approval, phase 1: session stale, UI should prompt the user to
+	// approve in the TR app, then retry with approve_login=true (phase 2).
+	const EXIT_APPROVAL_REQUIRED = 15;
 	const EXIT_AUTH_FAILED   = 12;
 	const EXIT_API_ERROR     = 20;
 	const EXIT_TIMEOUT       = 21;
 	const EXIT_RATE_LIMITED  = 21;
+	// v2 push-approval: the user didn't approve the login prompt in time
+	// (TR's process window is ~90s) — retryable, just click Update again.
+	const EXIT_APPROVAL_TIMEOUT = 22;
 	const EXIT_CONFIG_ERROR  = 30;
 
 	// Human-readable names for the exit codes above — used in fetch.log and
@@ -197,7 +203,7 @@ abstract class BaseOwnCloudService {
 		// summarises the run before the raw stdout/stderr dumps.
 		@file_put_contents(
 			$this->userDir() . '/fetch.log',
-			'[' . date('c') . "] exit=$exitCode ($exitName) duration=${durationMs}ms\n"
+			'[' . date('c') . "] exit=$exitCode ($exitName) duration={$durationMs}ms\n"
 				. "cmd: $cmdline\n"
 				. ($lastErr !== '' ? "last stderr: $lastErr\n" : '')
 				. "--- stdout ---\n$stdout\n--- stderr ---\n$stderr\n",
@@ -254,7 +260,7 @@ abstract class BaseOwnCloudService {
 	}
 
 	/** Last non-empty line of a multi-line string, trimmed to 240 chars. */
-	private function lastLine(string $text): string {
+	protected function lastLine(string $text): string {
 		$text = trim($text);
 		if ($text === '') { return ''; }
 		$lines = preg_split('/\r?\n/', $text) ?: [];

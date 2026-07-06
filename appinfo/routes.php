@@ -9,7 +9,8 @@
  *   api#setConfig    POST /api/config          → save { phone, pin } for current user
  *   api#update       POST /api/update          → trigger refresh, optional { mfa_code, full }
  *   api#reset        POST /api/reset           → wipe per-user credentials + data
- *   api#downloadDocs POST /api/download_docs   → bulk download PDFs to per-user documents/
+ *   api#downloadDocs POST /api/download_docs   → start background bulk PDF download
+ *   api#docsStatus   GET  /api/docs_status     → poll background download state
  *   api#getDocsFolder GET  /api/docs_folder    → { folder: string }   per-user docs subfolder
  *   api#setDocsFolder POST /api/docs_folder    → save { folder } (relative to Files root)
  *   api#exportCsv     GET  /export/{kind}.csv  → per-page CSV download
@@ -25,12 +26,14 @@ return [
 		['name' => 'page#dividends',     'url' => '/dividends',         'verb' => 'GET'],
 		['name' => 'page#orders',        'url' => '/orders',            'verb' => 'GET'],
 		['name' => 'page#ledger',        'url' => '/ledger',            'verb' => 'GET'],
+		['name' => 'api#analysisData',   'url' => '/api/analysis',      'verb' => 'GET'],
 		['name' => 'api#data',           'url' => '/data/{type}',       'verb' => 'GET'],
 		['name' => 'api#getConfig',      'url' => '/api/config',        'verb' => 'GET'],
 		['name' => 'api#setConfig',      'url' => '/api/config',        'verb' => 'POST'],
 		['name' => 'api#update',         'url' => '/api/update',        'verb' => 'POST'],
 		['name' => 'api#reset',          'url' => '/api/reset',         'verb' => 'POST'],
 		['name' => 'api#downloadDocs',   'url' => '/api/download_docs', 'verb' => 'POST'],
+		['name' => 'api#docsStatus',     'url' => '/api/docs_status',  'verb' => 'GET'],
 		['name' => 'api#getDocsFolder',  'url' => '/api/docs_folder',   'verb' => 'GET'],
 		['name' => 'api#setDocsFolder',  'url' => '/api/docs_folder',   'verb' => 'POST'],
 		// Per-page CSV exports — mirror of Trade-Republic-Dashboard

@@ -1,5 +1,43 @@
 # CHANGELOG
 
+## 0.1.57 — 2026-07-06
+
+**Cutover: this app is now the canonical `trade_republic`.** The staging
+`trade_republic_next` app (namespace `OCA\TradeRepublicNext`) was renamed to
+`trade_republic` (`OCA\TradeRepublic`) now that the v2 push-approval login is
+verified working. The previous v1 app was retired to `trade_republic_old`
+(disabled). App logo drops the red ✗ "next" badge. Server side: app dirs +
+per-user data dirs + `oc_appconfig`/`oc_preferences` appids migrated; the
+`oc_tr_*` tables are unchanged (they were never app-id-prefixed). Michael's
+credentials migrated to the new app.
+
+## 0.1.56 — 2026-07-03
+
+Login migrated to Trade Republic's 2026 **v2 push-approval** flow. TR
+deprecated the legacy `/api/v1/auth/web/login` (returns 426
+CLIENT_VERSION_OUTDATED) and moved web login to `/api/v2/auth/web/login`:
+there is **no 4-digit code anymore** — you approve the login from a prompt in
+the Trade Republic mobile app (same as Scalable Capital). The dashboard now
+does this in two phases: clicking Update detects a stale session (fast), then
+shows "Approve the login on your phone" while the server polls TR until you
+approve (~90s window). New tr-api `auth.web_login_v2()` (v1 kept as fallback).
+Verified live via probe. Ref: pytr PR #355.
+
+## 0.1.55 — 2026-06-30
+
+Documents download is now a background job with an in-app modal. The bulk
+PDF download no longer blocks an HTTP request that the browser would time
+out on ("Failed to fetch") while the server kept working. Starting a
+download launches a detached server-side job; the browser polls
+`/api/docs_status` and shows progress in an in-app modal (confirm →
+progress → result) instead of native `confirm()`/`alert()` popups. The
+Documents button stays disabled — reconciled against the server's real
+state — for the whole job, so a client timeout or a page reload can't
+trigger a second overlapping download. Pairs with tr-api fixes: per-document
+filenames (no more collisions → no `FileNotFoundError` on multi-doc events)
+and a session keepalive that refreshes the cookie every ~290s so long
+downloads don't bounce back to an MFA prompt.
+
 ## 0.1.49 — 2026-06-15
 
 Benchmark overlays rebased to the window start. MSCI World / S&P 500 /

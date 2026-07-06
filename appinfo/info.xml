@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <info>
-	<id>trade_republic_next</id>
+	<id>trade_republic</id>
 	<name>Trade Republic Portfolio</name>
 	<description>
 		Private dashboard for your Trade Republic portfolio. Each ownCloud
@@ -10,13 +10,13 @@
 	</description>
 	<licence>BUSL-1.1</licence>
 	<author>Carlos Damken</author>
-	<version>0.1.56</version>
+	<version>0.1.57</version>
 	<website>https://github.com/cdamken/trade-republic-owncloud</website>
 	<bugs>https://github.com/cdamken/trade-republic-owncloud/issues</bugs>
 	<repository type="git">https://github.com/cdamken/trade-republic-owncloud.git</repository>
 	<category>tools</category>
 	<summary>Per-user Trade Republic dashboard on ownCloud</summary>
-	<namespace>TradeRepublicNext</namespace>
+	<namespace>TradeRepublic</namespace>
 	<dependencies>
 		<owncloud min-version="10" max-version="10"/>
 	</dependencies>

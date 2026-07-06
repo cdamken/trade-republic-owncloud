@@ -16,22 +16,22 @@
  * SECURITIES find-or-create by ISIN; one portfolio_snapshot per data date.
  */
 
-namespace OCA\TradeRepublicNext\Service;
+namespace OCA\TradeRepublic\Service;
 
-use OCA\TradeRepublicNext\Db\Account;
-use OCA\TradeRepublicNext\Db\AccountMapper;
-use OCA\TradeRepublicNext\Db\Dividend;
-use OCA\TradeRepublicNext\Db\DividendMapper;
-use OCA\TradeRepublicNext\Db\Holding;
-use OCA\TradeRepublicNext\Db\HoldingMapper;
-use OCA\TradeRepublicNext\Db\Order;
-use OCA\TradeRepublicNext\Db\OrderMapper;
-use OCA\TradeRepublicNext\Db\PortfolioSnapshot;
-use OCA\TradeRepublicNext\Db\PortfolioSnapshotMapper;
-use OCA\TradeRepublicNext\Db\Security;
-use OCA\TradeRepublicNext\Db\SecurityMapper;
-use OCA\TradeRepublicNext\Db\Transaction;
-use OCA\TradeRepublicNext\Db\TransactionMapper;
+use OCA\TradeRepublic\Db\Account;
+use OCA\TradeRepublic\Db\AccountMapper;
+use OCA\TradeRepublic\Db\Dividend;
+use OCA\TradeRepublic\Db\DividendMapper;
+use OCA\TradeRepublic\Db\Holding;
+use OCA\TradeRepublic\Db\HoldingMapper;
+use OCA\TradeRepublic\Db\Order;
+use OCA\TradeRepublic\Db\OrderMapper;
+use OCA\TradeRepublic\Db\PortfolioSnapshot;
+use OCA\TradeRepublic\Db\PortfolioSnapshotMapper;
+use OCA\TradeRepublic\Db\Security;
+use OCA\TradeRepublic\Db\SecurityMapper;
+use OCA\TradeRepublic\Db\Transaction;
+use OCA\TradeRepublic\Db\TransactionMapper;
 use OCP\IConfig;
 
 class IngestService {
@@ -71,14 +71,14 @@ class IngestService {
 
 	public function dataDir(string $uid): string {
 		$base = (string) $this->config->getSystemValue('datadirectory', '/var/www/owncloud/data');
-		return rtrim($base, '/') . '/' . $uid . '/trade_republic_next';
+		return rtrim($base, '/') . '/' . $uid . '/trade_republic';
 	}
 
 	/** @return array<string,int> */
 	public function ingestForUser(string $uid): array {
 		$dir = $this->dataDir($uid);
 		if (!is_dir($dir)) {
-			throw new \RuntimeException("No trade_republic_next data dir for '$uid': $dir");
+			throw new \RuntimeException("No trade_republic data dir for '$uid': $dir");
 		}
 		$this->secCache = [];
 

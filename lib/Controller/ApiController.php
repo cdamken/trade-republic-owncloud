@@ -9,11 +9,11 @@
  *   POST /api/reset      → wipe credentials + data dir
  */
 
-namespace OCA\TradeRepublicNext\Controller;
+namespace OCA\TradeRepublic\Controller;
 
-use OCA\TradeRepublicNext\Service\AnalysisService;
-use OCA\TradeRepublicNext\Service\IngestService;
-use OCA\TradeRepublicNext\Service\TrService;
+use OCA\TradeRepublic\Service\AnalysisService;
+use OCA\TradeRepublic\Service\IngestService;
+use OCA\TradeRepublic\Service\TrService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\DataDisplayResponse;
@@ -155,7 +155,7 @@ class ApiController extends Controller {
 			try {
 				$this->ingest->ingestForUser($this->tr->currentUserId());
 			} catch (\Throwable $e) {
-				\OC::$server->getLogger()->logException($e, ['app' => 'trade_republic_next']);
+				\OC::$server->getLogger()->logException($e, ['app' => 'trade_republic']);
 			}
 			$payload['output'] = substr($result['stdout'], -2000);
 		} else {

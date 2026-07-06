@@ -6,9 +6,9 @@
  * Idempotent — safe to re-run. Reused by the Fase 3 background job.
  */
 
-namespace OCA\TradeRepublicNext\Command;
+namespace OCA\TradeRepublic\Command;
 
-use OCA\TradeRepublicNext\Service\IngestService;
+use OCA\TradeRepublic\Service\IngestService;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;

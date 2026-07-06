@@ -9,13 +9,13 @@
  * the pure layer.
  */
 
-namespace OCA\TradeRepublicNext\Service;
+namespace OCA\TradeRepublic\Service;
 
-use OCA\TradeRepublicNext\Analytics\FifoLots;
-use OCA\TradeRepublicNext\Db\Lot;
-use OCA\TradeRepublicNext\Db\LotMapper;
-use OCA\TradeRepublicNext\Db\OrderMapper;
-use OCA\TradeRepublicNext\Db\SecurityMapper;
+use OCA\TradeRepublic\Analytics\FifoLots;
+use OCA\TradeRepublic\Db\Lot;
+use OCA\TradeRepublic\Db\LotMapper;
+use OCA\TradeRepublic\Db\OrderMapper;
+use OCA\TradeRepublic\Db\SecurityMapper;
 
 class LotsService {
 	/** @var OrderMapper */

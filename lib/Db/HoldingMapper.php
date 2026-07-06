@@ -1,7 +1,7 @@
 <?php
 /** HoldingMapper — layer 1 state. Scoped by user_id. */
 
-namespace OCA\TradeRepublicNext\Db;
+namespace OCA\TradeRepublic\Db;
 
 use OCP\AppFramework\Db\Mapper;
 use OCP\IDBConnection;

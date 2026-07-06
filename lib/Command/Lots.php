@@ -8,9 +8,9 @@
  * as coverage and excluded from realised P&L, never silently guessed.
  */
 
-namespace OCA\TradeRepublicNext\Command;
+namespace OCA\TradeRepublic\Command;
 
-use OCA\TradeRepublicNext\Service\LotsService;
+use OCA\TradeRepublic\Service\LotsService;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;

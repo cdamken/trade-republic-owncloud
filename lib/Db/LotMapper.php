@@ -1,7 +1,7 @@
 <?php
 /** LotMapper — layer 5. FIFO lots are derived: replaced wholesale per recompute. */
 
-namespace OCA\TradeRepublicNext\Db;
+namespace OCA\TradeRepublic\Db;
 
 use OCP\AppFramework\Db\Mapper;
 use OCP\IDBConnection;

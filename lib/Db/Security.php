@@ -8,7 +8,7 @@
  * → kept as strings; no addType for them.
  */
 
-namespace OCA\TradeRepublicNext\Db;
+namespace OCA\TradeRepublic\Db;
 
 use OCP\AppFramework\Db\Entity;
 

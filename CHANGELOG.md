@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 0.1.57 — 2026-07-06
+
+**Cutover: this app is now the canonical `trade_republic`.** The staging
+`trade_republic_next` app (namespace `OCA\TradeRepublicNext`) was renamed to
+`trade_republic` (`OCA\TradeRepublic`) now that the v2 push-approval login is
+verified working. The previous v1 app was retired to `trade_republic_old`
+(disabled). App logo drops the red ✗ "next" badge. Server side: app dirs +
+per-user data dirs + `oc_appconfig`/`oc_preferences` appids migrated; the
+`oc_tr_*` tables are unchanged (they were never app-id-prefixed). Michael's
+credentials migrated to the new app.
+
 ## 0.1.56 — 2026-07-03
 
 Login migrated to Trade Republic's 2026 **v2 push-approval** flow. TR

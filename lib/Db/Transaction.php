@@ -1,7 +1,7 @@
 <?php
 /** Cash/book transaction (layer 3). Deduped by (user_id, external_id). */
 
-namespace OCA\TradeRepublicNext\Db;
+namespace OCA\TradeRepublic\Db;
 
 use OCP\AppFramework\Db\Entity;
 

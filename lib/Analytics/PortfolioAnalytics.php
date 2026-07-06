@@ -9,7 +9,7 @@
  * (already parsed from the DB's exact-string columns at the service edge).
  */
 
-namespace OCA\TradeRepublicNext\Analytics;
+namespace OCA\TradeRepublic\Analytics;
 
 class PortfolioAnalytics {
 	/**

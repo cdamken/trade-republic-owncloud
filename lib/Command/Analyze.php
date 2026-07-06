@@ -7,9 +7,9 @@
  * surface for the Fase 5 analytics; the same AnalysisService backs the UI.
  */
 
-namespace OCA\TradeRepublicNext\Command;
+namespace OCA\TradeRepublic\Command;
 
-use OCA\TradeRepublicNext\Service\AnalysisService;
+use OCA\TradeRepublic\Service\AnalysisService;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;

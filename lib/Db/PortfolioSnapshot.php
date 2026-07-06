@@ -1,7 +1,7 @@
 <?php
 /** Daily portfolio snapshot (layer 2 · history). One per day per user. */
 
-namespace OCA\TradeRepublicNext\Db;
+namespace OCA\TradeRepublic\Db;
 
 use OCP\AppFramework\Db\Entity;
 

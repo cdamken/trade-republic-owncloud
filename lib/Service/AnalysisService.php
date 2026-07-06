@@ -4,18 +4,18 @@
  *
  * Loads a user's holdings / securities / dividends / accounts via the
  * mappers, converts the exact-string money columns to float at this edge,
- * and delegates ALL math to OCA\TradeRepublicNext\Analytics\PortfolioAnalytics (which
+ * and delegates ALL math to OCA\TradeRepublic\Analytics\PortfolioAnalytics (which
  * has zero framework dependency). Per-user scoped by construction.
  */
 
-namespace OCA\TradeRepublicNext\Service;
+namespace OCA\TradeRepublic\Service;
 
-use OCA\TradeRepublicNext\Analytics\PortfolioAnalytics;
-use OCA\TradeRepublicNext\Db\AccountMapper;
-use OCA\TradeRepublicNext\Db\DividendMapper;
-use OCA\TradeRepublicNext\Db\HoldingMapper;
-use OCA\TradeRepublicNext\Db\PortfolioSnapshotMapper;
-use OCA\TradeRepublicNext\Db\SecurityMapper;
+use OCA\TradeRepublic\Analytics\PortfolioAnalytics;
+use OCA\TradeRepublic\Db\AccountMapper;
+use OCA\TradeRepublic\Db\DividendMapper;
+use OCA\TradeRepublic\Db\HoldingMapper;
+use OCA\TradeRepublic\Db\PortfolioSnapshotMapper;
+use OCA\TradeRepublic\Db\SecurityMapper;
 
 class AnalysisService {
 	/** @var HoldingMapper */

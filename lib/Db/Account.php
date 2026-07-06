@@ -1,7 +1,7 @@
 <?php
 /** Account row (layer 1 · state). One per broker contract per user. */
 
-namespace OCA\TradeRepublicNext\Db;
+namespace OCA\TradeRepublic\Db;
 
 use OCP\AppFramework\Db\Entity;
 

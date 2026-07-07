@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## 0.1.58 — 2026-07-07
+
+Fix: v2 push-approval login now works from EVERY page, not just Portfolio.
+The shared `update_flow.js` (used on Ledger/Orders/Dividends/Analytics/…)
+lacked the v2 `approval_required` handling that had only been added to
+Portfolio-'s `dashboard.js`, so triggering Update from those pages hit a
+stale session and failed. Ported the approval_required → phase-2 flow
+(approve-in-app, no code) into `update_flow.js`.
+
 ## 0.1.57 — 2026-07-06
 
 **Cutover: this app is now the canonical `trade_republic`.** The staging

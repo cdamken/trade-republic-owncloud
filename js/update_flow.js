@@ -187,6 +187,7 @@ async function postUpdate(mfaCode, opts) {
   const body = {};
   if (mfaCode) body.mfa_code = mfaCode;
   if (opts && opts.full) body.full = true;
+  if (opts && opts.approveLogin) body.approve_login = true;
   const res = await fetch(routes.update, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'requesttoken': OC.requestToken },
@@ -219,6 +220,31 @@ async function updateData() {
       return;
     }
     cleanupOverlay();
+    // v2 push-approval: TR's 2026 web login has no 4-digit code — the user
+    // approves the login from a prompt in the TR mobile app. Phase 1 detected
+    // a stale session; show "approve on your phone" and run phase 2 (the
+    // server blocks up to ~90s polling until the user approves, then fetches).
+    if (r.state === 'approval_required') {
+      setToastTitle('Approve the login on your phone');
+      showToast('📱 Open Trade Republic and approve the login prompt…');
+      showProgressBar();
+      const r2 = await postUpdate(null, { approveLogin: true });
+      hideProgressBar();
+      if (r2.http === 200) {
+        showStatus('ok', '✓ Updated — reloading');
+        broadcastUpdateComplete();
+        setTimeout(() => location.reload(), 800);
+        return;
+      }
+      if (r2.state === 'approval_timeout') {
+        showStatus('err', '⌛ Login not approved in time — click Update Now again and approve the prompt in your Trade Republic app.');
+      } else if (r2.state === 'rate_limited') {
+        showStatus('err', '⚠ Rate-limited by Trade Republic — wait 15–30 min and retry');
+      } else {
+        showStatus('err', '✗ ' + (r2.detail || r2.state || ('HTTP ' + r2.http)));
+      }
+      return;
+    }
     if (r.state === 'mfa_required') { openMfaModal(); return; }
     if (r.state === 'rate_limited') {
       showStatus('err', '⚠ Rate-limited by Trade Republic — wait 15–30 min and retry');

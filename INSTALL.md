@@ -112,8 +112,8 @@ sudo -u www-data /opt/tr-venv/bin/python /var/www/owncloud/apps/trade_republic/p
 ```
 
 Should print the `argparse` help with `--profile-dir`, `--data-dir`,
-`--mfa-code` and `--full`. If it says "tr-api is not installed", check
-the venv path and the `config:system:set` command.
+`--mfa-code`, `--full` and `--approve-login`. If it says "tr-api is not
+installed", check the venv path and the `config:system:set` command.
 
 ## 5. First login from the browser
 
@@ -121,12 +121,15 @@ Open `https://your-owncloud/index.php/apps/trade_republic/`:
 
 1. The **⚙ Account** modal appears. Put your phone (`+491701234567`) and
    PIN.
-2. On save, it fires a `/update`. With no cookies, TR pushes a 4-digit
-   code to your TR mobile app.
-3. The **🔐 Trade Republic Security Code** modal opens. Type the code
-   and press Update.
-4. The backend downloads your portfolio, transactions and computes
-   analytics. Takes 30 s – 2 min depending on the size of your history.
+2. On save it fires a `/update`. With no valid session the backend starts
+   TR's **v2 push-approval** login — there is **no 4-digit code anymore**.
+3. The dashboard shows **"Approve the login on your phone"**. Open the
+   Trade Republic mobile app and **approve the login prompt** (window ~90s;
+   the prompt shows in-app, not only as a push notification).
+4. On approval the backend downloads your portfolio, transactions and
+   computes analytics. Takes 30 s – 2 min depending on your history size.
+   If you don't approve in time you'll see "Login not approved in time" —
+   just press Update again.
 
 ## 6. Troubleshooting
 
@@ -135,10 +138,11 @@ Open `https://your-owncloud/index.php/apps/trade_republic/`:
 | Modal error "tr-api is not installed" | `trade_republic.python_bin` doesn't point at the right venv. Verify with `occ config:system:get trade_republic.python_bin`. |
 | `playwright._impl._api_types.Error: Executable doesn't exist` | Missing `playwright install chromium`, or the cache isn't readable by `www-data`. See section 2. |
 | `error while loading shared libraries: libatk-bridge-2.0.so.0` (or similar) | Missing `playwright install-deps chromium` (system libs). See section 2 step 2. |
-| MFA modal reopens with "Wrong code" several times | The code expires in ~60 s. If it arrives late, wait for the next push (press Update again). |
-| `rate_limited` | TR rate-limits login attempts. Wait 5–15 min. This app caches the latest `processId` for 5 min and reuses it, precisely to avoid burning attempts. |
+| "Login not approved in time" / `approval_timeout` | You didn't approve the push within TR's ~90s window. Press Update again and approve promptly. Open the TR app — the prompt also shows in-app, not only as a notification. |
+| Approval never appears on the phone | TR app logged out / notifications off / phone offline. Open the app and re-check; the login prompt shows in-app. |
+| `rate_limited` | TR rate-limits login attempts. Wait 5–15 min. |
 | `auth_failed` | Wrong phone or PIN. Open **⚙ Account** and save them again. |
-| Fetch takes > 2 min and times out | The PHP service timeout is 240 s. If your history is huge, use the "Full reload" checkbox in the MFA modal only when needed — incremental mode normally takes 5–15 s. |
+| Fetch takes > 3 min and times out | The PHP service timeout is 300 s (covers the ~90s approval wait + fetch). If your history is huge, use the "Full reload" only when needed — incremental mode normally takes 5–15 s. |
 
 ## 6.5. Updating the app
 

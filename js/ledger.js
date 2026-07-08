@@ -125,12 +125,12 @@ function renderTable() {
   document.getElementById('events-tbody').innerHTML = truncated.map(r => {
     const cls = catClass(r.Type);
     const amtCls = r._value >= 0 ? 'pl-pos' : 'pl-neg';
-    const safeNote = (r.Note || '').replace(/</g, '&lt;');
+    const safeNote = esc(r.Note || '');
     return '<tr>' +
       '<td>' + fmtDate(r.Date) + '</td>' +
-      '<td><span class="cat-pill ' + cls + '">' + r.Type + '</span></td>' +
+      '<td><span class="cat-pill ' + cls + '">' + esc(r.Type) + '</span></td>' +
       '<td>' + safeNote + '</td>' +
-      '<td class="isin">' + (r.ISIN || '') + '</td>' +
+      '<td class="isin">' + esc(r.ISIN || '') + '</td>' +
       '<td class="num ' + amtCls + '">' + fmtSignedEUR(r._value) + '</td>' +
       '</tr>';
   }).join('') || '<tr><td colspan="5" class="empty">No events match the filters.</td></tr>';

@@ -313,8 +313,8 @@
     let html = visible.map(p =>
       '<tr>' +
         '<td>' + formatDate(p.date) + '</td>' +
-        '<td class="ticker">' + (p.name || '—') + '</td>' +
-        '<td class="tx-isin">' + (p.isin || '—') + '</td>' +
+        '<td class="ticker">' + esc(p.name || '—') + '</td>' +
+        '<td class="tx-isin">' + esc(p.isin || '—') + '</td>' +
         '<td>' + kindPill(p) + '</td>' +
         '<td class="num">' + fmtEur(p.amount || 0) + '</td>' +
       '</tr>'

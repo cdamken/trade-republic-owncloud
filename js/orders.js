@@ -116,12 +116,12 @@ function renderTable() {
 
   document.getElementById('trades-tbody').innerHTML = rows.map(r => {
     const pill = r.Type === 'Buy' ? 'side-buy' : 'side-sell';
-    const safeNote = (r.Note || '').replace(/</g, '&lt;');
+    const safeNote = esc(r.Note || '');
     return '<tr>' +
       '<td>' + fmtDate(r.Date) + '</td>' +
       '<td>' + safeNote + '</td>' +
-      '<td class="isin">' + (r.ISIN || '') + '</td>' +
-      '<td><span class="side-pill ' + pill + '">' + r.Type + '</span></td>' +
+      '<td class="isin">' + esc(r.ISIN || '') + '</td>' +
+      '<td><span class="side-pill ' + pill + '">' + esc(r.Type) + '</span></td>' +
       '<td class="num">' + fmtEUR(r._abs) + '</td>' +
       '</tr>';
   }).join('') || '<tr><td colspan="5" class="empty">No trades match the filters.</td></tr>';

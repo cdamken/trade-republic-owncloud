@@ -67,6 +67,22 @@ function fmtPct(n, d) {
 }
 
 // ----------------------------------------------------------------------
+// HTML escaping
+// ----------------------------------------------------------------------
+// Escape untrusted strings before interpolating them into innerHTML /
+// template literals. Mirrors the esc() helper added to
+// Trade-Republic-Dashboard for the self-XSS fix, and unifies the older
+// ad-hoc hacks (replace(/</g,'&lt;'), replace(/['"]/g,'')) that only
+// covered some characters. Safe for both element text and quoted
+// attribute values (escapes & < > " '). Numeric fields go through the
+// fmt* helpers and don't need this.
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+
+// ----------------------------------------------------------------------
 // Date / month helpers
 // ----------------------------------------------------------------------
 function fmtDate(iso) {

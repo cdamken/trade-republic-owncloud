@@ -797,12 +797,12 @@ function externalLinks(isin) {
 function rowHTML(p) {
   // P/L now coloured green (positive) / red (negative). 2026-06-01 reversal
   // of the earlier sign-only choice — Carlos found it harder to scan.
-  const safeIsin = String(p.isin || '').replace(/['"]/g, '');
-  const safeName = String(p.name || '').replace(/['"]/g, '');
+  const safeIsin = esc(p.isin);
+  const safeName = esc(p.name);
   const plCls = (p.pl_eur || 0) >= 0 ? 'pl-pos' : 'pl-neg';
   return `<tr>
-    <td title="${p.name}"><a href="#" class="position-link" data-isin="${safeIsin}" data-name="${safeName}">${p.name}</a></td>
-    <td><code>${p.isin}</code>${externalLinks(p.isin)}</td>
+    <td title="${safeName}"><a href="#" class="position-link" data-isin="${safeIsin}" data-name="${safeName}">${safeName}</a></td>
+    <td><code>${safeIsin}</code>${externalLinks(p.isin)}</td>
     <td class="num">${fmtQty(p.quantity, p.category)}</td>
     <td class="num">${fmtEUR(p.avg_cost)}</td>
     <td class="num">${fmtEUR(p.current_price)}</td>
@@ -814,12 +814,12 @@ function rowHTML(p) {
 }
 
 function shortRow(p) {
-  const safeIsin = String(p.isin || '').replace(/['"]/g, '');
-  const safeName = String(p.name || '').replace(/['"]/g, '');
+  const safeIsin = esc(p.isin);
+  const safeName = esc(p.name);
   const plCls = (p.pl_eur || 0) >= 0 ? 'pl-pos' : 'pl-neg';
   return `<tr>
-    <td title="${p.name}"><a href="#" class="position-link" data-isin="${safeIsin}" data-name="${safeName}">${p.name}</a></td>
-    <td><code>${p.isin}</code>${externalLinks(p.isin)}</td>
+    <td title="${safeName}"><a href="#" class="position-link" data-isin="${safeIsin}" data-name="${safeName}">${safeName}</a></td>
+    <td><code>${safeIsin}</code>${externalLinks(p.isin)}</td>
     <td class="num">${fmtQty(p.quantity, p.category)}</td>
     <td class="num"><strong>${fmtEUR(p.net_value_eur)}</strong></td>
     <td class="num ${plCls}">${fmtEUR(p.pl_eur)}</td>
@@ -846,7 +846,7 @@ function openPositionModal(isin, name) {
       '<div class="pm-stat"><div class="pm-label">Net value</div><div class="pm-value"><strong>' + fmtEUR(pos.net_value_eur) + '</strong></div></div>' +
       '<div class="pm-stat"><div class="pm-label">P/L</div><div class="pm-value">' + fmtEUR(pos.pl_eur) + ' (' + fmtPct(pos.pl_pct, 1) + ')</div></div>' +
     '</div>' +
-    '<div class="pm-meta">Category: <strong>' + (pos.category || 'unknown') + '</strong> · ISIN: <code>' + isin + '</code></div>' +
+    '<div class="pm-meta">Category: <strong>' + esc(pos.category || 'unknown') + '</strong> · ISIN: <code>' + esc(isin) + '</code></div>' +
     '<p class="pm-tip">Click the buttons below to open external research in a new tab. All links work by ISIN. Most financial sites block iframe embedding via <code>X-Frame-Options</code>, so we can\'t inline them.</p>';
 
   const links = document.getElementById('position-modal-links');

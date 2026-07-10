@@ -51,6 +51,32 @@ include __DIR__ . '/partials/_top_bar.php';
   </div>
 </div>
 
+<!-- ---------- Approx weekly outflow (by week of the month) ---------- -->
+<div class="section">
+  <span>Approx. weekly outflow</span>
+  <span style="color:var(--muted); font-weight:400; font-size:0.85em; margin-left:8px;">
+    ~how much leaves each week of the month (a month ≈ 4 weeks; quarterly averaged) — for cash planning
+  </span>
+</div>
+<div class="cards">
+  <div class="card">
+    <div class="label">Week 1 <span class="muted" style="font-weight:400;">(days 1–7)</span></div>
+    <div class="value" id="week-1">—</div>
+  </div>
+  <div class="card">
+    <div class="label">Week 2 <span class="muted" style="font-weight:400;">(8–14)</span></div>
+    <div class="value" id="week-2">—</div>
+  </div>
+  <div class="card">
+    <div class="label">Week 3 <span class="muted" style="font-weight:400;">(15–21)</span></div>
+    <div class="value" id="week-3">—</div>
+  </div>
+  <div class="card">
+    <div class="label">Week 4 <span class="muted" style="font-weight:400;">(22–end)</span></div>
+    <div class="value" id="week-4">—</div>
+  </div>
+</div>
+
 <div class="section">
   <span>Savings plans</span>
   <span class="badge" id="plans-count">—</span>

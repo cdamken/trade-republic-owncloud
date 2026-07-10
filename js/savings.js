@@ -30,6 +30,38 @@ function monthlyOf(p) {
   return (+p.amount || 0) * (PER_MONTH[p.interval] || 1);
 }
 
+// Week-of-month bucket (0..3) from a day-of-month: 1-7 → wk1, 8-14 → wk2,
+// 15-21 → wk3, 22+ → wk4.
+function weekOfDay(day) {
+  return day <= 7 ? 0 : day <= 14 ? 1 : day <= 21 ? 2 : 3;
+}
+function dayOfMonth(iso) {
+  if (!iso) return 15;
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? 15 : d.getUTCDate();
+}
+// Approximate €/week by week-of-month, using each plan's monthly-normalised
+// amount so the four weeks sum to ~the monthly commitment. Weekly plans hit
+// all 4 weeks; biweekly/twoPerMonth hit 2 (this week + 2 later); the rest land
+// in the week of their execution day (quarterly averaged into that week).
+function weeklyBuckets(plans) {
+  const w = [0, 0, 0, 0];
+  for (const p of plans) {
+    if (p.paused) continue;
+    const m = monthlyOf(p);
+    if (p.interval === 'weekly') {
+      for (let i = 0; i < 4; i++) w[i] += m / 4;
+    } else if (p.interval === 'biweekly' || p.interval === 'twoPerMonth') {
+      const wk = weekOfDay(dayOfMonth(p.next_execution));
+      w[wk] += m / 2;
+      w[(wk + 2) % 4] += m / 2;
+    } else {
+      w[weekOfDay(dayOfMonth(p.next_execution))] += m;
+    }
+  }
+  return w;
+}
+
 async function load() {
   try {
     const res = await fetch(dataUrl + '?t=' + Date.now(), { cache: 'no-store' });
@@ -62,6 +94,10 @@ function renderSummary(s) {
   const parts = Object.keys(bi).sort((a, b) => bi[b] - bi[a])
     .map(k => (INTERVAL_LABEL[k] || k) + ': ' + bi[k]);
   setText('card-intervals', parts.length ? parts.join(' · ') : '—');
+
+  // Approx weekly outflow (by week of month).
+  const w = weeklyBuckets(state.plans);
+  for (let i = 0; i < 4; i++) setText('week-' + (i + 1), fmtEUR(w[i]));
 }
 
 function setSort(key) {

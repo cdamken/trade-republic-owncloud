@@ -37,6 +37,7 @@ $navItems = [
   ['key' => 'orders',    'route' => 'orders',    'label' => '📋 Orders'],
   ['key' => 'dividends', 'route' => 'dividends', 'label' => '💰 Dividends'],
   ['key' => 'ledger',    'route' => 'ledger',    'label' => '📒 Ledger'],
+  ['key' => 'savings',   'route' => 'savings',   'label' => '🔁 Savings'],
   ['key' => 'glossary',  'route' => 'glossary',  'label' => '📖 Glossary'],
   ['key' => 'settings',  'route' => 'settings',  'label' => '⚙ Settings'],
 ];

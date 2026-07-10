@@ -56,6 +56,7 @@ class ApiController extends Controller {
 		$allowed = [
 			'portfolio'         => ['file' => 'portfolio.json',          'ct' => 'application/json'],
 			'analytics'         => ['file' => 'analytics.json',          'ct' => 'application/json'],
+			'savings'           => ['file' => 'savings_plans.json',      'ct' => 'application/json'],
 			'net_worth_history' => ['file' => 'net_worth_history.json',  'ct' => 'application/json'],
 			'last_update'       => ['file' => 'last_update.date',        'ct' => 'text/plain'],
 			// Raw CSV consumed by the Orders + Ledger pages (2026-06-02).

@@ -26,6 +26,7 @@ return [
 		['name' => 'page#dividends',     'url' => '/dividends',         'verb' => 'GET'],
 		['name' => 'page#orders',        'url' => '/orders',            'verb' => 'GET'],
 		['name' => 'page#ledger',        'url' => '/ledger',            'verb' => 'GET'],
+		['name' => 'page#savings',       'url' => '/savings',           'verb' => 'GET'],
 		['name' => 'api#analysisData',   'url' => '/api/analysis',      'verb' => 'GET'],
 		['name' => 'api#data',           'url' => '/data/{type}',       'verb' => 'GET'],
 		['name' => 'api#getConfig',      'url' => '/api/config',        'verb' => 'GET'],

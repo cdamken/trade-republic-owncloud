@@ -154,6 +154,8 @@ class TrService extends BaseOwnCloudService {
 			'last_update.date',
 			// Raw CSV consumed by Orders + Ledger pages (2026-06-02 port).
 			'account_transactions.csv',
+			// Savings plans (Savings page).
+			'savings_plans.json',
 		];
 		if (!in_array($name, $allowed, true)) {
 			throw new \InvalidArgumentException("unknown data file: $name");

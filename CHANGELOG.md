@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 0.1.59 — 2026-07-09
+
+New **Savings** page. Surfaces your Trade Republic savings plans (via the
+tr-api `savingsPlans` topic) in the dashboard: a table (next execution,
+instrument, ISIN, interval, amount, status) plus summary cards (plan count,
+monthly commitment normalised across cadences, per-execution total, count by
+interval). `fetch_wrapper.py::fetch_savings` writes `savings_plans.json` on
+every Update (ISIN → name resolved from the portfolio); served via api#data
+(`savings`), rendered by `js/savings.js`. Also adds `tr-api savings` to the
+CLI.
+
 ## 0.1.58 — 2026-07-07
 
 Fix: v2 push-approval login now works from EVERY page, not just Portfolio.

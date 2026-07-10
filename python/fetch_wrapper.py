@@ -1042,6 +1042,85 @@ def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
 # ---------------------------------------------------------------------------
 # Analytics (computed inline — no separate script call)
 # ---------------------------------------------------------------------------
+def fetch_savings(client, data_dir: Path) -> None:
+    """Fetch the account's savings plans and write savings_plans.json.
+
+    Read-only (one WebSocket). Non-fatal: a failure here must not abort the
+    whole update — savings is a bonus dataset. Resolves ISIN → instrument
+    name from portfolio.json when possible (the savings feed only gives ISIN),
+    and adds a small summary (count, per-interval, monthly-normalised total).
+    """
+    try:
+        from tr_api import savings_plans as sp
+    except Exception as e:  # pragma: no cover
+        sys.stderr.write(f"savings: tr_api.savings_plans unavailable: {e}\n")
+        return
+    try:
+        plans = sp.list_plans(client)
+    except Exception as e:
+        sys.stderr.write(f"savings fetch failed (non-fatal): {type(e).__name__}: {e}\n")
+        return
+
+    # ISIN → name from the freshly-written portfolio (best-effort).
+    names: dict[str, str] = {}
+    pf = data_dir / "portfolio.json"
+    if pf.is_file():
+        try:
+            d = json.loads(pf.read_text(encoding="utf-8"))
+            for p in d.get("all_positions", []):
+                if p.get("isin") and p.get("name"):
+                    names[p["isin"]] = p["name"]
+        except Exception:
+            pass
+
+    # Monthly-normalisation multipliers per TR interval.
+    per_month = {
+        "weekly": 52 / 12, "biweekly": 26 / 12, "twoPerMonth": 2.0,
+        "monthly": 1.0, "quarterly": 1 / 3,
+    }
+    by_interval: dict[str, int] = {}
+    monthly_total = 0.0
+    per_exec_total = 0.0
+    rows = []
+    for p in plans:
+        interval = p.get("interval") or "?"
+        amount = _as_float(p.get("amount"))
+        paused = bool(p.get("paused"))
+        by_interval[interval] = by_interval.get(interval, 0) + 1
+        if not paused:
+            monthly_total += amount * per_month.get(interval, 1.0)
+            per_exec_total += amount
+        isin = p.get("instrumentId") or ""
+        rows.append({
+            "isin": isin,
+            "name": names.get(isin, ""),
+            "amount": round(amount, 2),
+            "interval": interval,
+            "next_execution": p.get("nextExecutionDate"),
+            "previous_execution": p.get("previousExecutionDate"),
+            "paused": paused,
+            "instrument_type": p.get("instrumentType") or "",
+            "currency": p.get("currency") or "EUR",
+        })
+    rows.sort(key=lambda r: (r["next_execution"] or "9999", r["isin"]))
+
+    out = {
+        "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "summary": {
+            "count": len(rows),
+            "paused": sum(1 for r in rows if r["paused"]),
+            "by_interval": by_interval,
+            "per_execution_eur": round(per_exec_total, 2),
+            "monthly_commitment_eur": round(monthly_total, 2),
+        },
+        "plans": rows,
+    }
+    (data_dir / "savings_plans.json").write_text(
+        json.dumps(out, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+    print(f"  savings plans: {len(rows)}  (~€{monthly_total:,.0f}/mo)")
+
+
 def compute_analytics(data_dir: Path) -> None:
     csv_path = data_dir / "account_transactions.csv"
     portfolio_json = data_dir / "portfolio.json"
@@ -1438,6 +1517,9 @@ def main() -> None:
 
     print("Fetching transactions...", flush=True)
     fetch_transactions(tr, client, data_dir, args.full)
+
+    print("Fetching savings plans...", flush=True)
+    fetch_savings(client, data_dir)
 
     print("Computing analytics...", flush=True)
     compute_analytics(data_dir)

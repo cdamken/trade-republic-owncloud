@@ -90,6 +90,14 @@ class PageController extends Controller {
 	}
 
 	/**
+	 * @NoAdminRequired
+	 * @NoCSRFRequired
+	 */
+	public function savings() {
+		return $this->renderTemplate('savings');
+	}
+
+	/**
 	 * Render the page, or redirect to ownCloud login if the visitor is not
 	 * authenticated. Without this guard ownCloud sometimes returns a bare
 	 * 403 "Access forbidden" page instead of a friendly redirect to login.
@@ -119,6 +127,7 @@ class PageController extends Controller {
 			'dividends' => 'dividends',
 			'orders'    => 'orders',
 			'ledger'    => 'ledger',
+			'savings'   => 'savings',
 		];
 		// _shared.js holds fmtEUR / fmtEUR0 / fmtSignedEUR / fmtPct /
 		// fmtDate / monthKey / monthLabel / parseCsv. Originally loaded
@@ -148,6 +157,7 @@ class PageController extends Controller {
 				'dividends'    => $this->urlGenerator->linkToRoute('trade_republic.page.dividends'),
 				'orders'       => $this->urlGenerator->linkToRoute('trade_republic.page.orders'),
 				'ledger'       => $this->urlGenerator->linkToRoute('trade_republic.page.ledger'),
+				'savings'      => $this->urlGenerator->linkToRoute('trade_republic.page.savings'),
 				'data'         => $this->urlGenerator->linkToRoute('trade_republic.api.data', ['type' => '__TYPE__']),
 				'analysisData' => $this->urlGenerator->linkToRoute('trade_republic.api.analysisData'),
 				'config'       => $this->urlGenerator->linkToRoute('trade_republic.api.getConfig'),

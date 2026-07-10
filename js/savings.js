@@ -20,6 +20,16 @@ const INTERVAL_LABEL = {
   monthly: 'Monthly', quarterly: 'Quarterly',
 };
 
+// Normalise each cadence to a monthly rate so amounts are comparable
+// (a €3 weekly plan commits far more per month than a €1 quarterly one).
+const PER_MONTH = {
+  weekly: 52 / 12, biweekly: 26 / 12, twoPerMonth: 2, monthly: 1, quarterly: 1 / 3,
+};
+function monthlyOf(p) {
+  if (p.paused) return 0;
+  return (+p.amount || 0) * (PER_MONTH[p.interval] || 1);
+}
+
 async function load() {
   try {
     const res = await fetch(dataUrl + '?t=' + Date.now(), { cache: 'no-store' });
@@ -77,6 +87,7 @@ function renderTable() {
   });
   const k = state.sortKey, dir = state.sortDir === 'asc' ? 1 : -1;
   rows.sort((a, b) => {
+    if (k === 'monthly') return (monthlyOf(a) - monthlyOf(b)) * dir;
     let va = a[k], vb = b[k];
     if (k === 'amount') { va = +va || 0; vb = +vb || 0; return (va - vb) * dir; }
     va = (va == null ? '' : String(va)); vb = (vb == null ? '' : String(vb));
@@ -90,15 +101,33 @@ function renderTable() {
     const status = p.paused
       ? '<span class="cat-pill cat-other">Paused</span>'
       : '<span class="cat-pill cat-buy">Active</span>';
+    const monthly = p.paused ? '—' : fmtEUR(monthlyOf(p));
     return '<tr>' +
       '<td>' + (p.next_execution ? fmtDate(p.next_execution) : '—') + '</td>' +
       '<td>' + name + '</td>' +
       '<td class="isin">' + (p.isin || '') + '</td>' +
       '<td>' + (INTERVAL_LABEL[p.interval] || p.interval || '—') + '</td>' +
       '<td class="num">' + fmtEUR(+p.amount || 0) + '</td>' +
+      '<td class="num">' + monthly + '</td>' +
       '<td>' + status + '</td>' +
       '</tr>';
-  }).join('') || '<tr><td colspan="6" class="empty">No plans match the filters.</td></tr>';
+  }).join('') || '<tr><td colspan="7" class="empty">No plans match the filters.</td></tr>';
+  updateSortIndicators();
+}
+
+// Sort arrows: mark the active column with ▲/▼ and hint the rest are
+// clickable with a faint ↕. Base labels are captured on init.
+function updateSortIndicators() {
+  const table = document.getElementById('savings-table');
+  if (!table) return;
+  table.querySelectorAll('th[data-sort]').forEach(th => {
+    const base = th.dataset.label != null ? th.dataset.label : th.textContent;
+    const active = th.dataset.sort === state.sortKey;
+    const arrow = active ? (state.sortDir === 'asc' ? ' ▲' : ' ▼') : ' ↕';
+    th.textContent = base + arrow;
+    th.classList.toggle('sorted', active);
+    th.style.cursor = 'pointer';
+  });
 }
 
 function init() {
@@ -112,6 +141,7 @@ function init() {
   const table = document.getElementById('savings-table');
   if (table) {
     table.querySelectorAll('th[data-sort]').forEach(th => {
+      th.dataset.label = th.textContent;   // clean base label (no arrow)
       th.addEventListener('click', () => setSort(th.dataset.sort));
     });
   }

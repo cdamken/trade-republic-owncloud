@@ -76,6 +76,7 @@ include __DIR__ . '/partials/_top_bar.php';
       <th>ISIN</th>
       <th data-sort="interval">Interval</th>
       <th class="num" data-sort="amount">Amount (€)</th>
+      <th class="num" data-sort="monthly">€/month</th>
       <th>Status</th>
     </tr>
   </thead>

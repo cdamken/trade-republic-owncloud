@@ -64,6 +64,8 @@ $navItems = [
                 background:transparent; color:var(--muted); border:1px solid var(--border);
                 border-radius:8px; font-size:13px; font-weight:600;">📄 Documents</a>
     <?php endif; ?>
+    <button id="hide-btn" class="ghost" aria-pressed="false"
+            title="Hide balances — blur all amounts &amp; quantities so you can show this to others without revealing how much you have. Stays on across pages.">🙈 Hide</button>
     <button id="update-btn">🔄 Update Now</button>
   </div>
 </div>

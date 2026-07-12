@@ -159,3 +159,38 @@ function parseCsv(text) {
   }
   return out;
 }
+
+// ============ Balances-hidden toggle (privacy mode) ============
+// #hide-btn (top-bar) blurs every monetary / quantity value on the page so
+// the dashboard can be shown to third parties without revealing amounts —
+// like Trade Republic's "Balances hidden" mode. Pure CSS blur via the
+// .balances-hidden class on #tr-app (no re-render). Persisted in localStorage
+// so it stays across pages/reloads. Lives here because _shared.js loads on
+// EVERY page (incl. Portfolio, where update_flow.js opts out of binding).
+(function () {
+  'use strict';
+  var KEY = 'tr-hide-balances';
+  function apply(hidden, root, btn) {
+    if (root) root.classList.toggle('balances-hidden', hidden);
+    if (btn) {
+      btn.textContent = hidden ? '👁 Show' : '🙈 Hide';
+      btn.setAttribute('aria-pressed', hidden ? 'true' : 'false');
+    }
+  }
+  function initHideToggle() {
+    var root = document.getElementById('tr-app');
+    if (!root) return;
+    var btn = document.getElementById('hide-btn');
+    var hidden = false;
+    try { hidden = localStorage.getItem(KEY) === '1'; } catch (e) {}
+    apply(hidden, root, btn);
+    if (btn) btn.addEventListener('click', function () {
+      hidden = !hidden;
+      try { localStorage.setItem(KEY, hidden ? '1' : '0'); } catch (e) {}
+      apply(hidden, root, btn);
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initHideToggle);
+  } else { initHideToggle(); }
+})();

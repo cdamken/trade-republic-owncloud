@@ -942,3 +942,24 @@ body.tr-app-active #content-wrapper {
 /* Slim padding on cards for the Ledger (4 cards on one row stays readable) */
 #tr-app.ledger-page .card { padding: 16px 20px; }
 #tr-app.ledger-page .card .value { font-size: 22px; }
+
+/* ============ Balances-hidden (privacy) mode ============
+   Toggled by #hide-btn (js/_shared.js) adding .balances-hidden to #tr-app.
+   Blurs every monetary / quantity / % value — KPIs, cards, table numeric
+   cells and chart canvases — so the dashboard can be shown to third parties
+   without revealing amounts (like Trade Republic's "Balances hidden" mode).
+   Names, tickers, ISINs, dates and structure stay visible. */
+#tr-app.balances-hidden .ck-value,
+#tr-app.balances-hidden .b-pill .b-value,
+#tr-app.balances-hidden .card .value,
+#tr-app.balances-hidden .cf-tile .value,
+#tr-app.balances-hidden .summary-card .value,
+#tr-app.balances-hidden td.num,
+#tr-app.balances-hidden canvas {
+	filter: blur(8px);
+	-webkit-filter: blur(8px);
+	user-select: none;
+	-webkit-user-select: none;
+	pointer-events: none;   /* stop chart-hover tooltips leaking values */
+}
+#tr-app #hide-btn { white-space: nowrap; }

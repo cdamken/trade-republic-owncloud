@@ -954,6 +954,7 @@ body.tr-app-active #content-wrapper {
 #tr-app.balances-hidden .card .value,
 #tr-app.balances-hidden .cf-tile .value,
 #tr-app.balances-hidden .summary-card .value,
+#tr-app.balances-hidden #alloc-total,
 #tr-app.balances-hidden td.num,
 #tr-app.balances-hidden canvas {
 	filter: blur(8px);

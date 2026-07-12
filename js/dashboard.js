@@ -809,7 +809,7 @@ function rowHTML(p) {
     <td class="num">${fmtEUR(p.buy_cost_eur)}</td>
     <td class="num"><strong>${fmtEUR(p.net_value_eur)}</strong></td>
     <td class="num ${plCls}">${fmtEUR(p.pl_eur)}</td>
-    <td class="num ${plCls}"><strong>${fmtPct(p.pl_pct, 1)}</strong></td>
+    <td class="num pct ${plCls}"><strong>${fmtPct(p.pl_pct, 1)}</strong></td>
   </tr>`;
 }
 
@@ -823,7 +823,7 @@ function shortRow(p) {
     <td class="num">${fmtQty(p.quantity, p.category)}</td>
     <td class="num"><strong>${fmtEUR(p.net_value_eur)}</strong></td>
     <td class="num ${plCls}">${fmtEUR(p.pl_eur)}</td>
-    <td class="num ${plCls}"><strong>${fmtPct(p.pl_pct, 1)}</strong></td>
+    <td class="num pct ${plCls}"><strong>${fmtPct(p.pl_pct, 1)}</strong></td>
   </tr>`;
 }
 

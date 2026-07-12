@@ -964,4 +964,17 @@ body.tr-app-active #content-wrapper {
 	-webkit-user-select: none;
 	pointer-events: none;   /* stop chart-hover tooltips leaking values */
 }
+/* Exemptions: only money & share quantities are sensitive. Percentages
+   stay legible even in Hide mode. These win over the blur above via
+   !important (the P/L% cell shares td.num, and ck-pl-pct/ck-xirr share
+   .ck-value, with the money values). */
+#tr-app.balances-hidden .pct,
+#tr-app.balances-hidden #ck-pl-pct,
+#tr-app.balances-hidden #ck-xirr {
+	filter: none !important;
+	-webkit-filter: none !important;
+	user-select: auto !important;
+	-webkit-user-select: auto !important;
+	pointer-events: auto !important;
+}
 #tr-app #hide-btn { white-space: nowrap; }

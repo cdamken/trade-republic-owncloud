@@ -20,10 +20,14 @@ namespace OCA\TradeRepublic\Service;
 
 use OCA\TradeRepublic\Db\Account;
 use OCA\TradeRepublic\Db\AccountMapper;
+use OCA\TradeRepublic\Db\AccountSnapshot;
+use OCA\TradeRepublic\Db\AccountSnapshotMapper;
 use OCA\TradeRepublic\Db\Dividend;
 use OCA\TradeRepublic\Db\DividendMapper;
 use OCA\TradeRepublic\Db\Holding;
 use OCA\TradeRepublic\Db\HoldingMapper;
+use OCA\TradeRepublic\Db\HoldingSnapshot;
+use OCA\TradeRepublic\Db\HoldingSnapshotMapper;
 use OCA\TradeRepublic\Db\Order;
 use OCA\TradeRepublic\Db\OrderMapper;
 use OCA\TradeRepublic\Db\PortfolioSnapshot;
@@ -45,6 +49,8 @@ class IngestService {
 	/** @var TransactionMapper */ private $transactions;
 	/** @var DividendMapper */ private $dividends;
 	/** @var PortfolioSnapshotMapper */ private $snapshots;
+	/** @var HoldingSnapshotMapper */ private $holdingSnapshots;
+	/** @var AccountSnapshotMapper */ private $accountSnapshots;
 
 	/** isin => security row id, cached per run. */
 	private $secCache = [];
@@ -57,7 +63,9 @@ class IngestService {
 		OrderMapper $orders,
 		TransactionMapper $transactions,
 		DividendMapper $dividends,
-		PortfolioSnapshotMapper $snapshots
+		PortfolioSnapshotMapper $snapshots,
+		HoldingSnapshotMapper $holdingSnapshots,
+		AccountSnapshotMapper $accountSnapshots
 	) {
 		$this->config = $config;
 		$this->securities = $securities;
@@ -67,6 +75,8 @@ class IngestService {
 		$this->transactions = $transactions;
 		$this->dividends = $dividends;
 		$this->snapshots = $snapshots;
+		$this->holdingSnapshots = $holdingSnapshots;
+		$this->accountSnapshots = $accountSnapshots;
 	}
 
 	public function dataDir(string $uid): string {
@@ -86,7 +96,8 @@ class IngestService {
 		$summary = $pf['summary'] ?? [];
 		$asOf = $this->readAsOf($dir);
 		$counts = ['accounts' => 0, 'holdings' => 0, 'securities' => 0,
-			'orders' => 0, 'transactions' => 0, 'dividends' => 0, 'snapshot' => 0];
+			'orders' => 0, 'transactions' => 0, 'dividends' => 0, 'snapshot' => 0,
+			'holding_snapshots' => 0, 'account_snapshot' => 0];
 
 		// --- STATE: one account + holdings -------------------------------
 		$this->holdings->deleteByUser($uid);
@@ -122,8 +133,27 @@ class IngestService {
 			$hold->setUpdatedAt($asOf);
 			$this->holdings->insert($hold);
 			$counts['holdings']++;
+
+			// HISTORY (per position): idempotent upsert keyed by (uid, day, sec).
+			// Holdings themselves are replaced each run (state), but this row
+			// accrues so each asset's quantity/value can be charted over time.
+			$hsnap = $this->holdingSnapshots->findByDateSecurity($uid, $asOf, $secId)
+				?? $this->newHoldingSnapshot($uid, $asOf, $secId);
+			$hsnap->setQuantity($this->num($p['quantity'] ?? null));
+			$hsnap->setMarketValue($this->num($p['net_value_eur'] ?? null));
+			$hsnap->setAvgCost($this->num($p['avg_cost'] ?? null));
+			$this->save($this->holdingSnapshots, $hsnap);
+			$counts['holding_snapshots']++;
 		}
 		$counts['securities'] = count($this->secCache);
+
+		// HISTORY (per account): one row per account per data date.
+		$asnap = $this->accountSnapshots->findByDateAccount($uid, $asOf, self::ACCOUNT_KEY)
+			?? $this->newAccountSnapshot($uid, $asOf, self::ACCOUNT_KEY);
+		$asnap->setTotalValue($this->num($summary['total_netvalue'] ?? 0));
+		$asnap->setCash($this->num($summary['cash_eur'] ?? 0));
+		$this->save($this->accountSnapshots, $asnap);
+		$counts['account_snapshot'] = 1;
 
 		// --- EVENTS: account_transactions.csv ----------------------------
 		foreach ($this->readCsv($dir . '/account_transactions.csv') as $r) {
@@ -215,6 +245,16 @@ class IngestService {
 	}
 	private function newSnapshot(string $uid, string $date): PortfolioSnapshot {
 		$e = new PortfolioSnapshot(); $e->setUserId($uid); $e->setCapturedOn($date); return $e;
+	}
+	private function newHoldingSnapshot(string $uid, string $date, int $securityId): HoldingSnapshot {
+		$e = new HoldingSnapshot();
+		$e->setUserId($uid); $e->setCapturedOn($date); $e->setSecurityId($securityId);
+		return $e;
+	}
+	private function newAccountSnapshot(string $uid, string $date, string $accountKey): AccountSnapshot {
+		$e = new AccountSnapshot();
+		$e->setUserId($uid); $e->setCapturedOn($date); $e->setAccountKey($accountKey);
+		return $e;
 	}
 
 	private function save($mapper, $entity): void {

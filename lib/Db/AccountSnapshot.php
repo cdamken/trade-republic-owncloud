@@ -14,6 +14,8 @@ use OCP\AppFramework\Db\Entity;
  * @method void setCapturedOn(string $capturedOn)
  * @method string getAccountKey()
  * @method void setAccountKey(string $accountKey)
+ * @method string getCapturedAt()
+ * @method void setCapturedAt(string $capturedAt)
  * @method string getTotalValue()
  * @method void setTotalValue(string $totalValue)
  * @method string getCash()
@@ -23,6 +25,7 @@ class AccountSnapshot extends Entity {
 	protected $userId;
 	protected $capturedOn;
 	protected $accountKey;
+	protected $capturedAt;
 	protected $totalValue;
 	protected $cash;
 }

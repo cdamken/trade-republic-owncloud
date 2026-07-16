@@ -95,6 +95,7 @@ class IngestService {
 		$pf = $this->loadJson($dir, 'portfolio.json') ?? [];
 		$summary = $pf['summary'] ?? [];
 		$asOf = $this->readAsOf($dir);
+		$asOfTs = $this->readAsOfTs($dir);
 		$counts = ['accounts' => 0, 'holdings' => 0, 'securities' => 0,
 			'orders' => 0, 'transactions' => 0, 'dividends' => 0, 'snapshot' => 0,
 			'holding_snapshots' => 0, 'account_snapshot' => 0];
@@ -139,7 +140,9 @@ class IngestService {
 			// accrues so each asset's quantity/value can be charted over time.
 			$hsnap = $this->holdingSnapshots->findByDateSecurity($uid, $asOf, $secId)
 				?? $this->newHoldingSnapshot($uid, $asOf, $secId);
+			$hsnap->setCapturedAt($asOfTs);
 			$hsnap->setQuantity($this->num($p['quantity'] ?? null));
+			$hsnap->setPrice($this->num($p['current_price'] ?? null));    // per-share market price
 			$hsnap->setMarketValue($this->num($p['net_value_eur'] ?? null));
 			$hsnap->setAvgCost($this->num($p['avg_cost'] ?? null));
 			$this->save($this->holdingSnapshots, $hsnap);
@@ -150,6 +153,7 @@ class IngestService {
 		// HISTORY (per account): one row per account per data date.
 		$asnap = $this->accountSnapshots->findByDateAccount($uid, $asOf, self::ACCOUNT_KEY)
 			?? $this->newAccountSnapshot($uid, $asOf, self::ACCOUNT_KEY);
+		$asnap->setCapturedAt($asOfTs);
 		$asnap->setTotalValue($this->num($summary['total_netvalue'] ?? 0));
 		$asnap->setCash($this->num($summary['cash_eur'] ?? 0));
 		$this->save($this->accountSnapshots, $asnap);
@@ -335,6 +339,19 @@ class IngestService {
 			}
 		}
 		return date('Y-m-d');
+	}
+
+	/** Full fetch timestamp (day + time), e.g. "2026-07-15T17:05:31Z". Falls
+	 *  back to the current datetime if last_update.date is missing/empty. */
+	private function readAsOfTs(string $dir): string {
+		$p = $dir . '/last_update.date';
+		if (is_file($p)) {
+			$raw = trim((string) file_get_contents($p));
+			if ($raw !== '') {
+				return $raw;
+			}
+		}
+		return date('c');
 	}
 
 	private function f($v): float {

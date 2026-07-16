@@ -141,6 +141,7 @@
 			<field><name>user_id</name><type>text</type><length>64</length><notnull>true</notnull></field>
 			<field><name>captured_on</name><type>text</type><length>16</length><notnull>true</notnull></field>
 			<field><name>account_key</name><type>text</type><length>64</length><notnull>true</notnull></field>
+			<field><name>captured_at</name><type>text</type><length>32</length></field>  <!-- full fetch timestamp (day + time) -->
 			<field><name>total_value</name><type>text</type><length>32</length></field>
 			<field><name>cash</name><type>text</type><length>32</length></field>
 			<index>
@@ -160,7 +161,9 @@
 			<field><name>user_id</name><type>text</type><length>64</length><notnull>true</notnull></field>
 			<field><name>captured_on</name><type>text</type><length>16</length><notnull>true</notnull></field>
 			<field><name>security_id</name><type>integer</type><notnull>true</notnull><unsigned>true</unsigned></field>
+			<field><name>captured_at</name><type>text</type><length>32</length></field>  <!-- full fetch timestamp (day + time) -->
 			<field><name>quantity</name><type>text</type><length>32</length></field>
+			<field><name>price</name><type>text</type><length>32</length></field>          <!-- per-share market price -->
 			<field><name>market_value</name><type>text</type><length>32</length></field>
 			<field><name>avg_cost</name><type>text</type><length>32</length></field>
 			<index>

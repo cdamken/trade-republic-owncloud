@@ -113,7 +113,12 @@ body.tr-app-active #content-wrapper {
 #tr-app .top-bar .brand { display: flex; align-items: center; gap: 10px; }
 #tr-app .top-bar h1 { font-size: 18px; font-weight: 700; margin: 0;
 	display: flex; align-items: center; gap: 10px; }
-#tr-app .top-bar nav { display: flex; gap: 4px; flex: 1; justify-content: center; }
+#tr-app .top-bar nav {
+	display: flex; gap: 4px; flex: 1; justify-content: center;
+	/* Same as gbm-owncloud: with 8 tabs the row must be allowed to wrap,
+	   otherwise mid-width screens push tabs out of the viewport. */
+	flex-wrap: wrap; min-width: 0;
+}
 #tr-app .top-bar nav a {
 	color: var(--muted) !important;
 	text-decoration: none; font-size: 13px;
@@ -141,6 +146,22 @@ body.tr-app-active #content-wrapper {
 	border: 1px solid var(--border);
 }
 #tr-app .top-bar .actions button[disabled] { opacity: 0.7; cursor: progress; }
+
+/* Mobile top-bar — mirrors gbm-owncloud's working pattern (Carlos reported
+   TR unusable on the phone while GBM was fine, 2026-07-17): the bar wraps,
+   the nav takes its own full row, the brand text goes. Sticky comes OFF on
+   phones — three stacked rows would eat half the viewport (same reason the
+   cockpit lost its sticky on desktop). */
+@media (max-width: 820px) {
+	#tr-app .top-bar {
+		position: static;
+		flex-wrap: wrap; gap: 8px;
+		padding-top: 10px; padding-bottom: 10px;
+	}
+	#tr-app .top-bar h1 { display: none; }
+	#tr-app .top-bar nav { flex: 1 0 100%; order: 3; justify-content: flex-start; }
+	#tr-app .top-bar .actions { margin-left: auto; flex-wrap: wrap; justify-content: flex-end; }
+}
 
 /* Sticky cockpit — 4 KPIs + 5 wealth bucket pills */
 #tr-app .cockpit {

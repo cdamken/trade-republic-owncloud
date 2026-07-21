@@ -200,7 +200,6 @@ body.tr-app-active #content-wrapper {
 @media (max-width: 1000px) {
 	#tr-app .cockpit-row.kpis    { grid-template-columns: 1fr 1fr; }
 	#tr-app .cockpit-row.buckets { grid-template-columns: repeat(2, 1fr); }
-	#tr-app .top-bar nav { flex: none; }
 }
 
 /* Spinner used inside in-flight buttons */

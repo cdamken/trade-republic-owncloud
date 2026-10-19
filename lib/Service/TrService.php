@@ -243,6 +243,52 @@ class TrService extends BaseOwnCloudService {
 	// Update: invoke the Python wrapper
 	// ------------------------------------------------------------------
 	/**
+	 * Which python runs the tr-api wrapper. Self-contained by default:
+	 * the venv lives inside the app folder (python/.venv/bin/python), built
+	 * by python/bootstrap.sh, so the app carries its own runtime and
+	 * migrates by copy-folder + bootstrap. Resolution order:
+	 *   1. config:system 'trade_republic.python_bin' if set (override /
+	 *      rollback; e.g. a legacy /opt venv).
+	 *   2. the app-folder venv python/.venv/bin/python if present.
+	 *   3. bare 'python3' from PATH (last resort).
+	 * realpath() is applied to the venv bin DIR, not the python entry: that
+	 * entry is a symlink to the base interpreter, and resolving it would drop
+	 * the venv's site-packages.
+	 */
+	private function pythonBin(): string {
+		$override = (string) $this->config->getSystemValue('trade_republic.python_bin', '');
+		if ($override !== '') {
+			return $override;
+		}
+		$venvBin = realpath(__DIR__ . '/../../python/.venv/bin');
+		if ($venvBin !== false && is_executable($venvBin . '/python')) {
+			return $venvBin . '/python';
+		}
+		return 'python3';
+	}
+
+	/**
+	 * Where Playwright keeps its Chromium build. Self-contained by default:
+	 * the app-folder python/.playwright/, populated by python/bootstrap.sh
+	 * (`playwright install chromium`), so Chromium migrates with the app
+	 * folder (rebuilt per host, never copied). Resolution order:
+	 *   1. config:system 'trade_republic.playwright_browsers_path' if set.
+	 *   2. the app-folder python/.playwright if present.
+	 *   3. the legacy shared cache '/var/cache/tr-playwright'.
+	 */
+	private function playwrightBrowsersPath(): string {
+		$override = (string) $this->config->getSystemValue('trade_republic.playwright_browsers_path', '');
+		if ($override !== '') {
+			return $override;
+		}
+		$appCache = realpath(__DIR__ . '/../../python/.playwright');
+		if ($appCache !== false && is_dir($appCache)) {
+			return $appCache;
+		}
+		return '/var/cache/tr-playwright';
+	}
+
+	/**
 	 * Runs the bridge script and returns ['exitCode' => int, 'stdout' => str, 'stderr' => str].
 	 *
 	 * Two-step login: the first call (with $mfaCode === null) initiates the
@@ -257,7 +303,7 @@ class TrService extends BaseOwnCloudService {
 			return ['exitCode' => self::EXIT_CONFIG_ERROR, 'stdout' => '', 'stderr' => 'credentials not configured'];
 		}
 
-		$python = $this->config->getSystemValue('trade_republic.python_bin', 'python3');
+		$python = $this->pythonBin();
 		$script = realpath(__DIR__ . '/../../python/fetch_wrapper.py');
 		if ($script === false || !is_file($script)) {
 			return ['exitCode' => self::EXIT_CONFIG_ERROR, 'stdout' => '', 'stderr' => 'fetch_wrapper.py not found'];
@@ -291,10 +337,7 @@ class TrService extends BaseOwnCloudService {
 		// per-user profile dir, which would otherwise force Playwright to
 		// re-download Chromium on every first run. Default matches INSTALL.md;
 		// override with `occ config:system:set trade_republic.playwright_browsers_path`.
-		$browsersPath = (string) $this->config->getSystemValue(
-			'trade_republic.playwright_browsers_path',
-			'/var/cache/tr-playwright'
-		);
+		$browsersPath = $this->playwrightBrowsersPath();
 		if ($browsersPath !== '') {
 			$env['PLAYWRIGHT_BROWSERS_PATH'] = $browsersPath;
 		}
@@ -358,7 +401,7 @@ class TrService extends BaseOwnCloudService {
 			return ['state' => 'already_running'];
 		}
 
-		$python = $this->config->getSystemValue('trade_republic.python_bin', 'python3');
+		$python = $this->pythonBin();
 
 		// Pre-auth check (synchronous, fast): ping, and if dead try the silent
 		// pytr-style refresh. Bail with auth_required BEFORE launching so the UI

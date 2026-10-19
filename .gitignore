@@ -22,3 +22,6 @@ session.json
 cookies.json
 *.pending_login.json
 .scrapped/
+python/.venv/
+python/.playwright/
+python/lib-src/

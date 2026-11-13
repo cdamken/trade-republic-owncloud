@@ -163,16 +163,24 @@
   function renderCards() {
     const divs = state.rows.filter(p => p.type === 'Dividend');
     const ints = state.rows.filter(p => p.type === 'Interest');
-    const divSum = divs.reduce((s, p) => s + (p.amount || 0), 0);
+    // Reinvested dividends are dividends too (TR converted them straight into
+    // shares), so they count in the dividend totals; the detail line shows how
+    // much of that was reinvested vs paid as cash.
+    const reinv = state.rows.filter(p => p.type === 'Reinvestment');
+    const divCashSum = divs.reduce((s, p) => s + (p.amount || 0), 0);
+    const reinvSum = reinv.reduce((s, p) => s + (p.amount || 0), 0);
     const intSum = ints.reduce((s, p) => s + (p.amount || 0), 0);
+    const divSum = divCashSum + reinvSum;
     const total = divSum + intSum;
-    const issuers = new Set(divs.map(p => p.isin).filter(Boolean)).size;
+    const issuers = new Set([...divs, ...reinv].map(p => p.isin).filter(Boolean)).size;
 
     document.getElementById('card-total-net').textContent = fmtEur(total);
     document.getElementById('card-total-detail').textContent =
-      `${state.rows.length} payment(s) · ${divs.length} div + ${ints.length} int`;
+      `${state.rows.length} payment(s) · ${divs.length + reinv.length} div + ${ints.length} int`;
     document.getElementById('card-divs').textContent = fmtEur(divSum);
-    document.getElementById('card-divs-detail').textContent = `${divs.length} payments`;
+    document.getElementById('card-divs-detail').textContent = reinv.length
+      ? `${divs.length} cash + ${reinv.length} reinvested (${fmtEur(reinvSum)})`
+      : `${divs.length} payments`;
     document.getElementById('card-int').textContent = fmtEur(intSum);
     document.getElementById('card-int-detail').textContent = `${ints.length} payments`;
     document.getElementById('card-issuers').textContent = issuers;
@@ -184,8 +192,8 @@
     const buckets = {};
     for (const p of state.rows) {
       const m = monthKey(p.date); if (!m) continue;
-      if (!buckets[m]) buckets[m] = { Dividend: 0, Interest: 0 };
-      if (p.type === 'Dividend' || p.type === 'Interest') {
+      if (!buckets[m]) buckets[m] = { Dividend: 0, Interest: 0, Reinvestment: 0 };
+      if (p.type === 'Dividend' || p.type === 'Interest' || p.type === 'Reinvestment') {
         buckets[m][p.type] += p.amount || 0;
       }
     }
@@ -194,6 +202,7 @@
       months = months.slice(-state.rangeMonths);
     }
     const divSeries = months.map(m => buckets[m].Dividend);
+    const reinvSeries = months.map(m => buckets[m].Reinvestment);
     const intSeries = months.map(m => buckets[m].Interest);
 
     const ctx = document.getElementById('monthlyChart');
@@ -204,8 +213,9 @@
       data: {
         labels: months.map(monthLabel),
         datasets: [
-          { label: 'Dividends', data: divSeries, backgroundColor: 'rgba(74,222,128,0.7)', borderRadius: 6 },
-          { label: 'Interest',  data: intSeries, backgroundColor: 'rgba(192,132,252,0.7)', borderRadius: 6 },
+          { label: 'Dividends',  data: divSeries,   backgroundColor: 'rgba(74,222,128,0.7)',  borderRadius: 6 },
+          { label: 'Reinvested', data: reinvSeries, backgroundColor: 'rgba(45,212,191,0.75)', borderRadius: 6 },
+          { label: 'Interest',   data: intSeries,   backgroundColor: 'rgba(192,132,252,0.7)', borderRadius: 6 },
         ],
       },
       options: {
@@ -266,6 +276,7 @@
 
   function kindPill(p) {
     if (p.type === 'Dividend') return '<span class="kind-pill kind-dividend">Dividend</span>';
+    if (p.type === 'Reinvestment') return '<span class="kind-pill kind-reinvest">Reinvested</span>';
     if (p.type === 'Interest') return '<span class="kind-pill kind-interest">Interest</span>';
     return '<span class="kind-pill kind-other">Other</span>';
   }

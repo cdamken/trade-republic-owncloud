@@ -279,6 +279,15 @@ EVENT_TYPE_MAP: dict[str, str] = {
     "SSP_CORPORATE_ACTION_CASH_NON_DIVIDEND": "Dividend",
     "INTEREST_PAYOUT":                        "Interest",
     "INTEREST_PAYOUT_CREATED":                "Interest",
+    # Auto-reinvested dividends (TR started this Nov 2026). TR does NOT emit a
+    # separate positive cash credit: the dividend is converted straight into a
+    # buy, and the only monetary event is the reinvestment with a NEGATIVE
+    # value (the cash leg of the purchase = the dividend amount, net of tax).
+    # Count TRADE_EXECUTED (the fill) as dividend income so totals stay right;
+    # it carries its own "Reinvestment" type so the UI can mark it distinctly.
+    # ORDER_CREATED (the intent) is left Unknown on purpose so the same
+    # reinvestment is not counted twice.
+    "DIVIDEND_REINVESTMENT_TRADE_EXECUTED":   "Reinvestment",
     # legacy
     "CREDIT":                                 "Dividend",
     "DIVIDEND":                               "Dividend",
@@ -1148,6 +1157,7 @@ def compute_analytics(data_dir: Path) -> None:
         },
         "dividends": {
             "monthly": {}, "total_received": 0, "count": 0,
+            "reinvested_total": 0, "reinvested_count": 0,
             "recent": [], "all_payments": [], "by_issuer": {},
             "forward_12mo": None,
             "forward_12mo_basis_days": 0,
@@ -1203,11 +1213,18 @@ def compute_analytics(data_dir: Path) -> None:
                     cf["sells"]["total"] += abs_val
                     if month: monthly_flow[month]["sells"] += abs_val
 
-                if t_type in ("Dividend", "Interest"):
+                # Reinvested dividends count as dividend income (the money did
+                # arrive, it just bought shares instead of sitting as cash).
+                # They keep their "Reinvestment" type in all_payments so the UI
+                # can show how much of the total was reinvested vs paid cash.
+                if t_type in ("Dividend", "Interest", "Reinvestment"):
                     div = analytics["dividends"]
                     div["monthly"][month] = div["monthly"].get(month, 0) + abs_val
                     div["total_received"] += abs_val
                     div["count"] += 1
+                    if t_type == "Reinvestment":
+                        div["reinvested_total"] += abs_val
+                        div["reinvested_count"] += 1
                     name = row.get("Note", "Unknown") or "Unknown"
                     isin = row.get("ISIN", "") or ""
                     div["all_payments"].append({

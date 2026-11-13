@@ -836,6 +836,7 @@ body.tr-app-active #content-wrapper {
 	font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700;
 }
 #tr-app.dividends-page .kind-dividend { background: rgba(74, 222, 128, 0.15); color: var(--green); }
+#tr-app.dividends-page .kind-reinvest { background: rgba(45, 212, 191, 0.15); color: #2dd4bf; }
 #tr-app.dividends-page .kind-interest { background: rgba(192, 132, 252, 0.15); color: #c084fc; }
 #tr-app.dividends-page .kind-other    { background: rgba(251, 191, 36, 0.15); color: var(--amber); }
 

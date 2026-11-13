@@ -114,6 +114,7 @@ include __DIR__ . '/partials/_top_bar.php';
   <select id="div-kind-filter">
     <option value="">All movements</option>
     <option value="Dividend">Dividends only</option>
+    <option value="Reinvestment">Reinvested only</option>
     <option value="Interest">Interest only</option>
   </select>
   <select id="div-month-filter">

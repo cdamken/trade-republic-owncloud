@@ -5,37 +5,32 @@
 
 ## What this is
 
-ownCloud 10 app that wraps the local [Trade-Republic-Dashboard](https://github.com/cdamken/trade-republic-dashboard)
-for multi-user use. Each ownCloud user gets their own per-user
-data directory and per-user TR cookie jar. Built on
-[`tr-api`](https://github.com/cdamken/tr-api).
+ownCloud 10 app for multi-user Trade Republic portfolios. Each
+ownCloud user gets their own per-user data directory and per-user TR
+cookie jar. Built on [`tr-api`](https://github.com/cdamken/tr-api).
 
 ## Position in the trio
 
 ```
-   tr-api (library)  ──┐
-                       ├──► Trade-Republic-Dashboard   (upstream, local single-user)
-                       │      │
-                       │      ▼ verbatim port + minimal ownCloud patches
-                       └──► Trade-Republic-owncloud    (this repo — downstream)
+   tr-api (library)  ──►  Trade-Republic-owncloud   (this repo — canonical app)
 ```
 
-**This repo is DOWNSTREAM.** It does NOT originate features. Bug
-fixes and UI changes land in `Trade-Republic-Dashboard` first; this
-repo copies them.
+**This repo is now CANONICAL.** Features, bug fixes and UI changes
+originate HERE. The old local single-user `trade-republic-dashboard`
+was ARCHIVED on 15.11.2026 (ownCloud-only consolidation, see
+Portfolio-Master/DECISIONS.md); it is no longer upstream and must not
+be ported from. Do not revive the "copy verbatim from the dashboard"
+workflow.
 
-The only changes that originate here are forced by the multi-user
-ownCloud context — per-user paths, env-injected credentials, CSP
-adaptations, etc. The full list of structural divergences lives in
-[TR-GBM-Project/OWNCLOUD-PATCHES.md](https://github.com/cdamken/TR-GBM-Project/blob/main/OWNCLOUD-PATCHES.md)
-(catalog of the 9 permitted dashboard→ownCloud transformations,
-shared with `gbm-owncloud`). If you find yourself adding a new feature
-HERE first, stop and rethink — it probably belongs upstream.
+The shared design spec (DB schema, OC conventions, the dashboard→
+ownCloud patch catalog kept for historical reference) lives in
+[Portfolio-Master/OWNCLOUD-PATCHES.md](https://github.com/cdamken/Portfolio-Master/blob/main/OWNCLOUD-PATCHES.md),
+shared with `gbm-owncloud`.
 
-## The cardinal rule: copy verbatim, patch minimally
+## The cardinal rule: ownCloud CSP + per-user isolation
 
-When porting from upstream, copy line-for-line. The only allowed
-patches without OWNCLOUD-PATCHES.md justification:
+The multi-user ownCloud context forces a fixed set of adaptations.
+Keep these invariants on every change:
 
 - **Fetch URLs**: read from `data-route-*` attrs on `#tr-app`
   (template injects them via PageController). Replaces hardcoded
@@ -47,8 +42,6 @@ patches without OWNCLOUD-PATCHES.md justification:
 - **Credentials path**: `~/.pytr/credentials` → ownCloud DB
   (`oc_preferences`, PIN encrypted with `ICrypto`).
 - **Data dir**: `PROJECT_DIR/DATA/` → `{datadir}/<uid>/trade_republic/`.
-
-Anything else MUST land upstream first.
 
 ## Deployment topology
 
@@ -178,10 +171,10 @@ img/app.svg                     navigation entry icon
 
 ## Workflow rules (read before changing code)
 
-1. **Check upstream first.** If you're about to fix a bug in
-   `python/fetch_wrapper.py` or change an `EVENT_TYPE_MAP` entry,
-   the same change probably belongs in
-   `Trade-Republic-Dashboard/app/tr_fetch.py`. Do that first.
+1. **Fetch logic lives here.** Bug fixes in `python/fetch_wrapper.py`
+   or `EVENT_TYPE_MAP` changes land in this repo directly. Protocol-
+   level fixes (auth, timeline parsing) belong in `tr-api`. There is
+   no dashboard to sync from anymore (archived 15.11.2026).
 2. **CSP is strict.** No inline `<script>` blocks. No `on*=`
    attributes. Inline `style="..."` is OK because `PageController`
    calls `$csp->allowInlineStyle(true)`.

@@ -42,18 +42,18 @@ class IngestService {
 	private const ACCOUNT_KEY = 'depot';
 
 	/** @var IConfig */ private $config;
-	/** @var SecurityMapper */ private $securities;
-	/** @var AccountMapper */ private $accounts;
-	/** @var HoldingMapper */ private $holdings;
-	/** @var OrderMapper */ private $orders;
-	/** @var TransactionMapper */ private $transactions;
-	/** @var DividendMapper */ private $dividends;
-	/** @var PortfolioSnapshotMapper */ private $snapshots;
-	/** @var HoldingSnapshotMapper */ private $holdingSnapshots;
-	/** @var AccountSnapshotMapper */ private $accountSnapshots;
+	private \OCA\TradeRepublic\Db\SecurityMapper $securities;
+	private \OCA\TradeRepublic\Db\AccountMapper $accounts;
+	private \OCA\TradeRepublic\Db\HoldingMapper $holdings;
+	private \OCA\TradeRepublic\Db\OrderMapper $orders;
+	private \OCA\TradeRepublic\Db\TransactionMapper $transactions;
+	private \OCA\TradeRepublic\Db\DividendMapper $dividends;
+	private \OCA\TradeRepublic\Db\PortfolioSnapshotMapper $snapshots;
+	private \OCA\TradeRepublic\Db\HoldingSnapshotMapper $holdingSnapshots;
+	private \OCA\TradeRepublic\Db\AccountSnapshotMapper $accountSnapshots;
 
 	/** isin => security row id, cached per run. */
-	private $secCache = [];
+	private array $secCache = [];
 
 	public function __construct(
 		IConfig $config,
@@ -321,7 +321,7 @@ class IngestService {
 	}
 
 	/** @return array|null */
-	private function loadJson(string $dir, string $file) {
+	private function loadJson(string $dir, string $file): ?array {
 		$p = $dir . '/' . $file;
 		if (!is_file($p)) {
 			return null;

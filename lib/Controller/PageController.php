@@ -102,7 +102,7 @@ class PageController extends Controller {
 	 * authenticated. Without this guard ownCloud sometimes returns a bare
 	 * 403 "Access forbidden" page instead of a friendly redirect to login.
 	 */
-	private function renderTemplate(string $template) {
+	private function renderTemplate(string $template): \OCP\AppFramework\Http\RedirectResponse|\OCP\AppFramework\Http\TemplateResponse {
 		if (!$this->userSession->isLoggedIn()) {
 			$here = $this->urlGenerator->linkToRoute(
 				'trade_republic.page.' . ($template === 'analytics' ? 'analytics' : 'index')

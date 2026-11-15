@@ -44,7 +44,7 @@ class PortfolioAnalytics {
 				'yield_on_cost_pct' => $cost > 0.0 ? $div / $cost * 100.0 : 0.0,
 			];
 		}
-		usort($rows, static function ($a, $b) {
+		usort($rows, static function (array $a, array $b): int {
 			return $b['market_value'] <=> $a['market_value'];
 		});
 		return $rows;

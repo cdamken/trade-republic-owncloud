@@ -18,12 +18,9 @@ use OCA\TradeRepublic\Db\OrderMapper;
 use OCA\TradeRepublic\Db\SecurityMapper;
 
 class LotsService {
-	/** @var OrderMapper */
-	private $orders;
-	/** @var LotMapper */
-	private $lots;
-	/** @var SecurityMapper */
-	private $securities;
+	private \OCA\TradeRepublic\Db\OrderMapper $orders;
+	private \OCA\TradeRepublic\Db\LotMapper $lots;
+	private \OCA\TradeRepublic\Db\SecurityMapper $securities;
 
 	public function __construct(OrderMapper $orders, LotMapper $lots, SecurityMapper $securities) {
 		$this->orders = $orders;
@@ -106,7 +103,7 @@ class LotsService {
 				];
 			}
 		}
-		usort($perSecurity, static function ($a, $b) {
+		usort($perSecurity, static function (array $a, array $b): int {
 			return abs($b['realized_pl']) <=> abs($a['realized_pl']);
 		});
 

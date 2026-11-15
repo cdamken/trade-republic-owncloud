@@ -22,9 +22,9 @@ use OCP\IRequest;
 
 class ApiController extends Controller {
 
-	private $tr;
-	private $ingest;
-	private $analysis;
+	private \OCA\TradeRepublic\Service\TrService $tr;
+	private \OCA\TradeRepublic\Service\IngestService $ingest;
+	private \OCA\TradeRepublic\Service\AnalysisService $analysis;
 
 	public function __construct(string $appName, IRequest $request, TrService $tr, IngestService $ingest, AnalysisService $analysis) {
 		parent::__construct($appName, $request);

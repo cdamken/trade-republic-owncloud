@@ -18,16 +18,11 @@ use OCA\TradeRepublic\Db\PortfolioSnapshotMapper;
 use OCA\TradeRepublic\Db\SecurityMapper;
 
 class AnalysisService {
-	/** @var HoldingMapper */
-	private $holdings;
-	/** @var SecurityMapper */
-	private $securities;
-	/** @var DividendMapper */
-	private $dividends;
-	/** @var AccountMapper */
-	private $accounts;
-	/** @var PortfolioSnapshotMapper */
-	private $snapshots;
+	private \OCA\TradeRepublic\Db\HoldingMapper $holdings;
+	private \OCA\TradeRepublic\Db\SecurityMapper $securities;
+	private \OCA\TradeRepublic\Db\DividendMapper $dividends;
+	private \OCA\TradeRepublic\Db\AccountMapper $accounts;
+	private \OCA\TradeRepublic\Db\PortfolioSnapshotMapper $snapshots;
 
 	public function __construct(
 		HoldingMapper $holdings,

@@ -1,0 +1,58 @@
+# Keep the ownCloud Trade Republic session warm 24/7 on snoopy6.
+#
+# Install (as root on s6), after confirming the <PLACEHOLDER> paths:
+#   sudo cp deploy/trade-republic-keepalive.service \
+#       /etc/systemd/system/trade-republic-keepalive.service
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now trade-republic-keepalive.service
+#   journalctl -u trade-republic-keepalive -f
+#
+# PREREQUISITE: the session must be seeded once with a push-approval login
+# (Carlos taps Approve in the TR app, via one "Update Now" in ownCloud).
+# This daemon only keeps a live session warm; it cannot create one.
+#
+# Placeholders to fill from the live server (do NOT guess):
+#   <VENV_PYTHON>  = the app venv interpreter, e.g.
+#                    /var/www/owncloud/apps/trade_republic/python/.venv/bin/python
+#   <APP_DIR>      = /var/www/owncloud/apps/trade_republic
+#   <PROFILE_DIR>  = {datadir}/<uid>/trade_republic/profile
+#                    (the same value TrService::profileDir() passes the wrapper)
+#   <TR_PHONE>     = +49...  (matches the ownCloud user's configured phone)
+
+[Unit]
+Description=Trade Republic ownCloud session keepalive (rotates cookies every ~290s)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+
+# tr-api needs its WAF token via Playwright/Chromium, which JITs. This unit
+# must NOT inherit Apache's MemoryDenyWriteExecute=yes hardening, or the V8
+# isolate crashes (the "Connection closed while reading from the driver" bug
+# we hit under Apache on Ubuntu 26.04). A standalone unit defaults to W^X off;
+# we pin it explicitly so nobody re-hardens it by accident.
+MemoryDenyWriteExecute=no
+
+Environment=TR_PHONE=<TR_PHONE>
+Environment=PLAYWRIGHT_BROWSERS_PATH=<APP_DIR>/python/.playwright
+ExecStart=<VENV_PYTHON> <APP_DIR>/python/session_keepalive.py \
+    --profile-dir <PROFILE_DIR> \
+    --phone ${TR_PHONE}
+
+# Transient failures (network, WAF) just loop inside the script, so a real
+# process exit means something structural. Restart with backoff, EXCEPT on
+# exit 75 (refresh-token chain dead) and 12/70 (config/venv) — those need a
+# human, not a tight restart loop.
+Restart=on-failure
+RestartSec=30
+RestartPreventExitStatus=12 70 75
+
+# Modest hardening (kept compatible with Playwright/Chromium).
+NoNewPrivileges=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

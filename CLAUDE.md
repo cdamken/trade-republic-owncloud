@@ -175,19 +175,30 @@ img/app.svg                     navigation entry icon
    or `EVENT_TYPE_MAP` changes land in this repo directly. Protocol-
    level fixes (auth, timeline parsing) belong in `tr-api`. There is
    no dashboard to sync from anymore (archived 15.11.2026).
-2. **CSP is strict.** No inline `<script>` blocks. No `on*=`
+2. **s6 permissions strip Playwright's +x (run the permits script).**
+   On s6 the Chromium/Node binaries that Playwright needs live INSIDE
+   the app at `python/.playwright/` + `python/.venv/.../playwright/driver/node`.
+   The canonical permits script `/root/oc_bin/oc_permits-script` does a
+   blanket `chmod 0640` that removes their execute bit, so TR dies with
+   `PermissionError ... playwright/driver/node`. The script now has an
+   exception block (added 16.11.2026) that re-grants `0750` to those
+   binaries, version- and app-independent. After any deploy that touches
+   the venv / re-downloads Chromium, run `sudo /root/oc_bin/oc_permits-script`
+   to restore +x. (Separate issue from the Apache W^X / MemoryDenyWriteExecute
+   hazard on the keepalive unit.)
+3. **CSP is strict.** No inline `<script>` blocks. No `on*=`
    attributes. Inline `style="..."` is OK because `PageController`
    calls `$csp->allowInlineStyle(true)`.
-3. **`Util::addScript` auto-appends `.js`.** Pass `'vendor/chart.umd.min'`
+4. **`Util::addScript` auto-appends `.js`.** Pass `'vendor/chart.umd.min'`
    NOT `'vendor/chart.umd.min.js'`. Pre-2026-05-26 we had a bug here.
-4. **CSS scoping**: every selector must be prefixed `#tr-app` (or
+5. **CSS scoping**: every selector must be prefixed `#tr-app` (or
    `#tr-app.analytics-page` for analytics-specific overrides).
    Bare `table { ... }` rules lose to ownCloud's core.css on
    specificity and the tables look crushed.
-5. **Per-user data isolation** is the security boundary. Never accept
+6. **Per-user data isolation** is the security boundary. Never accept
    a userId from request input — `TrService::userId()` resolves it
    from `IUserSession`. Don't add path-traversal-friendly helpers.
-6. **Always deploy via `./scripts/deploy.sh`, never raw rsync.** Carlos
+7. **Always deploy via `./scripts/deploy.sh`, never raw rsync.** Carlos
    does not run deploys by hand — every deploy is initiated by an
    assistant. The script is the only sanctioned path because it
    covers all three pillars (see "Deployment topology" below). Raw

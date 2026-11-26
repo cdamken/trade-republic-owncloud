@@ -213,7 +213,10 @@ async function updateData() {
   try {
     const r = await postUpdate(null);
     if (r.http === 200) {
-      clearTimeout(overlayDelay);
+      // Stop the progress overlay AND its stage timer; a bare clearTimeout left
+      // the 500ms timer running, so it overwrote this "✓ Updated" toast with
+      // "Almost done…" until the reload fired.
+      cleanupOverlay();
       showStatus('ok', '✓ Updated — reloading');
       broadcastUpdateComplete();   // tell other tabs to refresh their chip
       setTimeout(() => location.reload(), 800);
@@ -245,7 +248,14 @@ async function updateData() {
       }
       return;
     }
-    if (r.state === 'mfa_required') { openMfaModal(); return; }
+    if (r.state === 'mfa_required') {
+      // v2 push-approval has NO 4-digit code. mfa_required here is the wrapper's
+      // legacy exit 10 (the session died mid-fetch), so the obsolete 4-digit
+      // modal must NOT reappear. Clicking Update Now again runs the push-
+      // approval flow (phase 1 -> approval_required -> approve on the phone).
+      showStatus('err', '🔐 Your Trade Republic session expired. Click Update Now again and approve the login in your TR app.');
+      return;
+    }
     if (r.state === 'rate_limited') {
       showStatus('err', '⚠ Rate-limited by Trade Republic — wait 15–30 min and retry');
       return;

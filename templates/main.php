@@ -79,42 +79,6 @@ include __DIR__ . '/partials/_top_bar.php';
      refreshStalenessChip() helper update_flow.js uses on secondary pages. -->
 <p class="subtitle">Data extracted via <a href="https://github.com/cdamken/tr-api" target="_blank" rel="noopener" style="color:var(--muted); text-decoration:underline;">tr-api</a> (WebSocket TR).</p>
 
-<!-- ============ MFA Modal ============ -->
-<div id="mfa-modal" class="modal-backdrop">
-  <div class="modal">
-    <h3>🔐 Trade Republic Security Code</h3>
-    <p>Your session expired. Trade Republic needs to verify it's you.</p>
-    <div class="hint">
-      📱 <strong>Open the Trade Republic app</strong> on your phone — Trade Republic
-      just pushed a 4-digit code.<br>
-      ⏱ The code expires in ~60 seconds.
-    </div>
-    <input type="text" id="mfa-input" inputmode="numeric" pattern="[0-9]*" maxlength="4"
-           name="tr_mfa_<?php echo bin2hex(random_bytes(4)); ?>"
-           autocomplete="one-time-code"
-           data-lpignore="true" data-1p-ignore data-bwignore placeholder="0000">
-    <div id="mfa-err" class="err-msg"></div>
-    <label for="mfa-full-reload"
-           style="display:flex; align-items:flex-start; gap:10px; cursor:pointer;
-                  background:rgba(255,255,255,0.03); border:1px solid var(--border);
-                  border-radius:10px; padding:12px 14px; margin-top:14px; margin-bottom:6px;
-                  font-size:13px; color:var(--muted); line-height:1.45;">
-      <input type="checkbox" id="mfa-full-reload"
-             style="margin-top:2px; width:18px; height:18px; accent-color:#3b82f6; flex-shrink:0;">
-      <span>
-        <strong style="color:var(--text);">↻ Full Reload</strong> — wipe the local cache
-        (portfolio + transaction history) and re-download everything from Trade Republic.<br>
-        <span style="opacity:.8;">Use this if the numbers look off. Takes ~1–3 min.
-        Your login is kept; you only enter the code once.</span>
-      </span>
-    </label>
-    <div class="modal-actions">
-      <button id="mfa-cancel-btn" class="btn-cancel">Cancel</button>
-      <button id="mfa-submit-btn" class="btn-submit">Submit</button>
-    </div>
-  </div>
-</div>
-
 <!-- ============ Documents Download Modal ============ -->
 <!-- One modal, three states toggled by dashboard.js: confirm → progress → result. -->
 <div id="docs-modal" class="modal-backdrop">

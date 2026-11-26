@@ -8,12 +8,11 @@
  *   1) Reads `data-route-*` attrs from `#tr-app` (every page already exposes
  *      index/update; this module also needs `data-route-update`, which the
  *      analytics/dividends/glossary templates now inject too).
- *   2) Injects the MFA + toast + progress-bar HTML into the page if it's not
+ *   2) Injects the toast + progress-bar HTML into the page if it's not
  *      already there (Portfolio's main.php carries the markup verbatim; the
  *      other pages get it via this injector to avoid duplicating PHP partials).
  *   3) Wires `#update-btn` (and `#docs-btn`, if present) to the same handlers
- *      that used to live only in dashboard.js — `updateData()` / `submitMfa()`
- *      / `postUpdate()` / etc.
+ *      that used to live only in dashboard.js — `updateData()` / `postUpdate()`.
  *
  * Portfolio's `js/dashboard.js` already has its own copy of these handlers
  * (verbatim port from upstream), so on Portfolio we DON'T run this module's
@@ -38,43 +37,11 @@ const MODAL_HTML = (
   '  <button id="toast-close-btn" class="t-close" aria-label="Close">×</button>\n' +
   '  <div class="t-title"><span class="spin"></span> <span id="toast-title">Updating information…</span></div>\n' +
   '  <div class="t-stage" id="toast-stage">Connecting…</div>\n' +
-  '</div>\n' +
-  '<div id="mfa-modal" class="modal-backdrop">\n' +
-  '  <div class="modal">\n' +
-  '    <h3>🔐 Trade Republic Security Code</h3>\n' +
-  '    <p>Your session expired. Trade Republic needs to verify it\'s you.</p>\n' +
-  '    <div class="hint">\n' +
-  '      📱 <strong>Open the Trade Republic app</strong> on your phone — Trade Republic just pushed a 4-digit code.<br>\n' +
-  '      ⏱ The code expires in ~60 seconds.\n' +
-  '    </div>\n' +
-  '    <input type="text" id="mfa-input" inputmode="numeric" pattern="[0-9]*" maxlength="4"\n' +
-  '           autocomplete="one-time-code"\n' +
-  '           data-lpignore="true" data-1p-ignore data-bwignore placeholder="0000">\n' +
-  '    <div id="mfa-err" class="err-msg"></div>\n' +
-  '    <label for="mfa-full-reload"\n' +
-  '           style="display:flex; align-items:flex-start; gap:10px; cursor:pointer;\n' +
-  '                  background:rgba(255,255,255,0.03); border:1px solid var(--border);\n' +
-  '                  border-radius:10px; padding:12px 14px; margin-top:14px; margin-bottom:6px;\n' +
-  '                  font-size:13px; color:var(--muted); line-height:1.45;">\n' +
-  '      <input type="checkbox" id="mfa-full-reload"\n' +
-  '             style="margin-top:2px; width:18px; height:18px; accent-color:#3b82f6; flex-shrink:0;">\n' +
-  '      <span>\n' +
-  '        <strong style="color:var(--text);">↻ Full Reload</strong> — wipe the local cache\n' +
-  '        (portfolio + transaction history) and re-download everything from Trade Republic.<br>\n' +
-  '        <span style="opacity:.8;">Use this if the numbers look off. Takes ~1–3 min.\n' +
-  '        Your login is kept; you only enter the code once.</span>\n' +
-  '      </span>\n' +
-  '    </label>\n' +
-  '    <div class="modal-actions">\n' +
-  '      <button id="mfa-cancel-btn" class="btn-cancel">Cancel</button>\n' +
-  '      <button id="mfa-submit-btn" class="btn-submit">Submit</button>\n' +
-  '    </div>\n' +
-  '  </div>\n' +
   '</div>\n'
 );
 
 function injectModalsIfMissing() {
-  if (document.getElementById('mfa-modal')) return;          // Portfolio already has it
+  if (document.getElementById('toast')) return;              // Portfolio already has it
   const root = document.getElementById('tr-app') || document.body;
   const holder = document.createElement('div');
   holder.id = 'update-flow-injected';
@@ -269,88 +236,6 @@ async function updateData() {
   }
 }
 
-function openMfaModal() {
-  const m = document.getElementById('mfa-modal');
-  if (!m) return;
-  m.classList.add('open');
-  const errEl = document.getElementById('mfa-err');
-  if (errEl) errEl.classList.remove('show');
-  const inp = document.getElementById('mfa-input');
-  if (inp) inp.value = '';
-  const cb = document.getElementById('mfa-full-reload');
-  if (cb) cb.checked = false;
-  setTimeout(() => { if (inp) inp.focus(); }, 100);
-  setUpdateBtn(false);
-}
-function closeMfaModal() {
-  const m = document.getElementById('mfa-modal');
-  if (m) m.classList.remove('open');
-}
-
-async function submitMfa() {
-  // Null guards: the modal is normally injected by injectModalsIfMissing(),
-  // but if injection failed (CSP, broken DOM) a naked deref here would
-  // throw and silently kill the whole flow — same bug class as the
-  // settings-btn TypeError documented in CLAUDE.md.
-  const inp = document.getElementById('mfa-input');
-  const errEl = document.getElementById('mfa-err');
-  const submitBtn = document.getElementById('mfa-submit-btn');
-  if (!inp || !errEl || !submitBtn) return;
-  const code = inp.value.trim();
-  errEl.classList.remove('show');
-  if (!/^\d{4}$/.test(code)) {
-    errEl.textContent = 'The code must be exactly 4 digits.';
-    errEl.classList.add('show');
-    return;
-  }
-  submitBtn.disabled = true;
-  submitBtn.textContent = 'Verifying…';
-  const fullReload = !!document.getElementById('mfa-full-reload') &&
-                     document.getElementById('mfa-full-reload').checked;
-  setUpdateBtn(true, fullReload ? 'Re-downloading everything…' : 'Updating…');
-
-  closeMfaModal();
-  showProgressOverlay({ full: fullReload });
-
-  try {
-    const r = await postUpdate(code, { full: fullReload });
-    if (r.http === 200) {
-      showStatus('ok', '✓ Updated — reloading');
-      broadcastUpdateComplete();   // tell other tabs to refresh their chip
-      setTimeout(() => location.reload(), 800);
-      return;
-    }
-    hideProgressOverlay();
-    if (r.state === 'mfa_invalid' || r.state === 'mfa_required') {
-      openMfaModal();
-      errEl.textContent = 'Wrong code. Check and try again.';
-      errEl.classList.add('show');
-      inp.select();
-    } else if (r.state === 'auth_failed') {
-      openMfaModal();
-      errEl.textContent = 'Invalid credentials. Reopen ⚙️ Account and save them again.';
-      errEl.classList.add('show');
-    } else if (r.state === 'rate_limited') {
-      openMfaModal();
-      errEl.textContent = '⚠ Trade Republic rate-limited login. Wait 15–30 min and retry.';
-      errEl.classList.add('show');
-    } else {
-      openMfaModal();
-      errEl.textContent = r.detail || ('Error ' + r.http);
-      errEl.classList.add('show');
-    }
-  } catch (e) {
-    hideProgressOverlay();
-    openMfaModal();
-    errEl.textContent = 'Network error: ' + e.message;
-    errEl.classList.add('show');
-  } finally {
-    submitBtn.disabled = false;
-    submitBtn.textContent = 'Submit';
-    setUpdateBtn(false);
-  }
-}
-
 // ============ Staleness chip ============
 // Ported from Trade-Republic-Dashboard commit 2e01fec (2026-06-02).
 // Reads last_update.date via routes.data and injects a colored chip into
@@ -479,36 +364,12 @@ function init() {
   const btn = document.getElementById('update-btn');
   if (btn) btn.addEventListener('click', updateData);
 
-  // Modal interactions.
-  const mfaInput  = document.getElementById('mfa-input');
-  const mfaCancel = document.getElementById('mfa-cancel-btn');
-  const mfaSubmit = document.getElementById('mfa-submit-btn');
-  const mfaBack   = document.getElementById('mfa-modal');
-  const toastX    = document.getElementById('toast-close-btn');
-  if (mfaInput) {
-    mfaInput.addEventListener('input', e => {
-      e.target.value = e.target.value.replace(/[^0-9]/g, '');
-    });
-    mfaInput.addEventListener('keydown', e => {
-      if (e.key === 'Enter') submitMfa();
-    });
-  }
-  if (mfaCancel) mfaCancel.addEventListener('click', closeMfaModal);
-  if (mfaSubmit) mfaSubmit.addEventListener('click', submitMfa);
-  if (mfaBack) mfaBack.addEventListener('click', e => {
-    if (e.target === mfaBack) closeMfaModal();
-  });
+  // Toast close button.
+  const toastX = document.getElementById('toast-close-btn');
   if (toastX) toastX.addEventListener('click', hideToast);
-
-  // ESC closes the MFA modal (matches Portfolio's behaviour).
-  document.addEventListener('keydown', e => {
-    if (e.key !== 'Escape') return;
-    const m = document.getElementById('mfa-modal');
-    if (m && m.classList.contains('open')) closeMfaModal();
-  });
 }
 
-window[NS] = { __loaded: true, updateData, openMfaModal };
+window[NS] = { __loaded: true, updateData };
 
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', init);

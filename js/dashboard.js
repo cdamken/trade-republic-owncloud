@@ -152,7 +152,7 @@ function toggleSection(id) {
   el.classList.toggle('hidden');
 }
 
-// ============ Update flow (POST routes.update + MFA modal) ============
+// ============ Update flow (POST routes.update, v2 push-approval) ============
 const updateBtn = () => document.getElementById('update-btn');
 // NOTE: #update-status used to live in the subtitle bar; v0.1.x dropped
 // it in favor of the toast (#toast + #toast-stage). The showStatus()
@@ -375,7 +375,7 @@ let _progressTimer = null;
 
 // Mockup-v5: the old dim-backdrop progress overlay is replaced with a top-
 // center toast + a 2px progress bar. Same function names so the existing
-// updateData()/submitMfa()/etc. call sites stay unchanged.
+// updateData() call sites stay unchanged.
 function showToast(stage, kind) {
   const t = document.getElementById('toast');
   if (!t) return;
@@ -488,11 +488,11 @@ async function startDocsDownload() {
       beginDocsPolling();
       showStatus('', 'Downloading documents in the background…');
     } else if (data.status === 'auth_required') {
-      // Re-auth inside the modal: explain, then route through the normal MFA
-      // flow (same security-code prompt as Update Now).
+      // Re-auth routes through the normal push-approval flow: closeDocsModal +
+      // updateData() below triggers it (approve the login in the TR app).
       showDocsResult('err', '🔐 Session expired',
-        'Your Trade Republic session expired. Re-authenticate (you\'ll get a ' +
-        'security-code push), then open Documents again.');
+        'Your Trade Republic session expired. Click Update Now and approve the ' +
+        'login in your Trade Republic app, then open Documents again.');
       showStatus('err', 'Session expired');
       setTimeout(() => { closeDocsModal(); updateData(); }, 2200);
     } else {
@@ -671,78 +671,6 @@ async function updateData() {
     cleanupOverlay();
     showStatus('err', '✗ Network error');
   } finally {
-    setUpdateBtn(false);
-  }
-}
-
-function openMfaModal() {
-  document.getElementById('mfa-modal').classList.add('open');
-  document.getElementById('mfa-err').classList.remove('show');
-  document.getElementById('mfa-input').value = '';
-  const cb = document.getElementById('mfa-full-reload');
-  if (cb) cb.checked = false;
-  setTimeout(() => document.getElementById('mfa-input').focus(), 100);
-  setUpdateBtn(false);
-}
-
-function closeMfaModal() {
-  document.getElementById('mfa-modal').classList.remove('open');
-}
-
-async function submitMfa() {
-  const code = document.getElementById('mfa-input').value.trim();
-  const errEl = document.getElementById('mfa-err');
-  errEl.classList.remove('show');
-  if (!/^\d{4}$/.test(code)) {
-    errEl.textContent = 'The code must be exactly 4 digits.';
-    errEl.classList.add('show');
-    return;
-  }
-  const submitBtn = document.getElementById('mfa-submit-btn');
-  submitBtn.disabled = true;
-  submitBtn.textContent = 'Verifying…';
-  const fullReload = !!document.getElementById('mfa-full-reload')?.checked;
-  setUpdateBtn(true, fullReload ? 'Re-downloading everything…' : 'Updating…');
-
-  closeMfaModal();
-  showProgressOverlay({ full: fullReload });
-
-  try {
-    const r = await postUpdate(code, { full: fullReload });
-    if (r.http === 200) {
-      document.getElementById('progress-stage').textContent = '✓ Data downloaded — reloading…';
-      showStatus('ok', '✓ Updated — reloading');
-      broadcastUpdateComplete();   // tell other tabs to refresh their chip
-      setTimeout(() => location.reload(), 800);
-      return;
-    }
-    hideProgressOverlay();
-    if (r.state === 'mfa_invalid' || r.state === 'mfa_required') {
-      openMfaModal();
-      errEl.textContent = 'Wrong code. Check and try again.';
-      errEl.classList.add('show');
-      document.getElementById('mfa-input').select();
-    } else if (r.state === 'auth_failed') {
-      openMfaModal();
-      errEl.textContent = 'Invalid credentials. Reopen ⚙️ Account and save them again.';
-      errEl.classList.add('show');
-    } else if (r.state === 'rate_limited') {
-      openMfaModal();
-      errEl.textContent = '⚠ Trade Republic rate-limited login. Wait 15–30 min and retry.';
-      errEl.classList.add('show');
-    } else {
-      openMfaModal();
-      errEl.textContent = r.detail || ('Error ' + r.http);
-      errEl.classList.add('show');
-    }
-  } catch (e) {
-    hideProgressOverlay();
-    openMfaModal();
-    errEl.textContent = 'Network error: ' + e.message;
-    errEl.classList.add('show');
-  } finally {
-    submitBtn.disabled = false;
-    submitBtn.textContent = 'Submit';
     setUpdateBtn(false);
   }
 }
@@ -1113,13 +1041,12 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Modal close on backdrop click (replaces inline onclick on .modal-backdrop)
-  ['mfa-modal', 'reset-modal', 'setup-modal'].forEach(id => {
+  ['reset-modal', 'setup-modal'].forEach(id => {
     const m = document.getElementById(id);
     if (!m) return;
     m.addEventListener('click', e => {
       if (e.target !== m) return;
-      if (id === 'mfa-modal') closeMfaModal();
-      else if (id === 'reset-modal') closeResetModal();
+      if (id === 'reset-modal') closeResetModal();
       else if (id === 'setup-modal') {
         // First-time setup ignores backdrop clicks (nothing meaningful behind it)
         const cancelBtn = document.getElementById('setup-cancel-btn');
@@ -1127,16 +1054,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   });
-
-  // MFA modal interactions
-  document.getElementById('mfa-input').addEventListener('input', e => {
-    e.target.value = e.target.value.replace(/[^0-9]/g, '');
-  });
-  document.getElementById('mfa-input').addEventListener('keydown', e => {
-    if (e.key === 'Enter') submitMfa();
-  });
-  document.getElementById('mfa-cancel-btn').addEventListener('click', closeMfaModal);
-  document.getElementById('mfa-submit-btn').addEventListener('click', submitMfa);
 
   // Reset modal interactions
   document.getElementById('reset-confirm').addEventListener('input', e => {
@@ -1172,8 +1089,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.key !== 'Escape') return;
     const pos = document.getElementById('position-modal');
     if (pos && pos.classList.contains('open')) { closePositionModal(); return; }
-    const mfa = document.getElementById('mfa-modal');
-    if (mfa && mfa.classList.contains('open')) { closeMfaModal(); return; }
     const reset = document.getElementById('reset-modal');
     if (reset && reset.classList.contains('open')) { closeResetModal(); return; }
     const setup = document.getElementById('setup-modal');

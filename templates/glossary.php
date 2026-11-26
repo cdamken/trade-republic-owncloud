@@ -100,8 +100,8 @@ include __DIR__ . '/partials/_top_bar.php';
     <dt>Session keepalive</dt>
     <dd>Background process that refreshes your TR session every ~290 seconds so the cookies don't expire.</dd>
 
-    <dt>MFA / Security code</dt>
-    <dd>4-digit code TR pushes to your mobile app when a fresh login is needed.</dd>
+    <dt>Login approval</dt>
+    <dd>When a fresh login is needed, Trade Republic shows a prompt in your mobile app. Click Update Now, then approve the login on your phone — there is no code to type.</dd>
   </dl>
 
   <!-- Analytics methodology — ported from gbm-owncloud's glossary

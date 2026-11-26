@@ -38,11 +38,13 @@ use OCA\TradeRepublic\Db\SecurityMapper;
 use OCA\TradeRepublic\Db\Transaction;
 use OCA\TradeRepublic\Db\TransactionMapper;
 use OCP\IConfig;
+use OCP\IDBConnection;
 
 class IngestService {
 	private const ACCOUNT_KEY = 'depot';
 
 	/** @var IConfig */ private $config;
+	/** @var IDBConnection */ private $db;
 	private \OCA\TradeRepublic\Db\SecurityMapper $securities;
 	private \OCA\TradeRepublic\Db\AccountMapper $accounts;
 	private \OCA\TradeRepublic\Db\HoldingMapper $holdings;
@@ -59,6 +61,7 @@ class IngestService {
 
 	public function __construct(
 		IConfig $config,
+		IDBConnection $db,
 		SecurityMapper $securities,
 		AccountMapper $accounts,
 		HoldingMapper $holdings,
@@ -71,6 +74,7 @@ class IngestService {
 		LotMapper $lots
 	) {
 		$this->config = $config;
+		$this->db = $db;
 		$this->securities = $securities;
 		$this->accounts = $accounts;
 		$this->holdings = $holdings;
@@ -90,27 +94,39 @@ class IngestService {
 	 * user's rows are never touched. Irreversible: snapshot history only
 	 * accrues from each manual Update and cannot be re-fetched from TR.
 	 *
-	 * @return array<string,int> rows present for this user per table BEFORE the
-	 *         purge (for the caller's confirmation/log; counted, then deleted).
+	 * Wrapped in a DB transaction so a mid-way failure rolls back instead of
+	 * leaving the user half-purged. Market-data tables (tr_fx_rates,
+	 * tr_benchmarks) have no user_id and are intentionally NOT touched.
+	 *
+	 * The caller MUST run this while holding the per-user update lock (see
+	 * ApiController::reset passing it into TrService::reset) so it cannot race
+	 * a still-running ingest from a previous Update.
 	 */
-	public function purgeForUser(string $uid): array {
-		$counts = [
-			'holdings'           => count($this->holdings->findByUser($uid)),
-			'transactions'       => count($this->transactions->findByUser($uid)),
-		];
-		// State + events + lots + per-run snapshots. Order doesn't matter
-		// (no FK cascade in the schema); each is user-scoped.
-		$this->holdings->deleteByUser($uid);
-		$this->accounts->deleteByUser($uid);
-		$this->orders->deleteByUser($uid);
-		$this->transactions->deleteByUser($uid);
-		$this->dividends->deleteByUser($uid);
-		$this->securities->deleteByUser($uid);
-		$this->lots->deleteByUser($uid);
-		$this->snapshots->deleteByUser($uid);
-		$this->holdingSnapshots->deleteByUser($uid);
-		$this->accountSnapshots->deleteByUser($uid);
-		return $counts;
+	public function purgeForUser(string $uid): void {
+		// A destructive, irreversible action deserves one greppable log line.
+		\OC::$server->getLogger()->info(
+			"purgeForUser: wiping all tr_* rows for '$uid'",
+			['app' => 'trade_republic']
+		);
+		$this->db->beginTransaction();
+		try {
+			// State + events + lots + per-run snapshots. Order doesn't matter
+			// (no FK cascade in the schema); each is user-scoped.
+			$this->holdings->deleteByUser($uid);
+			$this->accounts->deleteByUser($uid);
+			$this->orders->deleteByUser($uid);
+			$this->transactions->deleteByUser($uid);
+			$this->dividends->deleteByUser($uid);
+			$this->securities->deleteByUser($uid);
+			$this->lots->deleteByUser($uid);
+			$this->snapshots->deleteByUser($uid);
+			$this->holdingSnapshots->deleteByUser($uid);
+			$this->accountSnapshots->deleteByUser($uid);
+			$this->db->commit();
+		} catch (\Throwable $e) {
+			$this->db->rollBack();
+			throw $e;
+		}
 	}
 
 	public function dataDir(string $uid): string {

@@ -222,7 +222,7 @@ class TrService extends BaseOwnCloudService {
 	// ------------------------------------------------------------------
 	// Reset (wipe everything for this user)
 	// ------------------------------------------------------------------
-	public function reset(): array {
+	public function reset(?callable $withinLock = null): array {
 		// Logout/wipe must not race an in-flight fetch: deleting files the
 		// wrapper is still rewriting corrupts the run. Take the same lock.
 		$lock = $this->acquireUpdateLock();
@@ -250,6 +250,12 @@ class TrService extends BaseOwnCloudService {
 			// Keep the data dir AND the update.lock we hold (see
 			// clearUserDirExceptLock for the NFS/lock-inode reasons); wipe the rest.
 			$this->clearUserDirExceptLock();
+			// Run the DB purge (if any) WHILE STILL HOLDING THE LOCK, so it
+			// cannot race a previous Update's ingest. A failure here propagates
+			// (the controller turns it into a 500): a partial reset must surface.
+			if ($withinLock !== null) {
+				$withinLock();
+			}
 			return ['status' => 'ok'];
 		} finally {
 			$this->releaseUpdateLock($lock);
@@ -391,7 +397,7 @@ class TrService extends BaseOwnCloudService {
 	 * $full forces a full transactions re-download (the wrapper does
 	 * incremental by default).
 	 */
-	public function runFetch(?string $mfaCode, bool $full = false, bool $approveLogin = false): array {
+	public function runFetch(?string $mfaCode, bool $full = false, bool $approveLogin = false, ?callable $onSuccess = null): array {
 		if (!$this->isConfigured()) {
 			return ['exitCode' => self::EXIT_CONFIG_ERROR, 'stdout' => '', 'stderr' => 'credentials not configured'];
 		}
@@ -450,7 +456,17 @@ class TrService extends BaseOwnCloudService {
 			// 300s: a first login now blocks up to ~90s waiting for the user to
 			// approve the push in the TR app (v2 push-approval), then the fetch
 			// itself runs. 240s was occasionally too tight with the approval wait.
-			return $this->runProcess($cmd, $env, 300);
+			$result = $this->runProcess($cmd, $env, 300);
+			// Run the DB ingest (if any) WHILE STILL HOLDING THE LOCK, so a
+			// concurrent Reset/purge can't delete rows this ingest is still
+			// inserting. The ingest is slow (thousands of upserts); doing it
+			// outside the lock reopened the very race the lock exists to close.
+			// The callback owns its own error handling — a DB hiccup must not
+			// fail the fetch.
+			if (($result['exitCode'] ?? -1) === self::EXIT_OK && $onSuccess !== null) {
+				$onSuccess();
+			}
+			return $result;
 		} finally {
 			$this->releaseUpdateLock($lock);
 		}

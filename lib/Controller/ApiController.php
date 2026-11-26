@@ -137,7 +137,20 @@ class ApiController extends Controller {
 
 		$forceFull = $full === true || $full === 'true' || $full === 1 || $full === '1';
 		$approveLogin = $approve_login === true || $approve_login === 'true' || $approve_login === 1 || $approve_login === '1';
-		$result = $this->tr->runFetch($mfa_code === '' ? null : $mfa_code, $forceFull, $approveLogin);
+
+		// Keep the DB in sync with the freshly-written JSON so a manual Update
+		// refreshes the DB-backed analytics + appends today's snapshot, not just
+		// the JSON files. Runs INSIDE runFetch while the per-user lock is still
+		// held (see TrService::runFetch) so a concurrent Reset can't purge rows
+		// this ingest is still inserting. A DB hiccup must NOT fail the fetch.
+		$ingest = function (): void {
+			try {
+				$this->ingest->ingestForUser($this->tr->currentUserId());
+			} catch (\Throwable $e) {
+				\OC::$server->getLogger()->logException($e, ['app' => 'trade_republic']);
+			}
+		};
+		$result = $this->tr->runFetch($mfa_code === '' ? null : $mfa_code, $forceFull, $approveLogin, $ingest);
 
 		static $map = [
 			TrService::EXIT_OK            => [Http::STATUS_OK,                      'ok'],
@@ -156,15 +169,8 @@ class ApiController extends Controller {
 
 		$payload = ['status' => $jsonStatus];
 		if ($httpStatus === Http::STATUS_OK) {
-			// Keep the DB in sync with the freshly-written JSON so a manual
-			// "Update" refreshes the DB-backed analytics + appends today's
-			// snapshot — not just the JSON files. No cron: history accrues
-			// from each manual Update. A DB hiccup must NOT fail the fetch.
-			try {
-				$this->ingest->ingestForUser($this->tr->currentUserId());
-			} catch (\Throwable $e) {
-				\OC::$server->getLogger()->logException($e, ['app' => 'trade_republic']);
-			}
+			// Ingest already ran inside runFetch (under the lock); just echo the
+			// tail of the wrapper output.
 			$payload['output'] = substr($result['stdout'], -2000);
 		} else {
 			$stderr = trim((string) $result['stderr']);
@@ -178,23 +184,29 @@ class ApiController extends Controller {
 	 * @NoAdminRequired
 	 */
 	public function reset(): JSONResponse {
-		$result = $this->tr->reset();
-		if (($result['status'] ?? '') === 'busy') {
-			return new JSONResponse(
-				['status' => 'busy', 'detail' => $result['detail'] ?? 'An update is running. Try again in a moment.'],
-				Http::STATUS_CONFLICT
-			);
-		}
-		// reset() cleared the files + prefs; now wipe this user's DB rows too so
-		// a Reset is a FULL wipe (oc_tr_* used to survive). Strictly per-user. A
-		// partial wipe (files gone, rows left) must NOT report success.
+		// Wipe this user's DB rows too so a Reset is a FULL wipe (oc_tr_* used to
+		// survive). The purge runs INSIDE TrService::reset while the per-user
+		// lock is held (passed as a closure), so it can't race a previous
+		// Update's ingest. Strictly per-user, transaction-wrapped.
+		$uid = $this->tr->currentUserId();
+		$purge = function () use ($uid): void {
+			$this->ingest->purgeForUser($uid);
+		};
 		try {
-			$this->ingest->purgeForUser($this->tr->currentUserId());
+			$result = $this->tr->reset($purge);
 		} catch (\Throwable $e) {
+			// Files were cleared but the DB purge failed (and rolled back). A
+			// partial wipe must NOT report success.
 			\OC::$server->getLogger()->logException($e, ['app' => 'trade_republic']);
 			return new JSONResponse(
 				['status' => 'error', 'detail' => 'Files were cleared, but wiping the database rows failed. Check the server logs.'],
 				Http::STATUS_INTERNAL_SERVER_ERROR
+			);
+		}
+		if (($result['status'] ?? '') === 'busy') {
+			return new JSONResponse(
+				['status' => 'busy', 'detail' => $result['detail'] ?? 'An update is running. Try again in a moment.'],
+				Http::STATUS_CONFLICT
 			);
 		}
 		return new JSONResponse(['status' => 'ok']);

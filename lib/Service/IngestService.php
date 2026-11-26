@@ -150,129 +150,136 @@ class IngestService {
 			'orders' => 0, 'transactions' => 0, 'dividends' => 0, 'snapshot' => 0,
 			'holding_snapshots' => 0, 'account_snapshot' => 0];
 
-		// --- STATE: one account + holdings -------------------------------
-		$this->holdings->deleteByUser($uid);
-		$this->accounts->deleteByUser($uid);
+		$this->db->beginTransaction();
+		try {
+			// --- STATE: one account + holdings -------------------------------
+			$this->holdings->deleteByUser($uid);
+			$this->accounts->deleteByUser($uid);
 
-		$acc = new Account();
-		$acc->setUserId($uid);
-		$acc->setAccountKey(self::ACCOUNT_KEY);
-		$acc->setName('Trade Republic');
-		$acc->setType('depot');
-		$acc->setCurrency('EUR');
-		$acc->setCashAmount($this->num($summary['cash_eur'] ?? 0));
-		$acc->setTotalValue($this->num($summary['total_netvalue'] ?? 0));
-		$acc->setUpdatedAt($asOf);
-		$accId = (int) $this->accounts->insert($acc)->getId();
-		$counts['accounts'] = 1;
+			$acc = new Account();
+			$acc->setUserId($uid);
+			$acc->setAccountKey(self::ACCOUNT_KEY);
+			$acc->setName('Trade Republic');
+			$acc->setType('depot');
+			$acc->setCurrency('EUR');
+			$acc->setCashAmount($this->num($summary['cash_eur'] ?? 0));
+			$acc->setTotalValue($this->num($summary['total_netvalue'] ?? 0));
+			$acc->setUpdatedAt($asOf);
+			$accId = (int) $this->accounts->insert($acc)->getId();
+			$counts['accounts'] = 1;
 
-		foreach (($pf['all_positions'] ?? []) as $p) {
-			$isin = (string) ($p['isin'] ?? '');
-			if ($isin === '') {
-				continue;
+			foreach (($pf['all_positions'] ?? []) as $p) {
+				$isin = (string) ($p['isin'] ?? '');
+				if ($isin === '') {
+					continue;
+				}
+				$secId = $this->resolveSecurity($uid, $isin, (string) ($p['name'] ?? ''), (string) ($p['category'] ?? ''));
+				$hold = new Holding();
+				$hold->setUserId($uid);
+				$hold->setAccountId($accId);
+				$hold->setSecurityId($secId);
+				$hold->setQuantity($this->num($p['quantity'] ?? null));
+				$hold->setAvgCost($this->num($p['avg_cost'] ?? null));      // per-unit (TR averageBuyIn)
+				$hold->setLastPrice($this->num($p['current_price'] ?? null));
+				$hold->setMarketValue($this->num($p['net_value_eur'] ?? null));
+				$hold->setCurrency('EUR');
+				$hold->setUpdatedAt($asOf);
+				$this->holdings->insert($hold);
+				$counts['holdings']++;
+
+				// HISTORY (per position): idempotent upsert keyed by (uid, day, sec).
+				// Holdings themselves are replaced each run (state), but this row
+				// accrues so each asset's quantity/value can be charted over time.
+				$hsnap = $this->holdingSnapshots->findByDateSecurity($uid, $asOf, $secId)
+					?? $this->newHoldingSnapshot($uid, $asOf, $secId);
+				$hsnap->setCapturedAt($asOfTs);
+				$hsnap->setQuantity($this->num($p['quantity'] ?? null));
+				$hsnap->setPrice($this->num($p['current_price'] ?? null));    // per-share market price
+				$hsnap->setMarketValue($this->num($p['net_value_eur'] ?? null));
+				$hsnap->setAvgCost($this->num($p['avg_cost'] ?? null));
+				$this->save($this->holdingSnapshots, $hsnap);
+				$counts['holding_snapshots']++;
 			}
-			$secId = $this->resolveSecurity($uid, $isin, (string) ($p['name'] ?? ''), (string) ($p['category'] ?? ''));
-			$hold = new Holding();
-			$hold->setUserId($uid);
-			$hold->setAccountId($accId);
-			$hold->setSecurityId($secId);
-			$hold->setQuantity($this->num($p['quantity'] ?? null));
-			$hold->setAvgCost($this->num($p['avg_cost'] ?? null));      // per-unit (TR averageBuyIn)
-			$hold->setLastPrice($this->num($p['current_price'] ?? null));
-			$hold->setMarketValue($this->num($p['net_value_eur'] ?? null));
-			$hold->setCurrency('EUR');
-			$hold->setUpdatedAt($asOf);
-			$this->holdings->insert($hold);
-			$counts['holdings']++;
+			$counts['securities'] = count($this->secCache);
 
-			// HISTORY (per position): idempotent upsert keyed by (uid, day, sec).
-			// Holdings themselves are replaced each run (state), but this row
-			// accrues so each asset's quantity/value can be charted over time.
-			$hsnap = $this->holdingSnapshots->findByDateSecurity($uid, $asOf, $secId)
-				?? $this->newHoldingSnapshot($uid, $asOf, $secId);
-			$hsnap->setCapturedAt($asOfTs);
-			$hsnap->setQuantity($this->num($p['quantity'] ?? null));
-			$hsnap->setPrice($this->num($p['current_price'] ?? null));    // per-share market price
-			$hsnap->setMarketValue($this->num($p['net_value_eur'] ?? null));
-			$hsnap->setAvgCost($this->num($p['avg_cost'] ?? null));
-			$this->save($this->holdingSnapshots, $hsnap);
-			$counts['holding_snapshots']++;
-		}
-		$counts['securities'] = count($this->secCache);
+			// HISTORY (per account): one row per account per data date.
+			$asnap = $this->accountSnapshots->findByDateAccount($uid, $asOf, self::ACCOUNT_KEY)
+				?? $this->newAccountSnapshot($uid, $asOf, self::ACCOUNT_KEY);
+			$asnap->setCapturedAt($asOfTs);
+			$asnap->setTotalValue($this->num($summary['total_netvalue'] ?? 0));
+			$asnap->setCash($this->num($summary['cash_eur'] ?? 0));
+			$this->save($this->accountSnapshots, $asnap);
+			$counts['account_snapshot'] = 1;
 
-		// HISTORY (per account): one row per account per data date.
-		$asnap = $this->accountSnapshots->findByDateAccount($uid, $asOf, self::ACCOUNT_KEY)
-			?? $this->newAccountSnapshot($uid, $asOf, self::ACCOUNT_KEY);
-		$asnap->setCapturedAt($asOfTs);
-		$asnap->setTotalValue($this->num($summary['total_netvalue'] ?? 0));
-		$asnap->setCash($this->num($summary['cash_eur'] ?? 0));
-		$this->save($this->accountSnapshots, $asnap);
-		$counts['account_snapshot'] = 1;
+			// --- EVENTS: account_transactions.csv ----------------------------
+			foreach ($this->readCsv($dir . '/account_transactions.csv') as $r) {
+				$type = strtolower(trim((string) ($r['Type'] ?? '')));
+				$isin = trim((string) ($r['ISIN'] ?? ''));
+				$date = trim((string) ($r['Date'] ?? ''));
+				$value = $this->f($r['Value'] ?? null);
+				$shares = $this->f($r['Shares'] ?? null);
+				$fees = $this->f($r['Fees'] ?? null);
+				$tax = $this->f($r['Taxes'] ?? null);
+				$ext = substr(md5($date . '|' . $type . '|' . $isin . '|' . ($r['Value'] ?? '') . '|' . ($r['Shares'] ?? '')), 0, 32);
+				$secId = $isin !== '' ? $this->resolveSecurity($uid, $isin, (string) ($r['Note'] ?? ''), '') : null;
 
-		// --- EVENTS: account_transactions.csv ----------------------------
-		foreach ($this->readCsv($dir . '/account_transactions.csv') as $r) {
-			$type = strtolower(trim((string) ($r['Type'] ?? '')));
-			$isin = trim((string) ($r['ISIN'] ?? ''));
-			$date = trim((string) ($r['Date'] ?? ''));
-			$value = $this->f($r['Value'] ?? null);
-			$shares = $this->f($r['Shares'] ?? null);
-			$fees = $this->f($r['Fees'] ?? null);
-			$tax = $this->f($r['Taxes'] ?? null);
-			$ext = substr(md5($date . '|' . $type . '|' . $isin . '|' . ($r['Value'] ?? '') . '|' . ($r['Shares'] ?? '')), 0, 32);
-			$secId = $isin !== '' ? $this->resolveSecurity($uid, $isin, (string) ($r['Note'] ?? ''), '') : null;
-
-			if ($this->isOrder($type)) {
-				$side = (strpos($type, 'sell') !== false || strpos($type, 'sale') !== false) ? 'sell' : 'buy';
-				$entity = $this->orders->findByExternalId($uid, $ext) ?? $this->newOrder($uid, $ext);
-				$entity->setAccountKey(self::ACCOUNT_KEY);
-				if ($secId !== null) {
-					$entity->setSecurityId($secId);
+				if ($this->isOrder($type)) {
+					$side = (strpos($type, 'sell') !== false || strpos($type, 'sale') !== false) ? 'sell' : 'buy';
+					$entity = $this->orders->findByExternalId($uid, $ext) ?? $this->newOrder($uid, $ext);
+					$entity->setAccountKey(self::ACCOUNT_KEY);
+					if ($secId !== null) {
+						$entity->setSecurityId($secId);
+					}
+					$entity->setSide($side);
+					$entity->setQuantity($this->num($shares));
+					$entity->setPrice($this->num($shares != 0.0 ? abs($value) / $shares : 0));
+					$entity->setFees($this->num($fees));
+					$entity->setCurrency('EUR');
+					$entity->setExecutedAt($date);
+					$entity->setStatus('filled');
+					$this->save($this->orders, $entity);
+					$counts['orders']++;
+				} elseif (strpos($type, 'dividend') !== false) {
+					$entity = $this->dividends->findByExternalId($uid, $ext) ?? $this->newDividend($uid, $ext);
+					if ($secId !== null) {
+						$entity->setSecurityId($secId);
+					}
+					$entity->setGross($this->num($value + $tax));
+					$entity->setNet($this->num($value));
+					$entity->setTax($this->num($tax));
+					$entity->setCurrency('EUR');
+					$entity->setPaidAt($date);
+					$this->save($this->dividends, $entity);
+					$counts['dividends']++;
+				} else {
+					$entity = $this->transactions->findByExternalId($uid, $ext) ?? $this->newTransaction($uid, $ext);
+					$entity->setType((string) ($r['Type'] ?? ''));
+					$entity->setRawType((string) ($r['EventType'] ?? ''));
+					$entity->setAmount($this->num($value));
+					$entity->setCurrency('EUR');
+					if ($secId !== null) {
+						$entity->setSecurityId($secId);
+					}
+					$entity->setBookedAt($date);
+					$this->save($this->transactions, $entity);
+					$counts['transactions']++;
 				}
-				$entity->setSide($side);
-				$entity->setQuantity($this->num($shares));
-				$entity->setPrice($this->num($shares != 0.0 ? abs($value) / $shares : 0));
-				$entity->setFees($this->num($fees));
-				$entity->setCurrency('EUR');
-				$entity->setExecutedAt($date);
-				$entity->setStatus('filled');
-				$this->save($this->orders, $entity);
-				$counts['orders']++;
-			} elseif (strpos($type, 'dividend') !== false) {
-				$entity = $this->dividends->findByExternalId($uid, $ext) ?? $this->newDividend($uid, $ext);
-				if ($secId !== null) {
-					$entity->setSecurityId($secId);
-				}
-				$entity->setGross($this->num($value + $tax));
-				$entity->setNet($this->num($value));
-				$entity->setTax($this->num($tax));
-				$entity->setCurrency('EUR');
-				$entity->setPaidAt($date);
-				$this->save($this->dividends, $entity);
-				$counts['dividends']++;
-			} else {
-				$entity = $this->transactions->findByExternalId($uid, $ext) ?? $this->newTransaction($uid, $ext);
-				$entity->setType((string) ($r['Type'] ?? ''));
-				$entity->setRawType((string) ($r['EventType'] ?? ''));
-				$entity->setAmount($this->num($value));
-				$entity->setCurrency('EUR');
-				if ($secId !== null) {
-					$entity->setSecurityId($secId);
-				}
-				$entity->setBookedAt($date);
-				$this->save($this->transactions, $entity);
-				$counts['transactions']++;
 			}
-		}
 
-		// --- HISTORY: one snapshot for the data date ---------------------
-		$snap = $this->snapshots->findByDate($uid, $asOf) ?? $this->newSnapshot($uid, $asOf);
-		$snap->setTotalValue($this->num($summary['total_netvalue'] ?? 0));
-		$snap->setTotalCost($this->num($summary['total_buycost'] ?? 0));
-		$snap->setCash($this->num($summary['cash_eur'] ?? 0));
-		$snap->setCurrency('EUR');
-		$snap->setSource('ingest');
-		$this->save($this->snapshots, $snap);
-		$counts['snapshot'] = 1;
+			// --- HISTORY: one snapshot for the data date ---------------------
+			$snap = $this->snapshots->findByDate($uid, $asOf) ?? $this->newSnapshot($uid, $asOf);
+			$snap->setTotalValue($this->num($summary['total_netvalue'] ?? 0));
+			$snap->setTotalCost($this->num($summary['total_buycost'] ?? 0));
+			$snap->setCash($this->num($summary['cash_eur'] ?? 0));
+			$snap->setCurrency('EUR');
+			$snap->setSource('ingest');
+			$this->save($this->snapshots, $snap);
+			$counts['snapshot'] = 1;
+			$this->db->commit();
+		} catch (\Throwable $e) {
+			$this->db->rollBack();
+			throw $e;
+		}
 
 		return $counts;
 	}

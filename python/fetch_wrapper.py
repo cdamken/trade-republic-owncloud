@@ -158,10 +158,10 @@ def fetch_benchmark_monthly(symbol, start_date, end_date, cache_path=None):
         for t, c in zip(ts, closes):
             if c is None:
                 continue
-            d = datetime.utcfromtimestamp(t).date().isoformat()
+            d = datetime.fromtimestamp(t, tz=timezone.utc).date().isoformat()
             history.append({"date": d, "close": round(float(c), 4)})
         if cache_path and history:
-            cache_path.write_text(json.dumps({
+            _atomic_write_text(cache_path, json.dumps({
                 "symbol":     symbol,
                 "fetched_at": datetime.now().isoformat(timespec='seconds'),
                 "history":    history,
@@ -364,12 +364,8 @@ def _import_tr_api():
 # ---------------------------------------------------------------------------
 def _save_pending(data_dir: Path, phone: str, process_id: str) -> None:
     payload = {"phone": phone, "process_id": process_id, "issued_at": int(time.time())}
-    path = data_dir / ".pending_login.json"
-    path.write_text(json.dumps(payload), encoding="utf-8")
-    try:
-        path.chmod(0o600)
-    except OSError:
-        pass
+    _atomic_write_text(data_dir / ".pending_login.json",
+                       json.dumps(payload), mode=0o600)
 
 
 def _load_pending(data_dir: Path, phone: str) -> str | None:
@@ -766,7 +762,7 @@ def _append_net_worth_history(data_dir: Path, summary: dict[str, Any]) -> None:
     })
     rows.sort(key=lambda r: r["date"])
     rows = rows[-180:]  # match TR-Dashboard's truncation (analyze_analytics.py)
-    history_file.write_text(json.dumps(rows, indent=2, ensure_ascii=False), encoding="utf-8")
+    _atomic_write_text(history_file, json.dumps(rows, indent=2, ensure_ascii=False))
 
 
 # ---------------------------------------------------------------------------
@@ -1038,14 +1034,40 @@ def _classify_trade(ev: dict[str, Any]) -> str | None:
     return None
 
 
+# ---------------------------------------------------------------------------
+# Durable writes
+# ---------------------------------------------------------------------------
+def _atomic_write_text(path: Path, text: str, *, mode: int | None = None) -> None:
+    """Write `text` to `path` so a reader never sees a half-written file.
+
+    Writes a sibling `.tmp` in the SAME directory, then os.replace() over the
+    target — rename within one directory is atomic, on the NFS data dir too.
+    This matters because the PHP layer SIGKILLs this process on timeout
+    (TrService::runProcess, proc_terminate 9): a plain write that was half
+    flushed when the kill landed would leave the web UI with a truncated
+    portfolio.json / analytics.json it can't parse. With the rename, the kill
+    leaves the previous good file intact and only the throwaway .tmp is lost.
+    """
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(text, encoding="utf-8")
+    if mode is not None:
+        try:
+            tmp.chmod(mode)
+        except OSError:
+            pass
+    os.replace(tmp, path)
+
+
 def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
-    with path.open("w", encoding="utf-8", newline="") as f:
+    tmp = path.with_name(path.name + ".tmp")
+    with tmp.open("w", encoding="utf-8", newline="") as f:
         w = csv.DictWriter(f, fieldnames=CSV_COLUMNS, delimiter=";")
         w.writeheader()
         for r in rows:
             for c in CSV_COLUMNS:
                 r.setdefault(c, "")
             w.writerow(r)
+    os.replace(tmp, path)
 
 
 # ---------------------------------------------------------------------------
@@ -1124,8 +1146,9 @@ def fetch_savings(client, data_dir: Path) -> None:
         },
         "plans": rows,
     }
-    (data_dir / "savings_plans.json").write_text(
-        json.dumps(out, indent=2, ensure_ascii=False), encoding="utf-8"
+    _atomic_write_text(
+        data_dir / "savings_plans.json",
+        json.dumps(out, indent=2, ensure_ascii=False),
     )
     print(f"  savings plans: {len(rows)}  (~€{monthly_total:,.0f}/mo)")
 
@@ -1379,7 +1402,7 @@ def compute_analytics(data_dir: Path) -> None:
     elif not history:
         history.append({"date": today, "value": 0.0})
     history = history[-365:]  # keep up to ~1 year
-    history_file.write_text(json.dumps(history, indent=2, ensure_ascii=False), encoding="utf-8")
+    _atomic_write_text(history_file, json.dumps(history, indent=2, ensure_ascii=False))
     analytics["history"] = history
 
     # ========================================================================
@@ -1458,8 +1481,9 @@ def compute_analytics(data_dir: Path) -> None:
     analytics["benchmarks"] = benchmarks_out
     analytics["benchmark"] = benchmarks_out[0] if benchmarks_out else None
 
-    (data_dir / "analytics.json").write_text(
-        json.dumps(analytics, indent=2, ensure_ascii=False), encoding="utf-8"
+    _atomic_write_text(
+        data_dir / "analytics.json",
+        json.dumps(analytics, indent=2, ensure_ascii=False),
     )
     if cf.get("lifetime_pl") is None:
         print(f"  analytics: deposits=€{cf['deposits']['total']:,.2f}  "
@@ -1526,8 +1550,9 @@ def main() -> None:
 
     print("Fetching portfolio snapshot...", flush=True)
     shaped = fetch_portfolio(tr, client, data_dir)
-    (data_dir / "portfolio.json").write_text(
-        json.dumps(shaped, indent=2, ensure_ascii=False), encoding="utf-8"
+    _atomic_write_text(
+        data_dir / "portfolio.json",
+        json.dumps(shaped, indent=2, ensure_ascii=False),
     )
     print(f"  positions: {shaped['total_positions']}  "
           f"net value: €{shaped['summary']['total_netvalue']:,.2f}")
@@ -1544,9 +1569,9 @@ def main() -> None:
     # ISO 8601 with explicit Z (UTC). Browser JS parses the `Z` and
     # converts to user-local via toLocaleTimeString() — fixes the
     # "Updated 07:21 AM" chip on a UTC server (Carlos report 2026-06-10).
-    (data_dir / "last_update.date").write_text(
+    _atomic_write_text(
+        data_dir / "last_update.date",
         datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ\n"),
-        encoding="utf-8",
     )
     print("OK Fetch complete.")
     sys.exit(0)

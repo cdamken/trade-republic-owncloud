@@ -539,15 +539,16 @@ async function pollDocsStatus() {
       stopDocsPolling();
       setDocsBtnRunning(false);
       const c = s.counts || {};
-      const downloaded = c.downloaded || 0;
-      const skipped    = c.skipped_existing || 0;
-      const errors     = c.error || 0;
-      const total      = c.total || 0;
+      const downloaded = Number(c.downloaded) || 0;
+      const skipped    = Number(c.skipped_existing) || 0;
+      const errors     = Number(c.error) || 0;
+      const total      = Number(c.total) || 0;
       const summary = `<strong>${downloaded}</strong> new, ` +
                       `<strong>${skipped}</strong> already present` +
                       (errors ? `, <strong>${errors}</strong> errors` : '') +
                       ` (of ${total} total).`;
-      showDocsResult('ok', '✓ Documents downloaded', summary);
+      // Trusted HTML: static markup + the numeric counts coerced above.
+      showDocsResult('ok', '✓ Documents downloaded', summary, true);
       showStatus('ok', `✓ ${downloaded} new, ${skipped} present` +
                        (errors ? `, ${errors} errors` : ''));
     } else if (s.state === 'error') {
@@ -563,7 +564,7 @@ async function pollDocsStatus() {
   }
 }
 
-function showDocsResult(kind, title, summaryHtml) {
+function showDocsResult(kind, title, summary, asHtml) {
   // Make sure the modal is visible (it may have been hidden), then show the
   // result panel.
   document.getElementById('docs-modal').classList.add('open');
@@ -571,7 +572,15 @@ function showDocsResult(kind, title, summaryHtml) {
   const sumEl = document.getElementById('docs-result-summary');
   if (titleEl) titleEl.textContent = title;
   if (sumEl) {
-    sumEl.innerHTML = summaryHtml;
+    // Default to textContent: the error callers pass free text (tr-api CLI
+    // message, backend detail, a JS error whose body can start with
+    // "<!DOCTYPE"). Only the success summary is trusted HTML (static markup +
+    // numeric counts), and it opts in with asHtml === true.
+    if (asHtml === true) {
+      sumEl.innerHTML = summary;
+    } else {
+      sumEl.textContent = summary;
+    }
     sumEl.style.borderLeftColor = kind === 'err' ? 'var(--red)' : '';
   }
   showDocsState('result');
@@ -904,7 +913,7 @@ function renderConcentrationWarnings(data) {
     const share = b.net_value_eur / depot;
     if (share > 0.90 && Object.keys(buckets).length > 1 && key !== 'others') {
       const pct = (share * 100).toFixed(0);
-      warnings.push('<strong>' + pct + '%</strong> of your depot is in <strong>' + key + '</strong>. ' +
+      warnings.push('<strong>' + pct + '%</strong> of your depot is in <strong>' + esc(key) + '</strong>. ' +
                     'Cross-asset diversification (e.g. some bonds against equity) reduces drawdowns ' +
                     'in market stress.');
     }
@@ -980,9 +989,9 @@ function renderWealthBuckets(summary) {
     const subCls = (b.pl_pct || 0) >= 0 ? 'pl-pos' : 'pl-neg';
     pills.push(
       '<div class="b-pill">' +
-      '<div class="b-label">' + meta.icon + ' ' + meta.name + '</div>' +
+      '<div class="b-label">' + meta.icon + ' ' + esc(meta.name) + '</div>' +
       '<div class="b-value ' + meta.color + '">' + fmtEUR(b.net_value_eur) + '</div>' +
-      '<div class="b-sub">' + b.count + ' pos · <span class="' + subCls + '">' + fmtPct(b.pl_pct, 1) + '</span></div>' +
+      '<div class="b-sub">' + (Number(b.count) || 0) + ' pos · <span class="' + subCls + '">' + fmtPct(b.pl_pct, 1) + '</span></div>' +
       '</div>'
     );
   }

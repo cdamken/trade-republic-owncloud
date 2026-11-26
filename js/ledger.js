@@ -49,7 +49,7 @@ async function load() {
     renderTable();
   } catch (e) {
     document.getElementById('error-box').innerHTML =
-      '<div class="error"><b>Could not load the CSV.</b><br>Detail: ' + e.message + '</div>';
+      '<div class="error"><b>Could not load the CSV.</b><br>Detail: ' + esc(e.message) + '</div>';
   }
 }
 

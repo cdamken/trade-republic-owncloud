@@ -81,7 +81,7 @@ async function loadCockpit(root) {
       const [name, color] = labels[k];
       pills.push('<div class="b-pill"><div class="b-label">' + name + '</div>' +
         '<div class="b-value ' + color + '">' + fmtEUR(b.net_value_eur) + '</div>' +
-        '<div class="b-sub">' + b.count + ' pos · ' + fmtPct(b.pl_pct) + '</div></div>');
+        '<div class="b-sub">' + (Number(b.count) || 0) + ' pos · ' + fmtPct(b.pl_pct) + '</div></div>');
     }
     pills.push('<div class="b-pill"><div class="b-label">💶 Cash</div>' +
       '<div class="b-value asset-cash">' + fmtEUR(s.cash_eur) + '</div>' +
@@ -479,7 +479,7 @@ async function init() {
   } catch (e) {
     document.body.insertAdjacentHTML('afterbegin',
       '<div style="background:rgba(248,113,113,0.1); border-left:4px solid #f87171; padding:16px 20px; border-radius:8px; margin:20px 0; color:#e8eef5;">' +
-      'Could not load analytics: ' + e.message + '</div>');
+      'Could not load analytics: ' + esc(e.message) + '</div>');
     return;
   }
 

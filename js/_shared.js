@@ -88,7 +88,9 @@ function esc(s) {
 function fmtDate(iso) {
   if (!iso) return '—';
   const d = new Date(iso);
-  if (isNaN(d.getTime())) return iso;
+  // Unparseable date: echo the raw value, but escaped — every fmtDate consumer
+  // (ledger/orders/savings tables) interpolates the result into innerHTML.
+  if (isNaN(d.getTime())) return esc(iso);
   return d.toLocaleString('en-US', {
     year: 'numeric', month: 'short', day: '2-digit',
     hour: '2-digit', minute: '2-digit',

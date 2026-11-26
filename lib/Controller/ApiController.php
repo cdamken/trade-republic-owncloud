@@ -261,6 +261,14 @@ class ApiController extends Controller {
 				'detail' => substr((string) ($res['message'] ?? ''), 0, 500),
 			], Http::STATUS_UNAUTHORIZED);
 		}
+		if ($state === 'busy') {
+			// An Update Now (or Reset) holds the per-user lock; the docs pre-auth
+			// backed off instead of racing the profile session. 409, same as reset.
+			return new JSONResponse([
+				'status' => 'busy',
+				'detail' => substr((string) ($res['message'] ?? 'An update is running.'), 0, 500),
+			], Http::STATUS_CONFLICT);
+		}
 		return new JSONResponse([
 			'status' => 'error',
 			'detail' => substr((string) ($res['message'] ?? 'unknown error'), 0, 500),

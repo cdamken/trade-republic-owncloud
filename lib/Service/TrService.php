@@ -540,35 +540,58 @@ class TrService extends BaseOwnCloudService {
 
 		// Pre-auth check (synchronous, fast): ping, and if dead try the silent
 		// pytr-style refresh. Bail with auth_required BEFORE launching so the UI
-		// can open the security-code prompt instead of a job that dies instantly.
+		// can prompt a full re-login instead of a job that dies instantly.
+		//
+		// This runs UNDER the update lock: `auth refresh` rewrites the profile's
+		// session tokens, and a concurrent Update Now (runFetch) logging into the
+		// same profile dir would race those writes and corrupt the session. We
+		// hold the flock ONLY around this synchronous pre-auth — the detached
+		// download job below lives for minutes and must not hold it (that would
+		// block every Update Now for the whole download).
 		$pingEnv = [
 			'PATH' => getenv('PATH') ?: '/usr/local/bin:/usr/bin:/bin',
 			'HOME' => $this->profileDir(),
 			'LANG' => 'C.UTF-8',
 		];
-		$ping = $this->runProcess(
-			[$python, '-m', 'tr_api.cli', '--json', 'ping', '--phone', $this->getPhone()],
-			$pingEnv, 20
-		);
-		$pingEnvelope = json_decode((string) $ping['stdout'], true);
-		$alive = is_array($pingEnvelope)
-		      && !empty($pingEnvelope['ok'])
-		      && !empty($pingEnvelope['data']['alive']);
-		if (!$alive) {
-			$refresh = $this->runProcess(
-				[$python, '-m', 'tr_api.cli', '--json', 'auth', 'refresh', '--phone', $this->getPhone()],
-				$pingEnv, 45
+		$lock = $this->acquireUpdateLock();
+		if ($lock === null) {
+			return [
+				'state'   => 'busy',
+				'message' => 'An update is running. Wait for it to finish, then try Documents again.',
+			];
+		}
+		if ($lock === false) {
+			$this->logError('update lock unavailable; docs pre-auth running without concurrency guard');
+		}
+		try {
+			$ping = $this->runProcess(
+				[$python, '-m', 'tr_api.cli', '--json', 'ping', '--phone', $this->getPhone()],
+				$pingEnv, 20
 			);
-			$refreshEnvelope = json_decode((string) $refresh['stdout'], true);
-			$refreshed = is_array($refreshEnvelope)
-			          && !empty($refreshEnvelope['ok'])
-			          && !empty($refreshEnvelope['data']['ok']);
-			if (!$refreshed) {
-				return [
-					'state'   => 'auth_required',
-					'message' => 'Your Trade Republic session expired and the silent refresh failed. Click Update Now to do a full re-login (MFA push), then try Documents again.',
-				];
+			$pingEnvelope = json_decode((string) $ping['stdout'], true);
+			$alive = is_array($pingEnvelope)
+			      && !empty($pingEnvelope['ok'])
+			      && !empty($pingEnvelope['data']['alive']);
+			if (!$alive) {
+				$refresh = $this->runProcess(
+					[$python, '-m', 'tr_api.cli', '--json', 'auth', 'refresh', '--phone', $this->getPhone()],
+					$pingEnv, 45
+				);
+				$refreshEnvelope = json_decode((string) $refresh['stdout'], true);
+				$refreshed = is_array($refreshEnvelope)
+				          && !empty($refreshEnvelope['ok'])
+				          && !empty($refreshEnvelope['data']['ok']);
+				if (!$refreshed) {
+					return [
+						'state'   => 'auth_required',
+						'message' => 'Your Trade Republic session expired and the silent refresh failed. Click Update Now to re-login (approve the login in your Trade Republic app), then try Documents again.',
+					];
+				}
 			}
+		} finally {
+			// Release BEFORE launching the detached job so Update Now isn't
+			// blocked for the whole (minutes-long) download.
+			$this->releaseUpdateLock($lock);
 		}
 
 		// Write directly into the user's Files area so the PDFs show up in the

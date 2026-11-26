@@ -153,7 +153,11 @@
         setStatus('reset-status', '✓ Wiped — redirecting to Portfolio…', 'ok');
         setTimeout(() => location.href = routes.index, 1500);
       } else {
-        setStatus('reset-status', 'Reset failed', 'err');
+        // Surface the backend detail (e.g. the 409 "an update is running")
+        // instead of a generic failure.
+        let detail = 'Reset failed';
+        try { detail = (await r.json()).detail || detail; } catch (e) { /* non-JSON */ }
+        setStatus('reset-status', '✗ ' + detail, 'err');
       }
     });
   });

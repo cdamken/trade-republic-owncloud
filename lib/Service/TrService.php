@@ -185,12 +185,26 @@ class TrService extends BaseOwnCloudService {
 		return $phone !== '' && $phone[0] === '+' && $pin !== '';
 	}
 
-	public function setCredentials(string $phone, string $pin): void {
-		$this->config->setUserValue($this->userId(), self::APPID, 'phone', $phone);
-		$this->config->setUserValue(
-			$this->userId(), self::APPID, 'pin_enc',
-			$this->crypto->encrypt($pin)
-		);
+	public function setCredentials(string $phone, string $pin): array {
+		// A running fetch reads the decrypted PIN and writes into userDir;
+		// overwriting credentials mid-fetch races it. Guard with the same lock.
+		$lock = $this->acquireUpdateLock();
+		if ($lock === null) {
+			return ['status' => 'busy'];
+		}
+		if ($lock === false) {
+			$this->logError('update lock unavailable; saving credentials without concurrency guard');
+		}
+		try {
+			$this->config->setUserValue($this->userId(), self::APPID, 'phone', $phone);
+			$this->config->setUserValue(
+				$this->userId(), self::APPID, 'pin_enc',
+				$this->crypto->encrypt($pin)
+			);
+			return ['status' => 'ok'];
+		} finally {
+			$this->releaseUpdateLock($lock);
+		}
 	}
 
 	private function getDecryptedPin(): string {
@@ -208,13 +222,27 @@ class TrService extends BaseOwnCloudService {
 	// ------------------------------------------------------------------
 	// Reset (wipe everything for this user)
 	// ------------------------------------------------------------------
-	public function reset(): void {
-		$this->config->deleteUserValue($this->userId(), self::APPID, 'phone');
-		$this->config->deleteUserValue($this->userId(), self::APPID, 'pin_enc');
-		$this->config->deleteUserValue($this->userId(), self::APPID, 'docs_folder');
-		$dir = $this->userDir();
-		// rm -rf $dir
-		$this->rrmdir($dir);
+	public function reset(): array {
+		// Logout/wipe must not race an in-flight fetch: deleting files the
+		// wrapper is still rewriting corrupts the run. Take the same lock.
+		$lock = $this->acquireUpdateLock();
+		if ($lock === null) {
+			return ['status' => 'busy'];
+		}
+		if ($lock === false) {
+			$this->logError('update lock unavailable; resetting without concurrency guard');
+		}
+		try {
+			$this->config->deleteUserValue($this->userId(), self::APPID, 'phone');
+			$this->config->deleteUserValue($this->userId(), self::APPID, 'pin_enc');
+			$this->config->deleteUserValue($this->userId(), self::APPID, 'docs_folder');
+			// Keep the data dir AND the update.lock we hold (see
+			// clearUserDirExceptLock for the NFS/lock-inode reasons); wipe the rest.
+			$this->clearUserDirExceptLock();
+			return ['status' => 'ok'];
+		} finally {
+			$this->releaseUpdateLock($lock);
+		}
 	}
 
 	private function rrmdir(string $dir): void {
@@ -237,6 +265,60 @@ class TrService extends BaseOwnCloudService {
 			}
 		}
 		@rmdir($dir);
+	}
+
+	// ------------------------------------------------------------------
+	// Per-user update lock. A fetch runs up to 300s; saving credentials,
+	// logging out or clearing data mid-fetch would race the wrapper's writes
+	// (and a reset would delete files it is still rewriting). Every mutating
+	// path takes this same advisory flock on {userDir}/update.lock.
+	//
+	// acquireUpdateLock() returns: a resource when acquired, null when another
+	// process holds it (caller reports BUSY), or false when the lockfile can't
+	// be opened at all (caller proceeds WITHOUT a guard, logging it — better to
+	// run unguarded than to hard-fail every update on a broken lockfile).
+	// ------------------------------------------------------------------
+	private function acquireUpdateLock() {
+		$lock = @fopen($this->userDir() . '/update.lock', 'c');
+		if ($lock === false) {
+			return false;
+		}
+		if (!flock($lock, LOCK_EX | LOCK_NB)) {
+			fclose($lock);
+			return null;
+		}
+		return $lock;
+	}
+
+	private function releaseUpdateLock($lock): void {
+		if (is_resource($lock)) {
+			flock($lock, LOCK_UN);
+			fclose($lock);
+		}
+	}
+
+	/** Remove everything under userDir EXCEPT the directory itself and the
+	 *  update.lock file we are holding. On NFS, deleting the open lock turns it
+	 *  into .nfsXXXX (so rmdir fails "Directory not empty") AND a fresh lock of
+	 *  a different inode would stop excluding a still-running fetch. Keep the
+	 *  dir + lockfile; everything else (incl. benchmark_cache/) goes. */
+	private function clearUserDirExceptLock(): void {
+		$dir = $this->userDir();
+		$items = scandir($dir);
+		if ($items === false) {
+			return;
+		}
+		foreach ($items as $item) {
+			if ($item === '.' || $item === '..' || $item === 'update.lock') {
+				continue;
+			}
+			$path = $dir . '/' . $item;
+			if (is_dir($path) && !is_link($path)) {
+				$this->rrmdir($path);
+			} else {
+				@unlink($path);
+			}
+		}
 	}
 
 	// ------------------------------------------------------------------
@@ -342,10 +424,25 @@ class TrService extends BaseOwnCloudService {
 			$env['PLAYWRIGHT_BROWSERS_PATH'] = $browsersPath;
 		}
 
-		// 300s: a first login now blocks up to ~90s waiting for the user to
-		// approve the push in the TR app (v2 push-approval), then the fetch
-		// itself runs. 240s was occasionally too tight with the approval wait.
-		return $this->runProcess($cmd, $env, 300);
+		// One fetch per user at a time. A second "Update Now" while the first
+		// is still running (up to 300s) would double-login and interleave
+		// writes into the same data dir. Hold the per-user lock for the whole
+		// subprocess; a concurrent caller gets EXIT_BUSY (→ 409) and retries.
+		$lock = $this->acquireUpdateLock();
+		if ($lock === null) {
+			return ['exitCode' => self::EXIT_BUSY, 'stdout' => '', 'stderr' => 'an update is already running for this account'];
+		}
+		if ($lock === false) {
+			$this->logError('update lock unavailable; running fetch without concurrency guard');
+		}
+		try {
+			// 300s: a first login now blocks up to ~90s waiting for the user to
+			// approve the push in the TR app (v2 push-approval), then the fetch
+			// itself runs. 240s was occasionally too tight with the approval wait.
+			return $this->runProcess($cmd, $env, 300);
+		} finally {
+			$this->releaseUpdateLock($lock);
+		}
 	}
 
 	// ------------------------------------------------------------------

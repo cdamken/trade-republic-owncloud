@@ -56,6 +56,10 @@ abstract class BaseOwnCloudService {
 	// (TR's process window is ~90s) — retryable, just click Update again.
 	const EXIT_APPROVAL_TIMEOUT = 22;
 	const EXIT_CONFIG_ERROR  = 30;
+	// PHP-only sentinel (NOT emitted by the Python wrapper, so it never clashes
+	// with the 0/10/11/12/15/20/21/22/30 contract): a concurrent update for the
+	// same user already holds the per-user lock. ApiController maps it to 409.
+	const EXIT_BUSY          = 40;
 
 	// Human-readable names for the exit codes above — used in fetch.log and
 	// owncloud.log so a glance tells you WHAT happened, not just a number.
@@ -64,9 +68,12 @@ abstract class BaseOwnCloudService {
 		10 => 'MFA_REQUIRED',
 		11 => 'MFA_INVALID',
 		12 => 'AUTH_FAILED',
+		15 => 'APPROVAL_REQUIRED',
 		20 => 'API_ERROR',
 		21 => 'TIMEOUT',
+		22 => 'APPROVAL_TIMEOUT',
 		30 => 'CONFIG_ERROR',
+		40 => 'BUSY',
 	];
 
 	private static function exitName(int $code): string {

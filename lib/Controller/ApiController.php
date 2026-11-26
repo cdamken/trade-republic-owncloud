@@ -111,7 +111,13 @@ class ApiController extends Controller {
 				Http::STATUS_BAD_REQUEST
 			);
 		}
-		$this->tr->setCredentials($phone, $pin);
+		$result = $this->tr->setCredentials($phone, $pin);
+		if (($result['status'] ?? '') === 'busy') {
+			return new JSONResponse(
+				['status' => 'busy', 'detail' => 'An update is running — try again in a moment.'],
+				Http::STATUS_CONFLICT
+			);
+		}
 		return new JSONResponse(['status' => 'ok']);
 	}
 
@@ -143,6 +149,7 @@ class ApiController extends Controller {
 			TrService::EXIT_RATE_LIMITED  => [Http::STATUS_TOO_MANY_REQUESTS,       'rate_limited'],
 			TrService::EXIT_APPROVAL_TIMEOUT => [Http::STATUS_UNAUTHORIZED,        'approval_timeout'],
 			TrService::EXIT_CONFIG_ERROR  => [Http::STATUS_INTERNAL_SERVER_ERROR,   'config_error'],
+			TrService::EXIT_BUSY          => [Http::STATUS_CONFLICT,                'busy'],
 		];
 		$exit = $result['exitCode'];
 		[$httpStatus, $jsonStatus] = $map[$exit] ?? [Http::STATUS_INTERNAL_SERVER_ERROR, 'error'];
@@ -171,7 +178,13 @@ class ApiController extends Controller {
 	 * @NoAdminRequired
 	 */
 	public function reset(): JSONResponse {
-		$this->tr->reset();
+		$result = $this->tr->reset();
+		if (($result['status'] ?? '') === 'busy') {
+			return new JSONResponse(
+				['status' => 'busy', 'detail' => 'An update is running — try again in a moment.'],
+				Http::STATUS_CONFLICT
+			);
+		}
 		return new JSONResponse(['status' => 'ok']);
 	}
 

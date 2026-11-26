@@ -333,14 +333,12 @@ async function submitSetup() {
     const j = await r.json();
     if (r.status === 200) {
       closeSetupModal();
-      showStatus('ok', '✓ Credentials saved — requesting MFA code…');
-      const upd = await postUpdate(null);
-      if (upd.http === 200) {
-        showStatus('ok', '✓ Already authenticated — reloading');
-        setTimeout(() => location.reload(), 800);
-      } else {
-        openMfaModal();
-      }
+      showStatus('ok', '✓ Credentials saved');
+      // v2 push-approval: TR's 2026 login has no 4-digit code. Hand off to the
+      // normal update flow, which detects approval_required and shows the
+      // "approve the login on your phone" overlay (or reloads if already
+      // authenticated). Never pop the obsolete 4-digit MFA modal here.
+      updateData();
       return;
     }
     errEl.textContent = j.detail || ('Error ' + r.status);
@@ -618,10 +616,10 @@ async function updateData() {
   try {
     const r = await postUpdate(null);
     if (r.http === 200) {
-      if (overlayShown) {
-        document.getElementById('progress-stage').textContent = '✓ Data downloaded — reloading…';
-      }
-      clearTimeout(overlayDelay);
+      // Tear the overlay down (clears the stage-rotation timer) BEFORE showing
+      // the success toast, otherwise the rotating "stage" text overwrites the
+      // "✓ Updated" message a tick later.
+      cleanupOverlay();
       showStatus('ok', '✓ Updated — reloading');
       broadcastUpdateComplete();   // tell other tabs to refresh their chip
       setTimeout(() => location.reload(), 800);
@@ -657,7 +655,11 @@ async function updateData() {
       return;
     }
     if (r.state === 'mfa_required') {
-      openMfaModal();
+      // Legacy MFA path: with v2 push-approval this means the session died
+      // mid-fetch, not that a 4-digit code is needed. Don't pop the obsolete
+      // code modal — tell the user to retry and approve on their phone.
+      cleanupOverlay();
+      showStatus('err', '✗ Session expired — click Update Now again and approve the login prompt in your Trade Republic app.');
       return;
     }
     if (r.state === 'rate_limited') {

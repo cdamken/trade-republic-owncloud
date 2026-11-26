@@ -185,6 +185,18 @@ class ApiController extends Controller {
 				Http::STATUS_CONFLICT
 			);
 		}
+		// reset() cleared the files + prefs; now wipe this user's DB rows too so
+		// a Reset is a FULL wipe (oc_tr_* used to survive). Strictly per-user. A
+		// partial wipe (files gone, rows left) must NOT report success.
+		try {
+			$this->ingest->purgeForUser($this->tr->currentUserId());
+		} catch (\Throwable $e) {
+			\OC::$server->getLogger()->logException($e, ['app' => 'trade_republic']);
+			return new JSONResponse(
+				['status' => 'error', 'detail' => 'Files were cleared, but wiping the database rows failed. Check the server logs.'],
+				Http::STATUS_INTERNAL_SERVER_ERROR
+			);
+		}
 		return new JSONResponse(['status' => 'ok']);
 	}
 

@@ -28,6 +28,7 @@ use OCA\TradeRepublic\Db\Holding;
 use OCA\TradeRepublic\Db\HoldingMapper;
 use OCA\TradeRepublic\Db\HoldingSnapshot;
 use OCA\TradeRepublic\Db\HoldingSnapshotMapper;
+use OCA\TradeRepublic\Db\LotMapper;
 use OCA\TradeRepublic\Db\Order;
 use OCA\TradeRepublic\Db\OrderMapper;
 use OCA\TradeRepublic\Db\PortfolioSnapshot;
@@ -51,6 +52,7 @@ class IngestService {
 	private \OCA\TradeRepublic\Db\PortfolioSnapshotMapper $snapshots;
 	private \OCA\TradeRepublic\Db\HoldingSnapshotMapper $holdingSnapshots;
 	private \OCA\TradeRepublic\Db\AccountSnapshotMapper $accountSnapshots;
+	private \OCA\TradeRepublic\Db\LotMapper $lots;
 
 	/** isin => security row id, cached per run. */
 	private array $secCache = [];
@@ -65,7 +67,8 @@ class IngestService {
 		DividendMapper $dividends,
 		PortfolioSnapshotMapper $snapshots,
 		HoldingSnapshotMapper $holdingSnapshots,
-		AccountSnapshotMapper $accountSnapshots
+		AccountSnapshotMapper $accountSnapshots,
+		LotMapper $lots
 	) {
 		$this->config = $config;
 		$this->securities = $securities;
@@ -77,6 +80,37 @@ class IngestService {
 		$this->snapshots = $snapshots;
 		$this->holdingSnapshots = $holdingSnapshots;
 		$this->accountSnapshots = $accountSnapshots;
+		$this->lots = $lots;
+	}
+
+	/**
+	 * Delete ALL of this user's Trade Republic DB rows across every tr_* table.
+	 * Used by Reset (full wipe). Strictly per-user: each mapper's deleteByUser
+	 * is a `DELETE ... WHERE user_id = ?` with a bound parameter, so another
+	 * user's rows are never touched. Irreversible: snapshot history only
+	 * accrues from each manual Update and cannot be re-fetched from TR.
+	 *
+	 * @return array<string,int> rows present for this user per table BEFORE the
+	 *         purge (for the caller's confirmation/log; counted, then deleted).
+	 */
+	public function purgeForUser(string $uid): array {
+		$counts = [
+			'holdings'           => count($this->holdings->findByUser($uid)),
+			'transactions'       => count($this->transactions->findByUser($uid)),
+		];
+		// State + events + lots + per-run snapshots. Order doesn't matter
+		// (no FK cascade in the schema); each is user-scoped.
+		$this->holdings->deleteByUser($uid);
+		$this->accounts->deleteByUser($uid);
+		$this->orders->deleteByUser($uid);
+		$this->transactions->deleteByUser($uid);
+		$this->dividends->deleteByUser($uid);
+		$this->securities->deleteByUser($uid);
+		$this->lots->deleteByUser($uid);
+		$this->snapshots->deleteByUser($uid);
+		$this->holdingSnapshots->deleteByUser($uid);
+		$this->accountSnapshots->deleteByUser($uid);
+		return $counts;
 	}
 
 	public function dataDir(string $uid): string {

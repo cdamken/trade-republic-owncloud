@@ -12,6 +12,12 @@ class DividendMapper extends Mapper {
 		parent::__construct($db, 'tr_dividends', Dividend::class);
 	}
 
+	/** Wipe this user's rows (Reset / account-switch). Per-user, bound
+	 *  parameter — never a table-wide delete. */
+	public function deleteByUser(string $userId): void {
+		$this->execute('DELETE FROM `*PREFIX*tr_dividends` WHERE `user_id` = ?', [$userId]);
+	}
+
 	/** @return Dividend[] */
 	public function findByUser(string $userId): array {
 		$sql = 'SELECT * FROM `*PREFIX*tr_dividends` '

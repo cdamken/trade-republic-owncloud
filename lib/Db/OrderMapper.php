@@ -12,6 +12,12 @@ class OrderMapper extends Mapper {
 		parent::__construct($db, 'tr_orders', Order::class);
 	}
 
+	/** Wipe this user's rows (Reset / account-switch). Per-user, bound
+	 *  parameter — never a table-wide delete. */
+	public function deleteByUser(string $userId): void {
+		$this->execute('DELETE FROM `*PREFIX*tr_orders` WHERE `user_id` = ?', [$userId]);
+	}
+
 	/** @return Order[] */
 	public function findByUser(string $userId): array {
 		$sql = 'SELECT * FROM `*PREFIX*tr_orders` '

@@ -13,6 +13,12 @@ class HoldingSnapshotMapper extends Mapper {
 		parent::__construct($db, 'tr_holding_snapshots', HoldingSnapshot::class);
 	}
 
+	/** Wipe this user's rows (Reset / account-switch). Per-user, bound
+	 *  parameter — never a table-wide delete. */
+	public function deleteByUser(string $userId): void {
+		$this->execute('DELETE FROM `*PREFIX*tr_holding_snapshots` WHERE `user_id` = ?', [$userId]);
+	}
+
 	/**
 	 * Full per-position history, oldest first — the series the per-asset
 	 * variation view consumes.

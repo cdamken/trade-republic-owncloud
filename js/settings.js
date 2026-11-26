@@ -141,7 +141,7 @@
 
     // Reset everything
     document.getElementById('reset-all-btn').addEventListener('click', async () => {
-      if (!confirm('Permanently wipe ALL data, credentials, and session cookies for your TR account?\n\nYou will need to log in again from scratch. This cannot be undone.')) return;
+      if (!confirm('Permanently wipe ALL data, credentials, and session cookies for your TR account?\n\nThis also deletes your saved history from the database (net worth, transactions, dividends, orders). That history only builds up from each manual Update and CANNOT be re-downloaded from Trade Republic.\n\nYou will need to log in again from scratch. This cannot be undone.')) return;
       if (prompt('Type "delete" to confirm') !== 'delete') return;
       setStatus('reset-status', 'Resetting…');
       const r = await fetch(routes.reset, {

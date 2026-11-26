@@ -12,6 +12,12 @@ class TransactionMapper extends Mapper {
 		parent::__construct($db, 'tr_transactions', Transaction::class);
 	}
 
+	/** Wipe this user's rows (Reset / account-switch). Per-user, bound
+	 *  parameter — never a table-wide delete. */
+	public function deleteByUser(string $userId): void {
+		$this->execute('DELETE FROM `*PREFIX*tr_transactions` WHERE `user_id` = ?', [$userId]);
+	}
+
 	/** @return Transaction[] */
 	public function findByUser(string $userId): array {
 		$sql = 'SELECT * FROM `*PREFIX*tr_transactions` '

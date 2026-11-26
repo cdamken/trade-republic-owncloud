@@ -13,6 +13,12 @@ class AccountSnapshotMapper extends Mapper {
 		parent::__construct($db, 'tr_account_snapshots', AccountSnapshot::class);
 	}
 
+	/** Wipe this user's rows (Reset / account-switch). Per-user, bound
+	 *  parameter — never a table-wide delete. */
+	public function deleteByUser(string $userId): void {
+		$this->execute('DELETE FROM `*PREFIX*tr_account_snapshots` WHERE `user_id` = ?', [$userId]);
+	}
+
 	/**
 	 * Full per-account history, oldest first.
 	 * @return AccountSnapshot[]

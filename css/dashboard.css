@@ -526,7 +526,7 @@ body.tr-app-active #content-wrapper {
 	padding: 16px 20px; border-radius: 8px; margin: 20px 0; font-size: 14px;
 }
 
-/* ============ Update button + MFA modal ============ */
+/* ============ Update button ============ */
 #tr-app .update-btn {
 	background: var(--green); color: #0a1a0e; border: none; padding: 10px 22px;
 	border-radius: 10px; font-weight: 700; font-size: 15px; cursor: pointer;

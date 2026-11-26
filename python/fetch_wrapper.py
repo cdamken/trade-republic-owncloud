@@ -1087,20 +1087,23 @@ def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
 def _sweep_stale_tmp(data_dir: Path, max_age_s: int = 3600) -> None:
     """Remove orphaned atomic-write temps (.<name>.<pid>.tmp) left by a
     SIGKILL'd earlier run. Only files older than max_age_s go, so a temp from
-    a concurrent LIVE writer is never touched."""
+    a concurrent LIVE writer is never touched. Sweeps the data dir AND the
+    benchmark_cache/ subdir, since fetch_benchmark_monthly writes its cache
+    atomically there too."""
     now = time.time()
-    try:
-        entries = list(data_dir.iterdir())
-    except OSError:
-        return
-    for p in entries:
-        if not (p.name.startswith(".") and p.name.endswith(".tmp")):
-            continue
+    for d in (data_dir, data_dir / "benchmark_cache"):
         try:
-            if now - p.stat().st_mtime > max_age_s:
-                p.unlink(missing_ok=True)
+            entries = list(d.iterdir())
         except OSError:
-            pass
+            continue
+        for p in entries:
+            if not (p.name.startswith(".") and p.name.endswith(".tmp")):
+                continue
+            try:
+                if now - p.stat().st_mtime > max_age_s:
+                    p.unlink(missing_ok=True)
+            except OSError:
+                pass
 
 
 # ---------------------------------------------------------------------------

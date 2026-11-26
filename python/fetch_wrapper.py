@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import io
 import json
 import os
 import sys
@@ -1040,34 +1041,66 @@ def _classify_trade(ev: dict[str, Any]) -> str | None:
 def _atomic_write_text(path: Path, text: str, *, mode: int | None = None) -> None:
     """Write `text` to `path` so a reader never sees a half-written file.
 
-    Writes a sibling `.tmp` in the SAME directory, then os.replace() over the
-    target — rename within one directory is atomic, on the NFS data dir too.
-    This matters because the PHP layer SIGKILLs this process on timeout
-    (TrService::runProcess, proc_terminate 9): a plain write that was half
-    flushed when the kill landed would leave the web UI with a truncated
-    portfolio.json / analytics.json it can't parse. With the rename, the kill
-    leaves the previous good file intact and only the throwaway .tmp is lost.
+    Writes a PER-PROCESS temp file in the SAME directory, then os.replace()s it
+    over the target — rename within one directory is atomic, on the NFS data
+    dir too. This matters because TrService::runProcess SIGKILLs the child on
+    timeout (proc_terminate 9): a kill mid-write leaves the previous good file
+    intact and only the throwaway temp is lost.
+
+    The temp name carries the pid, so two concurrent writers (two "Update Now"
+    at once — TR has no per-user lock yet) never share one temp path and race
+    into FileNotFoundError in os.replace. On any failure the temp is unlinked
+    so a disk-full write leaves no litter; a SIGKILL still orphans it, which
+    _sweep_stale_tmp() clears on the next run. The leading dot keeps the temp
+    out of *.json / *.csv globs while it exists.
     """
-    tmp = path.with_name(path.name + ".tmp")
-    tmp.write_text(text, encoding="utf-8")
-    if mode is not None:
+    tmp = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    try:
+        tmp.write_text(text, encoding="utf-8")
+        if mode is not None:
+            try:
+                tmp.chmod(mode)
+            except OSError:
+                pass
+        os.replace(tmp, path)
+    except BaseException:
         try:
-            tmp.chmod(mode)
+            tmp.unlink(missing_ok=True)
         except OSError:
             pass
-    os.replace(tmp, path)
+        raise
 
 
 def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
-    tmp = path.with_name(path.name + ".tmp")
-    with tmp.open("w", encoding="utf-8", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=CSV_COLUMNS, delimiter=";")
-        w.writeheader()
-        for r in rows:
-            for c in CSV_COLUMNS:
-                r.setdefault(c, "")
-            w.writerow(r)
-    os.replace(tmp, path)
+    # Serialize to text, then go through the same atomic writer — one place
+    # owns the temp-file + rename + cleanup logic.
+    buf = io.StringIO()
+    w = csv.DictWriter(buf, fieldnames=CSV_COLUMNS, delimiter=";")
+    w.writeheader()
+    for r in rows:
+        for c in CSV_COLUMNS:
+            r.setdefault(c, "")
+        w.writerow(r)
+    _atomic_write_text(path, buf.getvalue())
+
+
+def _sweep_stale_tmp(data_dir: Path, max_age_s: int = 3600) -> None:
+    """Remove orphaned atomic-write temps (.<name>.<pid>.tmp) left by a
+    SIGKILL'd earlier run. Only files older than max_age_s go, so a temp from
+    a concurrent LIVE writer is never touched."""
+    now = time.time()
+    try:
+        entries = list(data_dir.iterdir())
+    except OSError:
+        return
+    for p in entries:
+        if not (p.name.startswith(".") and p.name.endswith(".tmp")):
+            continue
+        try:
+            if now - p.stat().st_mtime > max_age_s:
+                p.unlink(missing_ok=True)
+        except OSError:
+            pass
 
 
 # ---------------------------------------------------------------------------
@@ -1526,6 +1559,10 @@ def main() -> None:
         os.chmod(data_dir, 0o700)
     except OSError:
         pass
+
+    # Clear atomic-write temps orphaned by a SIGKILL'd earlier run (older than
+    # an hour, so a concurrent live writer's temp is left alone).
+    _sweep_stale_tmp(data_dir)
 
     # Redirect tr-api's storage (~/.tr-api/profiles/<phone>/...) into our
     # per-user profile dir by re-pointing HOME. tr-api uses Path.home() to

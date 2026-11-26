@@ -114,7 +114,7 @@ class ApiController extends Controller {
 		$result = $this->tr->setCredentials($phone, $pin);
 		if (($result['status'] ?? '') === 'busy') {
 			return new JSONResponse(
-				['status' => 'busy', 'detail' => 'An update is running — try again in a moment.'],
+				['status' => 'busy', 'detail' => 'An update is running. Try again in a moment.'],
 				Http::STATUS_CONFLICT
 			);
 		}
@@ -181,7 +181,7 @@ class ApiController extends Controller {
 		$result = $this->tr->reset();
 		if (($result['status'] ?? '') === 'busy') {
 			return new JSONResponse(
-				['status' => 'busy', 'detail' => 'An update is running — try again in a moment.'],
+				['status' => 'busy', 'detail' => $result['detail'] ?? 'An update is running. Try again in a moment.'],
 				Http::STATUS_CONFLICT
 			);
 		}

@@ -233,6 +233,17 @@ class TrService extends BaseOwnCloudService {
 			$this->logError('update lock unavailable; resetting without concurrency guard');
 		}
 		try {
+			// The documents download runs as a DETACHED job (setsid nohup) that
+			// does NOT hold this lock and lives for minutes. Wiping the profile
+			// + status files out from under a live job would leave it downloading
+			// into a just-deleted account and rewriting its .rc into a clean dir.
+			// Don't kill it; refuse the reset until it finishes.
+			if (($this->docsStatus()['state'] ?? 'idle') === 'running') {
+				return [
+					'status' => 'busy',
+					'detail' => 'A document download is running. Wait for it to finish, then try again.',
+				];
+			}
 			$this->config->deleteUserValue($this->userId(), self::APPID, 'phone');
 			$this->config->deleteUserValue($this->userId(), self::APPID, 'pin_enc');
 			$this->config->deleteUserValue($this->userId(), self::APPID, 'docs_folder');

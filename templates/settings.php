@@ -80,6 +80,7 @@ include __DIR__ . '/partials/_top_bar.php';
           <span class="status-msg" id="account-status"></span>
         </div>
       </div>
+      <p class="help">Changing just the phone number keeps all your saved data and history (same Trade Republic account, new number). Switching to a <strong>different</strong> Trade Republic account? Use "Wipe data + credentials" below first, otherwise the two accounts' history mixes in your charts.</p>
     </div>
 
     <div class="settings-section" id="s-documents">

@@ -196,11 +196,22 @@ class TrService extends BaseOwnCloudService {
 			$this->logError('update lock unavailable; saving credentials without concurrency guard');
 		}
 		try {
+			$oldPhone = $this->getPhone();
 			$this->config->setUserValue($this->userId(), self::APPID, 'phone', $phone);
 			$this->config->setUserValue(
 				$this->userId(), self::APPID, 'pin_enc',
 				$this->crypto->encrypt($pin)
 			);
+			// Different phone number for the SAME TR account (the real case: a
+			// new SIM/number, not a new account). Keep ALL data + DB history;
+			// just drop the pending-login tied to the old number so the next
+			// Update starts a clean push-approval with the new one. A genuinely
+			// different TR account should use Reset (the Settings note says so) —
+			// we never auto-wipe irreversible history on a credential save. A
+			// PIN-only change ($oldPhone === $phone) touches nothing.
+			if ($oldPhone !== '' && $oldPhone !== $phone) {
+				@unlink($this->userDir() . '/.pending_login.json');
+			}
 			return ['status' => 'ok'];
 		} finally {
 			$this->releaseUpdateLock($lock);

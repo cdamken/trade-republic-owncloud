@@ -2,7 +2,7 @@
 /**
  * occ tr_next:ingest <user>
  *
- * Normalises the user's TR fetch JSON (data dir) into the gbm_* tables.
+ * Normalises the user's TR fetch JSON (data dir) into the tr_* tables.
  * Idempotent — safe to re-run. Reused by the Fase 3 background job.
  */
 
@@ -24,7 +24,7 @@ class Ingest extends Command {
 
 	protected function configure(): void {
 		$this->setName('tr_next:ingest')
-			->setDescription('Ingest TR fetch JSON into the gbm_* DB tables')
+			->setDescription('Ingest TR fetch JSON into the tr_* DB tables')
 			->addArgument('user', InputArgument::REQUIRED, 'ownCloud user id to ingest');
 	}
 

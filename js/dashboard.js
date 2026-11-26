@@ -767,7 +767,7 @@ async function load() {
     const w = document.getElementById('warning');
     w.style.display = 'block';
     w.innerHTML = '⚠️ <strong>Positions with missing price:</strong> ' +
-      state.data.zero_value_positions.map(p => p.name).join(', ');
+      state.data.zero_value_positions.map(p => esc(p.name)).join(', ');
   }
 
   document.getElementById('total-count').textContent = state.data.positions_with_value;
@@ -885,7 +885,7 @@ function renderConcentrationWarnings(data) {
   const top = [...positions].sort((a, b) => b.net_value_eur - a.net_value_eur)[0];
   if (top && top.net_value_eur / depot > 0.20) {
     const pct = (top.net_value_eur / depot * 100).toFixed(1);
-    warnings.push('<strong>' + top.name + '</strong> is <strong>' + pct + '%</strong> of your depot ' +
+    warnings.push('<strong>' + esc(top.name) + '</strong> is <strong>' + pct + '%</strong> of your depot ' +
                   '(' + fmtEUR(top.net_value_eur) + '). A single position above 20% means a bad week ' +
                   'for it moves your whole portfolio noticeably.');
   }

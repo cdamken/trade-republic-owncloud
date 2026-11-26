@@ -133,7 +133,7 @@ function renderTable() {
   document.getElementById('plans-count').textContent = rows.length + ' of ' + state.plans.length;
   const tbody = document.getElementById('savings-tbody');
   tbody.innerHTML = rows.map(p => {
-    const name = (p.name || '(unknown)').replace(/</g, '&lt;');
+    const name = esc(p.name || '(unknown)');
     const status = p.paused
       ? '<span class="cat-pill cat-other">Paused</span>'
       : '<span class="cat-pill cat-buy">Active</span>';
@@ -141,8 +141,8 @@ function renderTable() {
     return '<tr>' +
       '<td>' + (p.next_execution ? fmtDate(p.next_execution) : '—') + '</td>' +
       '<td>' + name + '</td>' +
-      '<td class="isin">' + (p.isin || '') + '</td>' +
-      '<td>' + (INTERVAL_LABEL[p.interval] || p.interval || '—') + '</td>' +
+      '<td class="isin">' + esc(p.isin || '') + '</td>' +
+      '<td>' + (INTERVAL_LABEL[p.interval] || esc(p.interval) || '—') + '</td>' +
       '<td class="num">' + fmtEUR(+p.amount || 0) + '</td>' +
       '<td class="num">' + monthly + '</td>' +
       '<td>' + status + '</td>' +
